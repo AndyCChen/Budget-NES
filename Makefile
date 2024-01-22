@@ -1,5 +1,5 @@
 # files to compile
-SRC = main.c
+SRC = main.c src/*.c
 
 # compiler to use
 CC = gcc
