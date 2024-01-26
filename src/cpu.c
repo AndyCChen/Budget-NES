@@ -3,6 +3,7 @@
 
 #include "../includes/cpu.h"
 #include "../includes/bus.h"
+#include "../includes/log.h"
 
 CPU_6502 cpu;
 
@@ -28,14 +29,9 @@ void cpu_fetch_decode_execute(void)
    uint8_t aaa = ( instruction & 0xE0 ) >> 0x3;
    uint8_t cc = instruction & 0x3;
    uint8_t opcode = aaa | cc;
+
+   nestest_log("%04X  %02X ", cpu.pc, instruction);
+   nestest_log("%02X %02X\n", bus_read(cpu.pc + 1), bus_read(cpu.pc + 2));
    
-   switch (opcode)
-   {
-   case 0xFF:
-      /* code */
-      break;
-   
-   default:
-      break;
-   }
+   (void) opcode;
 }

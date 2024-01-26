@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-typedef struct {
+typedef struct 
+{
    uint8_t ac;  // accumulator
    uint8_t X;   // x index register
    uint8_t Y;   // y index register
@@ -24,6 +25,9 @@ typedef struct {
 
 extern CPU_6502 cpu;
 
+void cpu_fetch();
+void cpu_decode();
+void cpu_execute();
 
 void cpu_reset(void);
 void cpu_fetch_decode_execute(void);
