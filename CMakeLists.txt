@@ -83,10 +83,11 @@ add_executable(nes
    src/cpu_ram.c
    src/cpu.c
    src/log.c
+   src/display.c
 )
 target_include_directories(nes PRIVATE includes/)
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL2 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(nes PRIVATE "-mconsole")
 endif()
-target_link_libraries(nes ${IMGUI_SDL_LIBRARY} ${SDL_MAIN} cimgui_sdl)
+target_link_libraries(nes ${SDL_MAIN} cimgui_sdl)
