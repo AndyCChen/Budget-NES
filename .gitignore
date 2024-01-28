@@ -2,3 +2,6 @@
 *.exe
 *.nes
 *.log
+build
+bin
+imgui.ini
