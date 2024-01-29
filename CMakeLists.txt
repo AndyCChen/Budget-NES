@@ -38,7 +38,7 @@ else(WIN32)
 endif(WIN32)
 
 #opengl3
-list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl2.cpp)
+list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl3.cpp)
 if(WIN32)
    list(APPEND IMGUI_LIBRARIES opengl32)
 else(WIN32)#Unix
@@ -86,7 +86,7 @@ add_executable(nes
    src/display.c
 )
 target_include_directories(nes PRIVATE includes/)
-target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL2 -DCIMGUI_USE_SDL2)
+target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(nes PRIVATE "-mconsole")
 endif()

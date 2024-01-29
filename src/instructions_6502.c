@@ -120,5 +120,7 @@ static opcode_t instruction_lookup_table[256] =
    {"???", &TMP, IMP, 0},
 
    /* 0x30 - 0x3F */
-   
+   {"BMI", &BMI, REL, 2}, {"AND", &AND, YZI, 5}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"AND", &AND, XZP, 4},
+   {"ROL", }
 };

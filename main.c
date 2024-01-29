@@ -28,11 +28,12 @@ int main(int argc, char *argv[])
       display_process_event(&done);
 
       display_gui();
+
       display_gui_render();
       display_update();
    }
 
-   /* if ( !cartridge_load( argv[1] ) ) 
+    if ( !cartridge_load( argv[1] ) ) 
    {
       return EXIT_FAILURE;
    }
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
    cpu_reset();
    cpu_fetch_decode_execute();
 
-   nestest_log_close(); */
+   nestest_log_close();
    
    display_gui_shutdown();
 
