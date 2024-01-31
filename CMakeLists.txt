@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.28)
 project(nes_emulator)
+
+set (CMAKE_CXX_STANDARD 11)
 
 if(WIN32) #to mingw work as all the others
    set(CMAKE_SHARED_LIBRARY_PREFIX "")
@@ -29,21 +31,21 @@ set(IMGUI_SOURCES
    ${TABLES_SOURCE} 
 )
 
-set(IMGUI_LIBRARIES)
-
 if (WIN32)
    add_definitions("-DIMGUI_IMPL_API=extern \"C\" __declspec\(dllexport\)")
 else(WIN32)
    add_definitions("-DIMGUI_IMPL_API=extern \"C\" ")
 endif(WIN32)
 
-#opengl3
-list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl3.cpp)
-if(WIN32)
-   list(APPEND IMGUI_LIBRARIES opengl32)
-else(WIN32)#Unix
-   list(APPEND IMGUI_LIBRARIES GL)
-endif(WIN32)
+#openGL
+set(OPENGL_LIBRARIES)
+find_package(OpenGL)
+
+if(OPENGL_FOUND)
+   message(STATUS "openg gl found")
+   list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl3.cpp)
+   set(OPENGL_LIBRARIES OpenGL::GL)
+endif(OPENGL_FOUND)
 
 #sdl2
 list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_sdl2.cpp)
@@ -72,7 +74,7 @@ else(SDL2_FOUND)
 endif(SDL2_FOUND)
 
 add_library(cimgui_sdl SHARED ${IMGUI_SOURCES})
-target_link_libraries(cimgui_sdl ${IMGUI_LIBRARIES} ${IMGUI_SDL_LIBRARY})
+target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 
 #using library
 include_directories(cimgui/generator/output/)
