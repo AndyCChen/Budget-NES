@@ -5,7 +5,7 @@
 // load instructions
 
 static void LDA(void);
-static void LSX(void);
+static void LDX(void);
 static void LDY(void);
 static void STA(void);
 static void STX(void);
@@ -122,5 +122,80 @@ static opcode_t instruction_lookup_table[256] =
    /* 0x30 - 0x3F */
    {"BMI", &BMI, REL, 2}, {"AND", &AND, YZI, 5}, {"???", &TMP, IMP, 0},
    {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"AND", &AND, XZP, 4},
-   {"ROL", }
+   {"ROL", &ROL, XZI, 6}, {"???", &TMP, IMP, 0}, {"SEC", &SEC, IMP, 2},
+   {"AND", &AND, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"AND", &AND, XAB, 4}, {"ROL", &ROL, XAB, 7},
+   {"???", &TMP, IMP, 0},
+
+   /* 0x40 - 0x4F */
+   {"RTI", &RTI, IMP, 6}, {"EOR", &EOR, XZI, 6}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"EOR", &EOR, ZPG, 3},
+   {"LSR", &LSR, ZPG, 5}, {"???", &TMP, IMP, 0}, {"PHA", &PHA, IMP, 3}, 
+   {"EOR", &EOR, IMM, 2}, {"LSR", &LSR, ACC, 2}, {"???", &TMP, IMP, 0}, 
+   {"JMP", &JMP, ABS, 3}, {"EOR", &EOR, ABS, 4}, {"LSR", &LSR, ABS, 6},
+   {"???", &TMP, IMP, 0},
+
+   /* 0x50 - 0x5F */
+   {"BVC", &BVC, REL, 2}, {"EOR", &EOR, YZI, 5}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"EOR", &EOR, XZP, 4},
+   {"LSR", &LSR, XZP, 6}, {"???", &TMP, IMP, 0}, {"CLI", &CLI, IMP, 2},
+   {"EOR", &EOR, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"EOR", &EOR, XAB, 4}, {"LSR", &LSR, XAB, 7},
+   {"???", &TMP, IMP, 0},
+
+   /* 0x60 - 0x6F */
+   {"RTS", &RTS, IMP, 6}, {"ADC", &ADC, XZI, 6}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"ADC", &ADC, ZPG, 3},
+   {"ROR", &ROR, ZPG, 5}, {"???", &TMP, IMP, 0}, {"PLA", &PLA, IMP, 4},
+   {"ADC", &ADC, IMM, 2}, {"ROR", &ROR, ACC, 2}, {"???", &TMP, IMP, 0},
+   {"JMP", &JMP, ABI, 5}, {"ADC", &ADC, ABS, 4}, {"ROR", &ROR, ABS, 6},
+   {"???", &TMP, IMP, 0},
+
+   /* 0x70 - 7F */
+   {"BVS", &BVS, REL, 2}, {"ADC", &ADC, YZI, 5}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"ADC", &ADC, XZP, 4},
+   {"ROR", &ROR, XZP, 6}, {"???", &TMP, IMP, 0}, {"SEI", &SEI, IMP, 2},
+   {"ADC", &ADC, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"ADC", &ADC, XAB, 4}, {"ROR", &ROR, XAB, 7},
+   {"???", &TMP, IMP, 0},
+
+   /* 0x80 - 0x8F */
+   {"???", &TMP, IMP, 0}, {"STA", &STA, XZI, 6}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"STY", &STY, ZPG, 3}, {"STA", &STA, ZPG, 3},
+   {"STX", &STX, ZPG, 3}, {"???", &TMP, IMP, 0}, {"DEY", &DEY, IMP, 2},
+   {"???", &TMP, IMP, 0}, {"TXA", &TXA, IMP, 2}, {"???", &TMP, IMP, 0},
+   {"STY", &STY, ABS, 4}, {"STA", &STA, ABS, 4}, {"STX", &STX, ABS, 4},
+   {"???", &TMP, IMP, 0},
+
+   /* 0x90 - 0x9F */
+   {"BCC", &BCC, REL, 2}, {"STA", &STA, YZI, 6}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"STY", &STY, XZP, 4}, {"STA", &STA, XZP, 4},
+   {"STX", &STX, XZP, 4}, {"???", &TMP, IMP, 0}, {"TYA", &TYA, IMP, 2},
+   {"STA", &STA, YAB, 5}, {"TXS", &TXS, IMP, 2}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"STA", &STA, XAB, 5}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0},
+
+   /* 0xA0 - 0xAF */
+   {"LDY", &LDY, IMM, 2}, {"LDA", &LDA, XZI, 6}, {"LDX", &LDX, IMM, 2},
+   {"???", &TMP, IMP, 0}, {"LDY", &LDY, ZPG, 3}, {"LDA", &LDA, ZPG, 3},
+   {"LDX", &LDX, ZPG, 3}, {"???", &TMP, IMP, 0}, {"TAY", &TAY, IMP, 2},
+   {"LDA", &LDA, IMM, 2}, {"TAX", &TAX, IMP, 2}, {"???", &TMP, IMP, 0},
+   {"LDY", &LDY, ABS, 4}, {"LDA", &LDA, ABS, 4}, {"LDX", &LDX, ABS, 4},
+   {"???", &TMP, IMP, 0},
+
+   /* 0xB0 - 0xBF */
+   {"BCS", &BCS, REL, 2}, {"LDA", &LDA, YZI, 5}, {"???", &TMP, IMP, 0},
+   {"???", &TMP, IMP, 0}, {"LDY", &LDY, XZP, 4}, {"LDA", &LDA, XZP, 4},
 };
+
+// a16, Y   Y indexed absolute            YAB
+// a16, X   X indexed absolute            XAB
+// (a8, X)  X index zero page indirect    XZI
+// (a8), Y  Zero Page indirect Y indexed  YZI
+// a8, X    X indexed zero page           XZP
+// a8, Y    Y indexed zero page           YZP 
+// a8       zero page                     ZPG
+// #d8      immediate                     IMM
+// a16      absolute                      ABS
+// (a16)    absolute indirect             ABI
+// r8       relative                      REL

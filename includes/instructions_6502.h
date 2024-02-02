@@ -16,7 +16,7 @@ typedef enum addressing_mode
    XZP, // X-indexed zero page
    YZP, // Y-indexed zero page
    XZI, // X-indexed zero page indirect
-   YZI, // Y-indexed zero page indirect
+   YZI, // Zero Page indirect Y indexed 
    REL  // relative
 } addressing_mode_t;
 
