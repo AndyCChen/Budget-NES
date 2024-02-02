@@ -2,6 +2,7 @@
 #include "cimgui.h"
 #include "cimgui_impl.h"
 
+#include "glad.h"
 #include "SDL.h"
 #include "SDL_opengl.h"
 
@@ -14,11 +15,22 @@ static ImGuiIO* io = NULL;
 static ImVec4 clear_color = {0.45f, 0.55f, 0.60f, 1.00f};
 
 // gui components
+// ---------------------------------------------------------------
 
 static void display_demo();
 static void display_main_viewport();
 
-bool display_gui_init()
+// opengl graphics
+// ---------------------------------------------------------------
+
+static GLuint VBO;
+static GLuint VAO;
+
+static GLuint shader_program;
+
+static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
+
+bool display_init()
 {
    // sdl init
    if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0 )
@@ -34,11 +46,11 @@ bool display_gui_init()
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
    #else
-      const char*glsl_version = "#version 130";
+      const char*glsl_version = "#version 330";
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
    #endif
    
    // setup window
@@ -65,6 +77,12 @@ bool display_gui_init()
       return false;
    }
 
+   if ( !gladLoadGLLoader( (GLADloadproc) SDL_GL_GetProcAddress ) )
+   {
+      printf("Failed to initialize GLAD\n");
+      return false;
+   }
+
    SDL_GL_MakeCurrent(window, gContext);
    SDL_GL_SetSwapInterval(1); // enable vsync
    SDL_Log("opengl version: %s", (char*)glGetString(GL_VERSION));
@@ -85,12 +103,16 @@ bool display_gui_init()
    return true;
 }
 
-void display_gui_render()
+void display_render()
 {
    igRender();
    glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
    glClear(GL_COLOR_BUFFER_BIT);
+
+   glUseProgram(shader_program);
+   glBindVertexArray(VAO);
+   glDrawArrays(GL_TRIANGLES, 0, 3);
 
    ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
 
@@ -109,7 +131,7 @@ void display_update()
    SDL_GL_SwapWindow(window);
 }
 
-void display_gui_shutdown()
+void display_shutdown()
 {
    ImGui_ImplOpenGL3_Shutdown();
    ImGui_ImplSDL2_Shutdown();
@@ -118,6 +140,16 @@ void display_gui_shutdown()
    SDL_GL_DeleteContext(gContext);
    SDL_DestroyWindow(window);
    SDL_Quit();
+}
+
+void display_create_gui()
+{
+   ImGui_ImplOpenGL3_NewFrame();
+   ImGui_ImplSDL2_NewFrame();
+   igNewFrame();
+
+   display_demo();
+   display_main_viewport();
 }
 
 void display_process_event(bool* done)
@@ -131,21 +163,11 @@ void display_process_event(bool* done)
       {
          *done = true;
       }
-      //if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
-      //{
-      //   *done = true;
-      //}
+      if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+      {
+         *done = true;
+      }
    }
-}
-
-void display_gui()
-{
-   ImGui_ImplOpenGL3_NewFrame();
-   ImGui_ImplSDL2_NewFrame();
-   igNewFrame();
-
-   display_demo();
-   display_main_viewport();
 }
 
 static void display_demo()
@@ -207,4 +229,96 @@ static void display_main_viewport()
 
       igEnd();
    }
+}
+
+void create_triangle()
+{
+   float vertices[] = {
+      -0.5f, -0.5f, 0.0f,
+       0.5f, -0.5f, 0.0f,
+       0.0f, 0.5f, 0.0f
+   };
+
+   glGenVertexArrays(1, &VAO);
+   glGenBuffers(1, &VBO);
+
+   glBindVertexArray(VAO);
+
+   glBindBuffer(GL_ARRAY_BUFFER, VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+   glEnableVertexAttribArray(0);
+}
+
+void create_shaders()
+{
+   GLchar* vertex_shader_code = "#version 330 core\n"
+      "layout (location = 0) in vec3 aPos;\n"
+      "void main()\n"
+      "{\n"
+      "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+      "}\0";
+
+   GLchar* fragment_shader_code = "#version 330 core\n"
+      "out vec4 FragColor;\n"
+      "void main()\n"
+      "{\n"
+      "  FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+      "}\0";
+
+   shader_program = glCreateProgram();
+   if (shader_program == 0)
+   {
+      printf("Error creating shader program!\n");
+      return;
+   }
+
+   add_shader(shader_program, vertex_shader_code, GL_VERTEX_SHADER);
+   add_shader(shader_program, fragment_shader_code, GL_FRAGMENT_SHADER);
+
+   glLinkProgram(shader_program);
+
+   int sucess;
+   char shader_prog_log[512];
+
+   glGetProgramiv(shader_program, GL_LINK_STATUS, &sucess);
+   if (sucess == 0) // shader program linking failure
+   {
+      glGetProgramInfoLog(shader_program, sizeof(shader_prog_log), NULL, shader_prog_log);
+      printf("shader program linker error: %s\n", shader_prog_log);
+      return;
+   }
+}
+
+/**
+ * create and compile a shader, also attaches the shader to a shader program
+ * \param program program object id created from glCreateProgram
+ * \param shader_code shader source code string
+ * \param type type of shader to create, i.e: GL_VERTEX_SHADER
+*/
+static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
+{
+   GLuint shader = glCreateShader(type);
+   if (shader == 0) // shader creation error
+   {
+      printf("shader creation error!\n");
+      return;
+   }
+
+   glShaderSource(shader, 1, &shader_code, NULL);
+   glCompileShader(shader);
+
+   int sucess;
+   char shader_log[512];
+
+   glGetShaderiv(shader, GL_COMPILE_STATUS, &sucess);
+   if (sucess == 0) // shader compile error
+   {
+      glGetShaderInfoLog(shader, sizeof(shader_log), NULL, shader_log);
+      printf("Shader compilation error: %s", shader_log);
+      return;
+   }
+
+   glAttachShader(program, shader);
 }

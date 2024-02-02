@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include <SDL2/SDL.h>
+#include "glad.h"
+#include "SDL.h"
 
 #include "bus.h"
 #include "cpu.h"
@@ -17,19 +18,22 @@ int main(int argc, char *argv[])
    (void) argc;
    (void) argv;
 
-   if ( !display_gui_init() )
+   if ( !display_init() )
    {
       return EXIT_FAILURE;
    }
+
+   create_shaders();
+   create_triangle();
 
    bool done = false;
    while (!done)
    {
       display_process_event(&done);
 
-      display_gui();
+      display_create_gui();
 
-      display_gui_render();
+      display_render();
       display_update();
    }
 
@@ -45,7 +49,7 @@ int main(int argc, char *argv[])
 
    nestest_log_close();
    
-   display_gui_shutdown();
+   display_shutdown();
 
    return 0;
 }

@@ -78,7 +78,8 @@ target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 
 #using library
 include_directories(cimgui/generator/output/)
-add_executable(nes 
+add_executable(nes
+   glad_loader/src/glad.c
    main.c
    src/bus.c
    src/cartridge.c
@@ -87,7 +88,7 @@ add_executable(nes
    src/log.c
    src/display.c
 )
-target_include_directories(nes PRIVATE includes/)
+target_include_directories(nes PRIVATE includes/ glad_loader/include/glad)
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(nes PRIVATE "-mconsole")
