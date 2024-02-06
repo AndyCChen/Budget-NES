@@ -25,10 +25,6 @@ typedef struct
 
 extern CPU_6502 cpu;
 
-void cpu_fetch();
-void cpu_decode();
-void cpu_execute();
-
 void cpu_reset(void);
 void cpu_fetch_decode_execute(void);
 

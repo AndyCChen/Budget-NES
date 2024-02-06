@@ -23,8 +23,13 @@ int main(int argc, char *argv[])
       return EXIT_FAILURE;
    }
 
-   create_shaders();
-   create_triangle();
+   if ( !cartridge_load( argv[1] ) ) 
+   {
+      return EXIT_FAILURE;
+   }
+
+   graphics_create_shaders();
+   graphics_create_triangle();
 
    bool done = false;
    while (!done)
@@ -37,15 +42,16 @@ int main(int argc, char *argv[])
       display_update();
    }
 
-    if ( !cartridge_load( argv[1] ) ) 
-   {
-      return EXIT_FAILURE;
-   }
+   
 
    nestest_log_open();
 
    cpu_reset();
-   cpu_fetch_decode_execute();
+
+   for(int i = 0; i < 5; ++i)
+   {
+      cpu_fetch_decode_execute();
+   }
 
    nestest_log_close();
    

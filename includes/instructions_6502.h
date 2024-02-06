@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef enum addressing_mode
+typedef enum address_modes
 {
    IMP, // implied
    ACC, // accumulator
@@ -18,16 +18,17 @@ typedef enum addressing_mode
    XZI, // X-indexed zero page indirect
    YZI, // Zero Page indirect Y indexed 
    REL  // relative
-} addressing_mode_t;
+} address_modes_t;
 
 typedef struct opcode
 {
-   char* mnemonic;          // 3 character mnemonic of the a instruction
-   void (*opcode) (void);   // pointer to a function that contain the execution code of a instruction
-   addressing_mode_t mode;  // enum that represents the addressing mode of the instruction
-   uint8_t cycles;          // number of cycles this instruction takes
+   char* mnemonic;                   // 3 character mnemonic of the a instruction
+   void (*opcode_function) (void);   // pointer to a function that contain the execution code of a instruction
+   address_modes_t mode;             // enum that represents the addressing mode of the instruction
+   uint8_t cycles;                   // number of cycles this instruction takes
 } opcode_t;
 
-
+void instruction_decode(uint8_t opcode);
+uint8_t instruction_execute(uint8_t opcode);
 
 #endif

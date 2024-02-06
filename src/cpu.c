@@ -4,6 +4,7 @@
 #include "../includes/cpu.h"
 #include "../includes/bus.h"
 #include "../includes/log.h"
+#include "../includes/instructions_6502.h"
 
 CPU_6502 cpu;
 
@@ -17,21 +18,23 @@ void cpu_reset(void)
    cpu.pc = 0xC000;
 }
 
+/**
+ * Fetches, decodes, and executes a instruction.
+ * Will also cycle count the number of cycle it takes to execute the instruction
+*/
 void cpu_fetch_decode_execute(void)
 {
-   /*
-   most instructions have the form aaabbbcc where
-   aaa and cc bits form the opcode and
-   bbb form the addressing mode
-   */
-   uint8_t instruction = bus_read(cpu.pc);
+   // fetch
 
-   uint8_t aaa = ( instruction & 0xE0 ) >> 0x3;
-   uint8_t cc = instruction & 0x3;
-   uint8_t opcode = aaa | cc;
+   uint8_t opcode = bus_read(cpu.pc);
 
-   nestest_log("%04X  %02X ", cpu.pc, instruction);
-   nestest_log("%02X %02X\n", bus_read(cpu.pc + 1), bus_read(cpu.pc + 2));
-   
-   (void) opcode;
+   // decode 
+
+   instruction_decode(opcode);
+
+   // execute
+   uint8_t cycles_to_count = instruction_execute(opcode);
+   //printf("cycles: %d\n", cycles_to_count);
+
+   // todo: count cycles
 }

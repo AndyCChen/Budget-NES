@@ -41,12 +41,12 @@ uint16_t bus_read_u16(uint16_t position)
    return hi | lo;
 }
 
-// write 2 bytes from bus, packed in little endian
+// write 2 bytes to bus, packed in little endian
 void bus_write_u16(uint16_t position, uint16_t data)
 {
-  uint8_t hi = ( data & 0xFF00 ) >> 8;
-  uint8_t lo = data & 0x00FF;
-
-  bus_write(position, lo);
-  bus_write(position + 1, hi);
+   uint8_t lo = data & 0x00FF;
+   bus_write(position, lo);
+   
+   uint8_t hi = ( data & 0xFF00 ) >> 8;
+   bus_write(position + 1, hi);
 }

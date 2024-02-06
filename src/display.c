@@ -17,19 +17,23 @@ static ImVec4 clear_color = {0.45f, 0.55f, 0.60f, 1.00f};
 // gui components
 // ---------------------------------------------------------------
 
-static void display_demo();
-static void display_main_viewport();
+static void display_gui_demo();
+static void display_gui_display();
 
 // opengl graphics
 // ---------------------------------------------------------------
 
-static GLuint VBO;
-static GLuint VAO;
-
+static GLuint VBO[2];
+static GLuint VAO[2];
 static GLuint shader_program;
 
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 
+/**
+ * setup sdl, create window, and opengl context
+ * set ImGui io config flags
+ * \returns true on success and false on failure
+*/
 bool display_init()
 {
    // sdl init
@@ -68,7 +72,6 @@ bool display_init()
    }
 
    // create opengl context
-
    gContext = SDL_GL_CreateContext(window);
 
    if (gContext == NULL)
@@ -77,6 +80,7 @@ bool display_init()
       return false;
    }
 
+   // initialize glad loader
    if ( !gladLoadGLLoader( (GLADloadproc) SDL_GL_GetProcAddress ) )
    {
       printf("Failed to initialize GLAD\n");
@@ -103,17 +107,25 @@ bool display_init()
    return true;
 }
 
+/**
+ * render imgui components
+*/
 void display_render()
 {
-   igRender();
-   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
-   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-   glClear(GL_COLOR_BUFFER_BIT);
-
    glUseProgram(shader_program);
-   glBindVertexArray(VAO);
+
+   float timeValue = SDL_GetTicks64() / 1000.0f;
+   float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+   int vertexColorLocation = glGetUniformLocation(shader_program, "ourColor");
+   glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+   glBindVertexArray(VAO[0]);
+   glDrawArrays(GL_TRIANGLES, 0, 3);
+   
+   glBindVertexArray(VAO[1]);
    glDrawArrays(GL_TRIANGLES, 0, 3);
 
+   igRender();
    ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
 
    if ( io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
@@ -126,11 +138,17 @@ void display_render()
    }
 }
 
+/**
+ * updates the screen
+*/
 void display_update()
 {
    SDL_GL_SwapWindow(window);
 }
 
+/**
+ * call functions to shutdown and free all resources
+*/
 void display_shutdown()
 {
    ImGui_ImplOpenGL3_Shutdown();
@@ -142,16 +160,26 @@ void display_shutdown()
    SDL_Quit();
 }
 
+/**
+ * create imgui components
+*/
 void display_create_gui()
 {
+   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
+   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+   glClear(GL_COLOR_BUFFER_BIT);
+
    ImGui_ImplOpenGL3_NewFrame();
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   display_demo();
-   display_main_viewport();
+   display_gui_demo();
+   display_gui_display();
 }
 
+/**
+ * process sdl events
+*/
 void display_process_event(bool* done)
 {
    static SDL_Event event;
@@ -170,7 +198,7 @@ void display_process_event(bool* done)
    }
 }
 
-static void display_demo()
+static void display_gui_demo()
 {
    static bool show_demo_window = true;
    static bool show_another_window = false;
@@ -217,54 +245,79 @@ static void display_demo()
    }
 }
 
-static void display_main_viewport()
+/**
+ * create the gui for the main display viewport
+*/
+static void display_gui_display()
 {
    static bool show_main_viewport = true;
 
    if (show_main_viewport)
    {
       igBegin("Viewport", &show_main_viewport, 0);
-
       igText("This is the main viewport");
 
       igEnd();
    }
 }
 
-void create_triangle()
+void graphics_create_triangle()
 {
-   float vertices[] = {
-      -0.5f, -0.5f, 0.0f,
-       0.5f, -0.5f, 0.0f,
-       0.0f, 0.5f, 0.0f
+   float triangle1[] = {
+      // position          // colors
+      -0.9f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,
+      -0.0f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
+      -0.45f, 0.5f, 0.0f,  0.0f, 0.0f, 1.0f
    };
 
-   glGenVertexArrays(1, &VAO);
-   glGenBuffers(1, &VBO);
+   float triangle2[] = {
+      // position         // colors
+      0.0f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,
+      0.9f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
+      0.45f, 0.5f, 0.0f,   0.0f, 0.0f, 1.0f
+   };
 
-   glBindVertexArray(VAO);
+   glGenVertexArrays(2, VAO);
+   glGenBuffers(2, VBO);
 
-   glBindBuffer(GL_ARRAY_BUFFER, VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+   glBindVertexArray(VAO[0]);
+   glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(triangle1), triangle1, GL_STATIC_DRAW);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
    glEnableVertexAttribArray(0);
+   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+   glEnableVertexAttribArray(1);
+
+   glBindVertexArray(VAO[1]);
+   glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(triangle2), triangle2, GL_STATIC_DRAW);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
+   glEnableVertexAttribArray(0);
+   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
+   glEnableVertexAttribArray(1);
 }
 
-void create_shaders()
+void graphics_create_shaders()
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
+      "layout (location = 1) in vec3 aColor;\n"
+
+      "out vec3 ourColor;\n"
+
       "void main()\n"
       "{\n"
-      "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+      "   gl_Position = vec4(aPos, 1.0);\n"
+      "   ourColor = aColor;\n"
       "}\0";
 
    GLchar* fragment_shader_code = "#version 330 core\n"
-      "out vec4 FragColor;\n"
+      "out vec4 fragColor;\n"
+      "in vec3 ourColor;\n"
+
       "void main()\n"
       "{\n"
-      "  FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+      "  fragColor = vec4(ourColor, 1.0);\n"
       "}\0";
 
    shader_program = glCreateProgram();
@@ -293,9 +346,9 @@ void create_shaders()
 
 /**
  * create and compile a shader, also attaches the shader to a shader program
- * \param program program object id created from glCreateProgram
- * \param shader_code shader source code string
- * \param type type of shader to create, i.e: GL_VERTEX_SHADER
+ * @param program program object id created from glCreateProgram
+ * @param shader_code shader source code string
+ * @param type type of shader to create, i.e: GL_VERTEX_SHADER
 */
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
 {
