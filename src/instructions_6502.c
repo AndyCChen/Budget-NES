@@ -2,8 +2,10 @@
 
 #include "../includes/instructions_6502.h"
 #include "../includes/cpu.h"
+#include "../includes/cpu_ram.h"
 #include "../includes/log.h"
 #include "../includes/bus.h"
+#include "../includes/util.h"
 
 /* instruction functions */
 
@@ -116,7 +118,7 @@ static void JAM(void){}
 
 // nop instructions
 
-static void NOP(void){}
+static void NOP(void){return;}
 
 static void TMP(void){} // temp function to handle illegal opcode for now
 
@@ -267,7 +269,7 @@ static opcode_t opcode_lookup_table[256] =
    {"???", &TMP, IMP, 0}
 };
 
-static opcode_t* decoded_opcode = NULL;
+static opcode_t* decoded_opcode = NULL; // current decoded opcode to be executed
 
 /**
  * Stores the operand of the instrucion depending on it's adressing mode.
@@ -291,12 +293,12 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
 
    switch (address_mode)
    {
-      case IMP:
+      case IMP: // implied adressing modes are 1 byte
       {
-         nestest_log("%04X  %02X %7s %s %28s", cpu.pc, opcode, "", decoded_opcode->mnemonic, "");
+         nestest_log("%04X  %02X %6s %s %28s", cpu.pc, opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
-      case ACC:
+      case ACC: // acccumulator addresing modes are 1 byte
       { 
          nestest_log("%04X  %02X %7s %s %28s", cpu.pc, opcode, "", decoded_opcode->mnemonic, "");
          break;
@@ -335,9 +337,9 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       }
       case ZPG:
       {
-         uint8_t zpg_address = bus_read(cpu.pc + 1);
+         instruction_operand = bus_read(cpu.pc + 1);
          num_of_bytes = 2;
-         nestest_log("%04X  %02X %02X %3s %s $%02X = %02X %19s", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic, zpg_address, bus_read(zpg_address), "");
+         nestest_log("%04X  %02X %02X %3s %s $%02X = %02X %19s", cpu.pc, opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZP:
@@ -399,8 +401,8 @@ uint8_t instruction_execute(uint8_t opcode)
 {
    uint8_t num_of_bytes = get_addressing_mode(decoded_opcode->mode, opcode);
 
-   cpu.pc += num_of_bytes; // increment pc to point to next instruction before executing current instruction
-   decoded_opcode->opcode_function();
+   cpu.pc += num_of_bytes;            // increment pc to point to next instruction before executing current instruction
+   decoded_opcode->opcode_function(); // execute the current instruction
 
    return decoded_opcode->cycles;
 }
@@ -416,10 +418,36 @@ static void LAX(void){}
  * sets negative flag if bit 7  of accumulator is 1, otherwises negative flag is reset
 */
 static void LDA(void){}
+
+/**
+ * Load X register with value from memory
+ * Set zero bit if loaded value is zero.
+ * Set negative bit if loaded value has bit 7 set to 1.
+*/
 static void LDX(void)
 {
-   cpu.X = instruction_operand;
+   if (instruction_operand == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   uint8_t bit_7 = ( instruction_operand & ( 1 << 7 ) ) >> 7;
+   if (bit_7 == 1)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   cpu.X = (uint8_t) instruction_operand;
 }
+
 static void LDY(void){}
 static void SAX(void){}
 static void SHA(void){}
@@ -504,7 +532,23 @@ static void JMP(void)
    cpu.pc = instruction_operand;
 }
 
-static void JSR(void){}
+/**
+ * Jumps to a subroutine.
+ * Save return address onto the stack
+*/
+static void JSR(void)
+{
+   uint8_t hi = ( cpu.pc & 0xFF00 ) >> 8;
+   bus_write(CPU_STACK_ADDRESS + cpu.sp, hi);
+   cpu.sp -= 1;
+
+   uint8_t lo = cpu.pc & 0x00FF;
+   bus_write(CPU_STACK_ADDRESS + cpu.sp, lo);
+   cpu.sp-= 1;
+
+   cpu.pc = instruction_operand;
+}
+
 static void RTI(void){}
 static void RTS(void){}
 

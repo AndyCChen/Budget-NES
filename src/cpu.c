@@ -13,8 +13,8 @@ void cpu_reset(void)
    cpu.ac = 0;
    cpu.X = 0;
    cpu.Y = 0;
-   cpu.sp = 0xFF;
-   cpu.status_flags = 0;
+   cpu.sp = 0xFD;
+   cpu.status_flags = 0x24;
    cpu.pc = 0xC000;
 }
 
@@ -25,7 +25,6 @@ void cpu_reset(void)
 void cpu_fetch_decode_execute(void)
 {
    // fetch
-
    uint8_t opcode = bus_read(cpu.pc);
 
    // decode 
