@@ -8,12 +8,10 @@
 #include "../includes/util.h"
 
 /* instruction functions */
+
 /**
- * all instruction functions will return extra cycles depending on 
- * if a page is crossed (+1 cycle), 
- * branch is taken (+1 cycle),
- * both (+2 cycles),
- * or none (+0 cycles)
+ * most instruction functions will return 0 but branch instructions 
+ * for example return 1 to represent 1 extra cycle when a branch is taken
 */
 
 // load instructions
@@ -129,7 +127,7 @@ static uint8_t NOP(void){return 0;}
 
 static uint8_t TMP(void){return 0;} // temp function to handle illegal opcode for now
 
-static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode);
+static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle);
 
 // addressing modes
 // https://www.pagetable.com/c64ref/6502/
@@ -287,15 +285,17 @@ static uint16_t instruction_operand;
 
 
 /**
+ * Read more on different addressing modes here -> https://www.pagetable.com/c64ref/6502/?tab=3
  * Forms the instruction operand depending on the provided address mode.
  * @param address_mode the address mode of the current opcode
  * @param opcode opcode to execute is passed in for logging purposes
- * @param extra_cycles pointer to store extra cycles for if a is page being crossed, branch being taken, or both
+ * @param extra_cycles uint8_t pointer set to 1 if page is crossed to represent 1 extra cycle
+ * else is set to zero
  * @returns the number of bytes the instruction occupies, 
  * can be used to determine how much to increment the program counter by
  * to point to the next instruction.
 */
-static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
+static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle)
 {
    uint8_t num_of_bytes = 1;
 
@@ -303,47 +303,86 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
    {
       case IMP: // implied adressing modes are 1 byte
       {
+         *extra_cycle = 0;
+
          nestest_log("%04X  %02X %6s %s %28s", cpu.pc, opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
       case ACC: // acccumulator addresing modes are 1 byte
       { 
+         *extra_cycle = 0;
+
          nestest_log("%04X  %02X %7s %s %28s", cpu.pc, opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
       case IMM:
       {
          num_of_bytes = 2;
+         *extra_cycle = 0;
 
          instruction_operand = bus_read(cpu.pc + 1);
+
          nestest_log("%04X  %02X %02X %3s %s #$%02X %23s", cpu.pc, opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
       case ABS:
       {
          num_of_bytes = 3;
+         *extra_cycle = 0;
 
          instruction_operand = bus_read_u16(cpu.pc + 1);
-         nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, instruction_operand, "");
+         uint8_t lo = instruction_operand & 0x00FF;
+         uint8_t hi = (instruction_operand & 0xFF00) >> 8;
+
+         nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, lo, hi, decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
       case XAB:
       {
          num_of_bytes = 3;
 
-         nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, bus_read_u16(cpu.pc + 1), "");
+         uint16_t abs_address = bus_read_u16(cpu.pc + 1);
+         uint8_t lo = abs_address & 0x00FF;
+         uint8_t hi = (abs_address & 0xFF00) >> 8;
+
+         instruction_operand = abs_address + cpu.X; // add absolute address with offset value in X index register
+
+         /**
+          * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
+          * This happens because the offset is added to the low byte first which can result in a carry out.
+          * The carry out bit then needs to be added back into the high byte which results in a
+          * extra cycle being taken. 
+         */
+         *extra_cycle = ( ( instruction_operand & 0xFF00 ) >> 8 != hi ) ? 1 : 0;
+
+         nestest_log("%04X  %02X %02X %02X %s $%04X, X @ %04X = %02X %8s", cpu.pc, opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YAB:
       {
          num_of_bytes = 3;
 
-         nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, bus_read_u16(cpu.pc + 1), "");
+         uint16_t abs_address = bus_read_u16(cpu.pc + 1);
+         uint8_t lo = abs_address & 0x00FF;
+         uint8_t hi = (abs_address & 0xFF00) >> 8;
+
+         instruction_operand = abs_address + cpu.Y; // add absolute address with offset value in Y index register
+
+         /**
+          * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
+          * This happens because the offset is added to the low byte first which can result in a carry out.
+          * The carry out bit then needs to be added back into the high byte which results in a
+          * extra cycle being taken. 
+         */
+         *extra_cycle = ( ( instruction_operand & 0xFF00 ) >> 8 != hi ) ? 1 : 0;
+
+         nestest_log("%04X  %02X %02X %02X %s $%04X, Y @ %04X = %02X %8s", cpu.pc, opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case ABI:
       {
          num_of_bytes = 3;
+         *extra_cycle = 0;
 
          nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, bus_read_u16(cpu.pc + 1), "");
          break;
@@ -351,6 +390,7 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       case ZPG:
       {
          num_of_bytes = 2;
+         *extra_cycle = 0;
 
          instruction_operand = bus_read(cpu.pc + 1);
 
@@ -360,20 +400,29 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       case XZP:
       {
          num_of_bytes = 2;
+         *extra_cycle = 0;
 
-         nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
+         uint8_t zpg_address = bus_read(cpu.pc + 1);
+         instruction_operand = zpg_address + cpu.X;
+
+         nestest_log("%04X  %02X %02X %3s %s %02X, X @ %02X = %02X %13s", cpu.pc, opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YZP:
       {
          num_of_bytes = 2;
+         *extra_cycle = 0;
 
-         nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
+         uint8_t zpg_address = bus_read(cpu.pc + 1);
+         instruction_operand = zpg_address + cpu.Y;
+
+         nestest_log("%04X  %02X %02X %3s %s %02X, Y @ %02X = %02X %13s", cpu.pc, opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZI:
       {
          num_of_bytes = 2;
+         *extra_cycle = 0;
 
          nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
          break;
@@ -389,17 +438,18 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       {
          num_of_bytes = 2;
 
-         instruction_operand = bus_read(cpu.pc + 1);
-         if (instruction_operand & 0x80) // check if byte is a signed negative number
+         uint8_t offset_byte = bus_read(cpu.pc + 1);
+         
+         if (offset_byte & 0x80) // check if offset byte is a signed negative number
          {
-            instruction_operand = (cpu.pc + num_of_bytes) - ( ~instruction_operand + 1);
+            instruction_operand = (cpu.pc + num_of_bytes) - ( ~offset_byte + 1);
          }
          else
          {
-            instruction_operand = (cpu.pc + num_of_bytes) + instruction_operand;
+            instruction_operand = (cpu.pc + num_of_bytes) + offset_byte;
          }
 
-         nestest_log("%04X  %02X %02X %3s %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic, instruction_operand, "");
+         nestest_log("%04X  %02X %02X %3s %s $%04X %22s", cpu.pc, opcode, offset_byte, "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
    }
@@ -429,14 +479,11 @@ void instruction_decode(uint8_t opcode)
 */
 uint8_t instruction_execute(uint8_t opcode)
 {
-   uint8_t num_of_bytes = get_addressing_mode(decoded_opcode->mode, opcode);
-   cpu.pc += num_of_bytes;  // increment pc to point to next instruction before executing current instruction
+   uint8_t extra_cycles = 0;
+   uint8_t num_of_bytes = get_addressing_mode(decoded_opcode->mode, opcode, &extra_cycles);
 
-   /**
-    * Number of extra cycles taken depending on if a page is crossed (+1 cycle)
-    * or if a branch is taken (+1 cycle), or if none occur then we have 0 extra cycles.
-   */
-   uint8_t extra_cycles = decoded_opcode->opcode_function(); // execute the current instruction
+   cpu.pc += num_of_bytes;  // increment pc to point to next instruction before executing current instruction
+   extra_cycles += decoded_opcode->opcode_function(); // execute the current instruction
 
    return decoded_opcode->cycles + extra_cycles;
 }
@@ -592,7 +639,7 @@ static uint8_t AND(void){return 0;}
  * The result is used to set or clear status flags but is not stored.
  * Bit 7 of the addressed memory is transfered into the negative flag.
  * Bit 6 of the addressed memory is transfered into the overflow flag.
- * 
+ * zero flag is set if result of bitwise AND between accumulator and memory is zero
 */
 static uint8_t BIT(void)
 {
@@ -681,7 +728,16 @@ static uint8_t JSR(void)
 }
 
 static uint8_t RTI(void){return 0;}
-static uint8_t RTS(void){return 0;}
+
+/**
+ * return from subroutine
+*/
+static uint8_t RTS(void)
+{
+   
+
+   return 0;
+}
 
 // branch instructions
 
@@ -704,7 +760,7 @@ static uint8_t BCC(void)
 */ 
 static uint8_t BCS(void)
 {
-   if (cpu.status_flags & 0x01)
+   if ( cpu.status_flags & 0x01 )
    {
       cpu.pc = instruction_operand;
 
@@ -719,7 +775,7 @@ static uint8_t BCS(void)
 */
 static uint8_t BEQ(void)
 {
-   if (cpu.status_flags & 0x02)
+   if ( cpu.status_flags & 0x02 )
    {
       cpu.pc = instruction_operand;
       return 1;
@@ -728,7 +784,19 @@ static uint8_t BEQ(void)
    return 0;
 }
 
-static uint8_t BMI(void){return 0;}
+/**
+ * branch if negative flag is set
+*/
+static uint8_t BMI(void)
+{
+   if ( cpu.status_flags & 0x80 )
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
 
 /**
  * branch if zero flag is not set
@@ -744,9 +812,47 @@ static uint8_t BNE(void)
    return 0;
 }
 
-static uint8_t BPL(void){return 0;}
-static uint8_t BVC(void){return 0;}
-static uint8_t BVS(void){return 0;}
+/**
+ * branch if negative flag is cleared
+*/
+static uint8_t BPL(void)
+{
+   if ( !(cpu.status_flags & 0x80) )
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
+
+/**
+ * brannch if overflow flag is cleared
+*/
+static uint8_t BVC(void)
+{
+   if ( !(cpu.status_flags & 0x40) )
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
+
+/**
+ * branch if overflow flag is set
+*/
+static uint8_t BVS(void)
+{
+   if ( cpu.status_flags & 0x40)
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
 
 // flags instructions
 
