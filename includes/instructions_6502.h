@@ -23,7 +23,7 @@ typedef enum address_modes
 typedef struct opcode
 {
    char* mnemonic;                   // 3 character mnemonic of the a instruction
-   void (*opcode_function) (void);   // pointer to a function that contain the execution code of a instruction
+   uint8_t (*opcode_function) (void);   // pointer to a function that contain the execution code of a instruction
    address_modes_t mode;             // enum that represents the addressing mode of the instruction
    uint8_t cycles;                   // number of cycles this instruction takes
 } opcode_t;

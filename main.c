@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
    cpu_reset();
 
-   for(int i = 0; i < 5; ++i)
+   for(int i = 0; i < 38; ++i)
    {
       cpu_fetch_decode_execute();
    }

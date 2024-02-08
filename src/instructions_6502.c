@@ -8,119 +8,126 @@
 #include "../includes/util.h"
 
 /* instruction functions */
+/**
+ * all instruction functions will return extra cycles depending on 
+ * if a page is crossed (+1 cycle), 
+ * branch is taken (+1 cycle),
+ * both (+2 cycles),
+ * or none (+0 cycles)
+*/
 
 // load instructions
 
-static void LAS(void);
-static void LAX(void);
-static void LDA(void);
-static void LDX(void);
-static void LDY(void);
-static void SAX(void);
-static void SHA(void);
-static void SHX(void);
-static void SHY(void);
-static void STA(void);
-static void STX(void);
-static void STY(void);
+static uint8_t LAS(void);
+static uint8_t LAX(void);
+static uint8_t LDA(void);
+static uint8_t LDX(void);
+static uint8_t LDY(void);
+static uint8_t SAX(void);
+static uint8_t SHA(void);
+static uint8_t SHX(void);
+static uint8_t SHY(void);
+static uint8_t STA(void);
+static uint8_t STX(void);
+static uint8_t STY(void);
 
 // transfer instructions
 
-static void SHS(void);
-static void TAX(void);
-static void TAY(void);
-static void TSX(void);
-static void TXA(void);
-static void TXS(void);
-static void TYA(void);
+static uint8_t SHS(void);
+static uint8_t TAX(void);
+static uint8_t TAY(void);
+static uint8_t TSX(void);
+static uint8_t TXA(void);
+static uint8_t TXS(void);
+static uint8_t TYA(void);
 
 // stack instructions
 
-static void PHA(void);
-static void PHP(void);  
-static void PLA(void);
-static void PLP(void);
+static uint8_t PHA(void);
+static uint8_t PHP(void);  
+static uint8_t PLA(void);
+static uint8_t PLP(void);
 
 // shift instructions
 
-static void ASL(void);
-static void LSR(void);
-static void ROL(void);
-static void ROR(void);
+static uint8_t ASL(void);
+static uint8_t LSR(void);
+static uint8_t ROL(void);
+static uint8_t ROR(void);
 
 // logic instructions
 
-static void AND(void);
-static void BIT(void);
-static void EOR(void);
-static void ORA(void);
+static uint8_t AND(void);
+static uint8_t BIT(void);
+static uint8_t EOR(void);
+static uint8_t ORA(void);
 
 // arithmetic instructions
 
-static void ADC(void);
-static void ANC(void);
-static void ARR(void);
-static void ASR(void);
-static void CMP(void);
-static void CPX(void);
-static void CPY(void);
-static void DCP(void);
-static void ISC(void);
-static void RLA(void);
-static void RRA(void);
-static void SBC(void);
-static void SBX(void);
-static void SLO(void);
-static void SRE(void);
-static void XAA(void);
+static uint8_t ADC(void);
+static uint8_t ANC(void);
+static uint8_t ARR(void);
+static uint8_t ASR(void);
+static uint8_t CMP(void);
+static uint8_t CPX(void);
+static uint8_t CPY(void);
+static uint8_t DCP(void);
+static uint8_t ISC(void);
+static uint8_t RLA(void);
+static uint8_t RRA(void);
+static uint8_t SBC(void);
+static uint8_t SBX(void);
+static uint8_t SLO(void);
+static uint8_t SRE(void);
+static uint8_t XAA(void);
 
 // increment instructions
 
-static void DEC(void);
-static void DEX(void);
-static void DEY(void);
-static void INC(void);
-static void INX(void);
-static void INY(void);
+static uint8_t DEC(void);
+static uint8_t DEX(void);
+static uint8_t DEY(void);
+static uint8_t INC(void);
+static uint8_t INX(void);
+static uint8_t INY(void);
 
 // control
 
-static void BRK(void);
-static void JMP(void);
-static void JSR(void);
-static void RTI(void);
-static void RTS(void);
+static uint8_t BRK(void);
+static uint8_t JMP(void);
+static uint8_t JSR(void);
+static uint8_t RTI(void);
+static uint8_t RTS(void);
 
 // branch instructions
 
-static void BCC(void);
-static void BCS(void);
-static void BEQ(void);
-static void BMI(void);
-static void BNE(void);
-static void BPL(void);
-static void BVC(void);
-static void BVS(void);
+static uint8_t BCC(void);
+static uint8_t BCS(void);
+static uint8_t BEQ(void);
+static uint8_t BMI(void);
+static uint8_t BNE(void);
+static uint8_t BPL(void);
+static uint8_t BVC(void);
+static uint8_t BVS(void);
 
 // flags instructions
 
-static void CLC(void);
-static void CLD(void);
-static void CLI(void);
-static void CLV(void);
-static void SEC(void);
-static void SED(void);
-static void SEI(void);
+static uint8_t CLC(void);
+static uint8_t CLD(void);
+static uint8_t CLI(void);
+static uint8_t CLV(void);
+static uint8_t SEC(void);
+static uint8_t SED(void);
+static uint8_t SEI(void);
 
 // kil
 
-static void JAM(void){}
+static uint8_t JAM(void){return 0;}
 
 // nop instructions
 
-static void NOP(void){return;}
+static uint8_t NOP(void){return 0;}
 
-static void TMP(void){} // temp function to handle illegal opcode for now
+static uint8_t TMP(void){return 0;} // temp function to handle illegal opcode for now
 
 static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode);
 
@@ -280,9 +287,10 @@ static uint16_t instruction_operand;
 
 
 /**
- * set instruction parameters depending on the provide address mode
+ * Forms the instruction operand depending on the provided address mode.
  * @param address_mode the address mode of the current opcode
  * @param opcode opcode to execute is passed in for logging purposes
+ * @param extra_cycles pointer to store extra cycles for if a is page being crossed, branch being taken, or both
  * @returns the number of bytes the instruction occupies, 
  * can be used to determine how much to increment the program counter by
  * to point to the next instruction.
@@ -306,6 +314,7 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       case IMM:
       {
          num_of_bytes = 2;
+
          instruction_operand = bus_read(cpu.pc + 1);
          nestest_log("%04X  %02X %02X %3s %s #$%02X %23s", cpu.pc, opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
@@ -313,6 +322,7 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       case ABS:
       {
          num_of_bytes = 3;
+
          instruction_operand = bus_read_u16(cpu.pc + 1);
          nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, instruction_operand, "");
          break;
@@ -320,56 +330,76 @@ static uint8_t get_addressing_mode(address_modes_t address_mode, uint8_t opcode)
       case XAB:
       {
          num_of_bytes = 3;
+
          nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, bus_read_u16(cpu.pc + 1), "");
          break;
       }
       case YAB:
       {
          num_of_bytes = 3;
+
          nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, bus_read_u16(cpu.pc + 1), "");
          break;
       }
       case ABI:
       {
          num_of_bytes = 3;
+
          nestest_log("%04X  %02X %02X %-03X %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), bus_read(cpu.pc + 2), decoded_opcode->mnemonic, bus_read_u16(cpu.pc + 1), "");
          break;
       }
       case ZPG:
       {
-         instruction_operand = bus_read(cpu.pc + 1);
          num_of_bytes = 2;
+
+         instruction_operand = bus_read(cpu.pc + 1);
+
          nestest_log("%04X  %02X %02X %3s %s $%02X = %02X %19s", cpu.pc, opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZP:
       {
          num_of_bytes = 2;
+
          nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
          break;
       }
       case YZP:
       {
          num_of_bytes = 2;
+
          nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
          break;
       }
       case XZI:
       {
          num_of_bytes = 2;
+
          nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
          break;
       }
       case YZI:
       {
          num_of_bytes = 2;
+
          nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
          break;
       }
       case REL:
       {
          num_of_bytes = 2;
-         nestest_log("%04X  %02X %02X %3s %s ", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
+
+         instruction_operand = bus_read(cpu.pc + 1);
+         if (instruction_operand & 0x80) // check if byte is a signed negative number
+         {
+            instruction_operand = (cpu.pc + num_of_bytes) - ( ~instruction_operand + 1);
+         }
+         else
+         {
+            instruction_operand = (cpu.pc + num_of_bytes) + instruction_operand;
+         }
+
+         nestest_log("%04X  %02X %02X %3s %s $%04X %22s", cpu.pc, opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
    }
@@ -400,33 +430,44 @@ void instruction_decode(uint8_t opcode)
 uint8_t instruction_execute(uint8_t opcode)
 {
    uint8_t num_of_bytes = get_addressing_mode(decoded_opcode->mode, opcode);
+   cpu.pc += num_of_bytes;  // increment pc to point to next instruction before executing current instruction
 
-   cpu.pc += num_of_bytes;            // increment pc to point to next instruction before executing current instruction
-   decoded_opcode->opcode_function(); // execute the current instruction
+   /**
+    * Number of extra cycles taken depending on if a page is crossed (+1 cycle)
+    * or if a branch is taken (+1 cycle), or if none occur then we have 0 extra cycles.
+   */
+   uint8_t extra_cycles = decoded_opcode->opcode_function(); // execute the current instruction
 
-   return decoded_opcode->cycles;
+   return decoded_opcode->cycles + extra_cycles;
 }
 
 // load instructions
 
-static void LAS(void){}
-static void LAX(void){}
+static uint8_t LAS(void){return 0;}
+static uint8_t LAX(void){return 0;}
 
 /**
  * load accumulator with value from memory
  * sets zero flag if accumulator is set to zero, otherwise zero flag is reset
  * sets negative flag if bit 7  of accumulator is 1, otherwises negative flag is reset
 */
-static void LDA(void){}
-
-/**
- * Load X register with value from memory
- * Set zero bit if loaded value is zero.
- * Set negative bit if loaded value has bit 7 set to 1.
-*/
-static void LDX(void)
+static uint8_t LDA(void)
 {
-   if (instruction_operand == 0)
+   /**
+    * Load operand directly into accumulator when in immediate mode.
+    * Else treat operand as a effective memory address.
+   */ 
+   if (decoded_opcode->mode == IMM)
+   {
+      cpu.ac = instruction_operand;
+   }
+   else
+   {
+      cpu.ac = bus_read(instruction_operand);
+   }
+
+   // set zero flag
+   if (cpu.ac == 0)
    {
       set_bit(cpu.status_flags, 1);
    }
@@ -435,8 +476,51 @@ static void LDX(void)
       clear_bit(cpu.status_flags, 1);
    }
 
-   uint8_t bit_7 = ( instruction_operand & ( 1 << 7 ) ) >> 7;
-   if (bit_7 == 1)
+   // set negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags,7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   return 0;
+}
+
+/**
+ * Load X register with value from memory
+ * Set zero bit if loaded value is zero.
+ * Set negative bit if loaded value has bit 7 set to 1.
+*/
+static uint8_t LDX(void)
+{
+   /**
+    * Load operand directly into X register when in immediate mode.
+    * Else treat operand as a effective memory address.
+   */ 
+   if (decoded_opcode->mode == IMM)
+   {
+      cpu.X = (uint8_t) instruction_operand;
+   }
+   else 
+   {
+      cpu.X = bus_read(instruction_operand);
+   }
+   
+   // set zero flag
+   if (cpu.X == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   // set negative flag
+   if (cpu.X & 0x80)
    {
       set_bit(cpu.status_flags, 7);
    }
@@ -445,98 +529,143 @@ static void LDX(void)
       clear_bit(cpu.status_flags, 7);
    }
 
-   cpu.X = (uint8_t) instruction_operand;
+   return 0;
 }
 
-static void LDY(void){}
-static void SAX(void){}
-static void SHA(void){}
-static void SHX(void){}
-static void SHY(void){}
-static void STA(void){}
-static void STX(void)
+static uint8_t LDY(void){return 0;}
+static uint8_t SAX(void){return 0;}
+static uint8_t SHA(void){return 0;}
+static uint8_t SHX(void){return 0;}
+static uint8_t SHY(void){return 0;}
+
+/**
+ * transfer accumulator value into memory
+*/
+static uint8_t STA(void)
+{
+   bus_write(instruction_operand, cpu.ac);
+
+   return 0;
+}
+
+/**
+ * transfers X register value into memory location
+*/
+static uint8_t STX(void)
 {
    bus_write(instruction_operand, cpu.X);
+   return 0;
 }
 
-static void STY(void){}
+static uint8_t STY(void){return 0;}
 
 // transfer instructions
 
-static void SHS(void){}
-static void TAX(void){}
-static void TAY(void){}
-static void TSX(void){}
-static void TXA(void){}
-static void TXS(void){}
-static void TYA(void){}
+static uint8_t SHS(void){return 0;}
+static uint8_t TAX(void){return 0;}
+static uint8_t TAY(void){return 0;}
+static uint8_t TSX(void){return 0;}
+static uint8_t TXA(void){return 0;}
+static uint8_t TXS(void){return 0;}
+static uint8_t TYA(void){return 0;}
 
 // stack instructions
 
-static void PHA(void){}
-static void PHP(void){}
-static void PLA(void){}
-static void PLP(void){}
+static uint8_t PHA(void){return 0;}
+static uint8_t PHP(void){return 0;}
+static uint8_t PLA(void){return 0;}
+static uint8_t PLP(void){return 0;}
 
 // shift instructions
 
-static void ASL(void){}
-static void LSR(void){}
-static void ROL(void){}
-static void ROR(void){}
+static uint8_t ASL(void){return 0;}
+static uint8_t LSR(void){return 0;}
+static uint8_t ROL(void){return 0;}
+static uint8_t ROR(void){return 0;}
 
 // logic instructions
 
-static void AND(void){}
-static void BIT(void){}
-static void EOR(void){}
-static void ORA(void){}
+static uint8_t AND(void){return 0;}
+
+/**
+ * Performs bitwise AND between value in memory and value of accumulator.
+ * The result is used to set or clear status flags but is not stored.
+ * Bit 7 of the addressed memory is transfered into the negative flag.
+ * Bit 6 of the addressed memory is transfered into the overflow flag.
+ * 
+*/
+static uint8_t BIT(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+
+   // clear bits before transfer
+   clear_bit(cpu.status_flags, 7);
+   clear_bit(cpu.status_flags, 6);
+
+   cpu.status_flags |= value & ( 1 << 7 ); // transfer 7th bit into negative flag
+   cpu.status_flags |= value & ( 1 << 6 ); // transfer 6th bit into overflow flag
+
+   if ( (cpu.ac & value) == 0 )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+static uint8_t EOR(void){return 0;}
+static uint8_t ORA(void){return 0;}
 
 // arithmetic instructions
 
-static void ADC(void){}
-static void ANC(void){}
-static void ARR(void){}
-static void ASR(void){}
-static void CMP(void){}
-static void CPX(void){}
-static void CPY(void){}
-static void DCP(void){}
-static void ISC(void){}
-static void RLA(void){}
-static void RRA(void){}
-static void SBC(void){}
-static void SBX(void){}
-static void SLO(void){}
-static void SRE(void){}
-static void XAA(void){}
+static uint8_t ADC(void){return 0;}
+static uint8_t ANC(void){return 0;}
+static uint8_t ARR(void){return 0;}
+static uint8_t ASR(void){return 0;}
+static uint8_t CMP(void){return 0;}
+static uint8_t CPX(void){return 0;}
+static uint8_t CPY(void){return 0;}
+static uint8_t DCP(void){return 0;}
+static uint8_t ISC(void){return 0;}
+static uint8_t RLA(void){return 0;}
+static uint8_t RRA(void){return 0;}
+static uint8_t SBC(void){return 0;}
+static uint8_t SBX(void){return 0;}
+static uint8_t SLO(void){return 0;}
+static uint8_t SRE(void){return 0;}
+static uint8_t XAA(void){return 0;}
 
 // increment instructions
 
-static void DEC(void){}
-static void DEX(void){}
-static void DEY(void){}
-static void INC(void){}
-static void INX(void){}
-static void INY(void){}
+static uint8_t DEC(void){return 0;}
+static uint8_t DEX(void){return 0;}
+static uint8_t DEY(void){return 0;}
+static uint8_t INC(void){return 0;}
+static uint8_t INX(void){return 0;}
+static uint8_t INY(void){return 0;}
 
 // control
 
-static void BRK(void){}
+static uint8_t BRK(void){return 0;}
 
 /**
  * loads program counter with new jump value
 */
-static void JMP(void)
+static uint8_t JMP(void)
 {
    cpu.pc = instruction_operand;
+   return 0;
 }
 
 /**
  * Jumps to a subroutine.
  * Save return address onto the stack
 */
-static void JSR(void)
+static uint8_t JSR(void)
 {
    uint8_t hi = ( cpu.pc & 0xFF00 ) >> 8;
    bus_write(CPU_STACK_ADDRESS + cpu.sp, hi);
@@ -547,28 +676,101 @@ static void JSR(void)
    cpu.sp-= 1;
 
    cpu.pc = instruction_operand;
+
+   return 0;
 }
 
-static void RTI(void){}
-static void RTS(void){}
+static uint8_t RTI(void){return 0;}
+static uint8_t RTS(void){return 0;}
 
 // branch instructions
 
-static void BCC(void){}
-static void BCS(void){}
-static void BEQ(void){}
-static void BMI(void){}
-static void BNE(void){}
-static void BPL(void){}
-static void BVC(void){}
-static void BVS(void){}
+/**
+ * branch if carry flag is cleared
+*/
+static uint8_t BCC(void)
+{
+   if ( !(cpu.status_flags & 0x01) )
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
+
+/**
+ * branch if carry flag is set
+*/ 
+static uint8_t BCS(void)
+{
+   if (cpu.status_flags & 0x01)
+   {
+      cpu.pc = instruction_operand;
+
+      return 1;
+   }
+
+   return 0;
+}
+
+/**
+ * branch if zero flag is set
+*/
+static uint8_t BEQ(void)
+{
+   if (cpu.status_flags & 0x02)
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
+
+static uint8_t BMI(void){return 0;}
+
+/**
+ * branch if zero flag is not set
+*/
+static uint8_t BNE(void)
+{
+   if ( !(cpu.status_flags & 0x02) )
+   {
+      cpu.pc = instruction_operand;
+      return 1;
+   }
+
+   return 0;
+}
+
+static uint8_t BPL(void){return 0;}
+static uint8_t BVC(void){return 0;}
+static uint8_t BVS(void){return 0;}
 
 // flags instructions
 
-static void CLC(void){}
-static void CLD(void){}
-static void CLI(void){}
-static void CLV(void){}
-static void SEC(void){}
-static void SED(void){}
-static void SEI(void){}
+/**
+ * clear the carry flag
+*/
+static uint8_t CLC(void)
+{
+   clear_bit(cpu.status_flags, 0);
+   return 0;
+}
+
+static uint8_t CLD(void){return 0;}
+static uint8_t CLI(void){return 0;}
+static uint8_t CLV(void){return 0;}
+
+/**
+ * sets the carry flag to 1
+*/
+static uint8_t SEC(void)
+{
+   set_bit(cpu.status_flags, 0);
+   return 0;
+}
+
+static uint8_t SED(void){return 0;}
+static uint8_t SEI(void){return 0;}

@@ -7,8 +7,8 @@
 extern FILE *nestest_log_file; // pointer to nes test output log file
 extern bool nestest_log_flag;  // true: ouput logs into nestest log file, false: do not log anything
 
-// runs nestest_log_write() if nestest_log_flag is true
-// use this macro instead of the function to avoid having to check the flag everytime 
+// writes to a log file if nestest_log_flag is true
+// use this macro instead of the function to avoid having to write if statements to check the flag everytime 
 #define nestest_log(format, ...)                                    \
    do                                                               \
    {                                                                \
