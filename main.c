@@ -50,9 +50,9 @@ int main(int argc, char *argv[])
 
    for(int i = 0; i < 61; ++i)
    {
-      cpu_fetch_decode_execute();
+      cpu_emulate_instruction();
    }
-
+ 
    nestest_log_close();
    
    display_shutdown();

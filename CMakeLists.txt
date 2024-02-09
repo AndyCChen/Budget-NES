@@ -87,7 +87,6 @@ add_executable(nes
    src/cpu.c
    src/log.c
    src/display.c
-   src/instructions_6502.c
 )
 target_include_directories(nes PRIVATE includes/ glad_loader/include/glad)
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
