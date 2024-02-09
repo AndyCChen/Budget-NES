@@ -13,6 +13,9 @@ static void cpu_decode(uint8_t opcode);
 static uint8_t cpu_execute(uint8_t opcode);
 static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle);
 
+static void stack_push(uint8_t value);
+static uint8_t stack_pop(void);
+
 // current decoded opcode to be executed
 static opcode_t* decoded_opcode = NULL;
 
@@ -294,21 +297,21 @@ static opcode_t opcode_lookup_table[256] =
  * Forms the instruction operand depending on the provided address mode.
  * @param address_mode the address mode of the current opcode
  * @param opcode opcode to execute is passed in for logging purposes
- * @param extra_cycles pointer set to 1 if page is crossed to represent 1 extra cycle,
+ * @param extra_cycles set to 1 if page is crossed to represent 1 extra cycle,
  * else is set to zero
 */
 static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle)
 {
    switch (address_mode)
    {
-      case IMP: // implied adressing modes are 1 byte
+      case IMP:
       {
          *extra_cycle = 0;
 
          nestest_log("%02X %6s %s %28s", opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
-      case ACC: // acccumulator addresing modes are 1 byte
+      case ACC:
       { 
          *extra_cycle = 0;
 
@@ -602,7 +605,6 @@ static uint8_t SHY(void){return 0;}
 static uint8_t STA(void)
 {
    bus_write(instruction_operand, cpu.ac);
-
    return 0;
 }
 
@@ -630,8 +632,52 @@ static uint8_t TYA(void){return 0;}
 // stack instructions
 
 static uint8_t PHA(void){return 0;}
-static uint8_t PHP(void){return 0;}
-static uint8_t PLA(void){return 0;}
+
+/**
+ * pushes the status_flags register onto the stack
+*/
+static uint8_t PHP(void)
+{
+   /**
+    * Software instructions PHP and PHP push the status flag with 
+    * bit 4 (break flag) set as 1.
+    * Hardware interupts push the break flag set as 0.
+   */
+   stack_push(cpu.status_flags | 0x10);
+   return 0;
+}
+
+/**
+ * Pop a value from the stack and loads it into the accumulator.
+ * Sets negative flag if bit 7 of accumulator is 1, else reset flag
+ * Sets zero flag if result of PLA
+*/
+static uint8_t PLA(void)
+{
+   // set or clear negative flag
+   if ( cpu.ac & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set or clear zero flag
+   if ( cpu.ac & 0x02 )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   cpu.ac = stack_pop();
+
+   return 0;
+}
 static uint8_t PLP(void){return 0;}
 
 // shift instructions
@@ -643,7 +689,45 @@ static uint8_t ROR(void){return 0;}
 
 // logic instructions
 
-static uint8_t AND(void){return 0;}
+/**
+ * Performs bitwise AND between accumulator and value in memory,
+ * result is store back into the accumulator.
+ * Sets the zero flag if result of accumulator is zero, else reset.
+ * Sets the negative flag if bit 7 of result of accumulator is set, else reset.
+*/
+static uint8_t AND(void)
+{
+   if (decoded_opcode->mode = IMM)
+   {
+      cpu.ac = cpu.ac & instruction_operand;
+   }
+   else
+   {
+      cpu.ac = cpu.ac & bus_read(instruction_operand);
+   }
+
+   // set or clear negative flag
+   if ( cpu.ac & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set or clear zero flag
+   if ( cpu.ac & 0x02 )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
 
 /**
  * Performs bitwise AND between value in memory and value of accumulator.
@@ -725,13 +809,21 @@ static uint8_t JMP(void)
 */
 static uint8_t JSR(void)
 {
+   /**
+    * When the third byte is fetched the program counter is not incremented by the 6502.
+    * This is because the pc is going to be loaded with a new address to jump to a subroutine anyways
+    * so the incrementation is skipped.
+    * So we decrement to program counter to undo the increment from calling cpu_fetch() when setting
+    * the instruction operand.
+    * Yes this is weird.
+   */
+   --cpu.pc;
+
    uint8_t hi = ( cpu.pc & 0xFF00 ) >> 8;
-   bus_write(CPU_STACK_ADDRESS + cpu.sp, hi);
-   cpu.sp -= 1;
+   stack_push(hi);
 
    uint8_t lo = cpu.pc & 0x00FF;
-   bus_write(CPU_STACK_ADDRESS + cpu.sp, lo);
-   cpu.sp-= 1;
+   stack_push(lo);
 
    cpu.pc = instruction_operand;
 
@@ -745,7 +837,12 @@ static uint8_t RTI(void){return 0;}
 */
 static uint8_t RTS(void)
 {
+   uint8_t lo = stack_pop();
    
+   uint8_t hi = stack_pop();
+   
+   cpu.pc = ( hi << 8 ) | lo;
+   ++cpu.pc;
 
    return 0;
 }
@@ -889,8 +986,25 @@ static uint8_t SEC(void)
    return 0;
 }
 
-static uint8_t SED(void){return 0;}
-static uint8_t SEI(void){return 0;}
+/**
+ * Sets the decimal flag to 1.
+ * Causes subsequent ADC and SBC instructions to operate
+ * in decimal arithmetic mode
+*/
+static uint8_t SED(void)
+{
+   set_bit(cpu.status_flags, 3);
+   return 0;
+}
+
+/**
+ * sets the interrupt disable flag to 1
+*/
+static uint8_t SEI(void)
+{
+   set_bit(cpu.status_flags, 2);
+   return 0;
+}
 
 /**
  * Emulate the execution of one 6502 cpu instruction
@@ -918,4 +1032,24 @@ void cpu_reset(void)
    cpu.sp = 0xFD;
    cpu.status_flags = 0x24;
    cpu.pc = 0xC000;
+}
+
+/**
+ * push a value onto the stack and decrement stack pointer
+ * @param value the value to push onto the stack
+ */ 
+static void stack_push(uint8_t value)
+{
+   bus_write(CPU_STACK_ADDRESS + cpu.sp, value);
+   --cpu.sp;
+}
+
+/**
+ * increment stack pointer and pops value from stack
+ * @returns the popped stack value
+*/ 
+static uint8_t stack_pop(void)
+{
+   ++cpu.sp;
+   return bus_read(CPU_STACK_ADDRESS + cpu.sp);
 }
