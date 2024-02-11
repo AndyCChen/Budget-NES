@@ -308,14 +308,14 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
       {
          *extra_cycle = 0;
 
-         nestest_log("%02X %6s %s %28s", opcode, "", decoded_opcode->mnemonic, "");
+         nestest_log("%02X %6s%4s %28s", opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
       case ACC:
       { 
          *extra_cycle = 0;
 
-         nestest_log("%02X %7s %s %28s", opcode, "", decoded_opcode->mnemonic, "");
+         nestest_log("%02X %7s%4s %28s", opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
       case IMM:
@@ -324,7 +324,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = cpu_fetch();
 
-         nestest_log("%02X %02X %3s %s #$%02X %23s", opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, "");
+         nestest_log("%02X %02X %3s%4s #$%02X %23s", opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
       case ABS:
@@ -336,7 +336,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         nestest_log("%02X %02X %2X  %s $%04X %22s", opcode, lo, hi, decoded_opcode->mnemonic, instruction_operand, "");
+         nestest_log("%02X %02X %2X %4s $%04X %22s", opcode, lo, hi, decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
       case XAB:
@@ -354,9 +354,9 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * The carry out bit then needs to be added back into the high byte which results in a
           * extra cycle being taken. 
          */
-         *extra_cycle = ( ( instruction_operand & 0xFF00 ) >> 8 != hi ) ? 1 : 0;
+         *extra_cycle = ( instruction_operand & 0xFF00 != hi << 8 ) ? 1 : 0;
 
-         nestest_log("%02X %02X %02X  %s $%04X, X @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X, X @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YAB:
@@ -374,9 +374,9 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * The carry out bit then needs to be added back into the high byte which results in a
           * extra cycle being taken. 
          */
-         *extra_cycle = ( ( instruction_operand & 0xFF00 ) >> 8 != hi ) ? 1 : 0;
+         *extra_cycle = ( instruction_operand & 0xFF00 != hi << 8 ) ? 1 : 0;
 
-         nestest_log("%02X %02X %02X  %s $%04X, Y @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X, Y @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case ABI:
@@ -390,7 +390,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = bus_read_u16(abs_address);
 
-         nestest_log("%02X %02X %2X  %s ($%04X) = %04X %13s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, "");
+         nestest_log("%02X %02X %2X %4s ($%04X) = %04X %13s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, "");
          break;
       }
       case ZPG:
@@ -399,7 +399,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = cpu_fetch();
 
-         nestest_log("%02X %02X %3s %s $%02X = %02X %19s", opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X = %02X %19s", opcode, instruction_operand, "", decoded_opcode->mnemonic, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZP:
@@ -408,9 +408,9 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          uint8_t zpg_address = cpu_fetch();
 
-         instruction_operand = zpg_address + cpu.X;
+         instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s %s %02X, X @ %02X = %02X %13s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s %02X, X @ %02X = %02X %13s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YZP:
@@ -419,41 +419,71 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          uint8_t zpg_address = cpu_fetch();
 
-         instruction_operand = zpg_address + cpu.Y;
+         instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s %s %02X, Y @ %02X = %02X %13s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s %02X, Y @ %02X = %02X %13s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZI:
       {
          *extra_cycle = 0;
-         ++cpu.pc;
+         
+         uint8_t zpg_base_address  = cpu_fetch();
+         uint8_t zpg_address = ( zpg_base_address + cpu.X ) & 0x00FF; // add X index offsest to base address to form zpg address 
 
-         nestest_log("%02X %02X %3s %s ", opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
+         instruction_operand = bus_read_u16(zpg_address);
+
+         nestest_log("%02X %02X %3s%4s ($%02X),X @ %02X = %04X = %02X %3s", opcode, zpg_base_address, "", decoded_opcode->mnemonic, zpg_base_address, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YZI:
       {
-         *extra_cycle = 0;
-         ++cpu.pc;
+         uint8_t zpg_address = cpu_fetch();
+         uint16_t base_address = bus_read_u16(zpg_address);
 
-         nestest_log("%02X %02X %3s %s ", opcode, bus_read(cpu.pc + 1), "", decoded_opcode->mnemonic);
+         instruction_operand = base_address + cpu.Y;
+
+         /**
+          * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
+          * This happens because the offset is added to the low byte first which can result in a carry out.
+          * The carry out bit then needs to be added back into the high byte which results in a
+          * extra cycle being taken. 
+         */
+         *extra_cycle = ( instruction_operand & 0xFF00 != base_address & 0xFF00 ) ? 1 : 0;
+
+         nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X = %02X  ", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, base_address, instruction_operand, bus_read(instruction_operand));
          break;
       }
-      case REL:
+      case REL: // todo need page cross
       {
          uint8_t offset_byte = cpu_fetch();
          
-         if (offset_byte & 0x80) // check if offset byte is a signed negative number
+         /**
+          * Offset_byte is in 2's complement so we check bit 7 to see if it is negative.
+         */
+         if (offset_byte & 0x80)
          {
-            instruction_operand = (cpu.pc) - ( ~offset_byte + 1);
+            /**
+             * Since the signed offset_byte is 8 bits and we are adding into a 16 bit value,
+             * we need to treat the offset as a 16 bit value. The offset byte is negative value
+             * in 2's complement, so the added extra 8 bits are all set to 1, hence the 0xFF00 bitmask.
+            */
+            instruction_operand = (cpu.pc) + ( offset_byte | 0xFF00 );
          }
          else
          {
             instruction_operand = (cpu.pc) + offset_byte;
          }
 
-         nestest_log("%02X %02X %3s %s $%04X %22s", opcode, offset_byte, "", decoded_opcode->mnemonic, instruction_operand, "");
+         /**
+          * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
+          * This happens because the offset is added to the low byte first which can result in a carry out.
+          * The carry out bit then needs to be added back into the high byte which results in a
+          * extra cycle being taken.
+         */
+         *extra_cycle = ( instruction_operand & 0xFF00 != cpu.pc & 0xFF00 ) ? 1 : 0;
+
+         nestest_log("%02X %02X %3s%4s $%04X %22s", opcode, offset_byte, "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
       }
    }
@@ -563,7 +593,7 @@ static uint8_t LDX(void)
    */ 
    if (decoded_opcode->mode == IMM)
    {
-      cpu.X = (uint8_t) instruction_operand;
+      cpu.X = instruction_operand;
    }
    else 
    {
@@ -593,7 +623,46 @@ static uint8_t LDX(void)
    return 0;
 }
 
-static uint8_t LDY(void){return 0;}
+/**
+ * Load value from memory into Y register.
+ * Set negative flag if bit 7 of loaded value is 1, else reset.
+ * Set zero flag if loaded value is 0, else reset.
+*/
+static uint8_t LDY(void)
+{
+   // use operand directly when in immediate mode
+   if ( decoded_opcode->mode == IMM )
+   {
+      cpu.Y = instruction_operand;
+   }
+   else // else use operand as effective memory address
+   {
+      cpu.Y = bus_read(instruction_operand);
+   }
+
+   // set/reset negative flag
+   if ( cpu.Y & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if ( cpu.Y == 0 )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
 static uint8_t SAX(void){return 0;}
 static uint8_t SHA(void){return 0;}
 static uint8_t SHX(void){return 0;}
@@ -634,15 +703,13 @@ static uint8_t TYA(void){return 0;}
 static uint8_t PHA(void){return 0;}
 
 /**
- * pushes the status_flags register onto the stack
+ * pushes the status_flags register onto the stack.
+ * Software instructions PHP and PHP push the status flag with 
+ * bit 4 (break flag) set as 1.
+ * Hardware interupts push the break flag set as 0.
 */
 static uint8_t PHP(void)
 {
-   /**
-    * Software instructions PHP and PHP push the status flag with 
-    * bit 4 (break flag) set as 1.
-    * Hardware interupts push the break flag set as 0.
-   */
    stack_push(cpu.status_flags | 0x10);
    return 0;
 }
@@ -650,10 +717,12 @@ static uint8_t PHP(void)
 /**
  * Pop a value from the stack and loads it into the accumulator.
  * Sets negative flag if bit 7 of accumulator is 1, else reset flag
- * Sets zero flag if result of PLA
+ * Sets zero flag if if accumulator is 0, else reset
 */
 static uint8_t PLA(void)
 {
+   cpu.ac = stack_pop();
+
    // set or clear negative flag
    if ( cpu.ac & 0x80 )
    {
@@ -665,7 +734,7 @@ static uint8_t PLA(void)
    }
 
    // set or clear zero flag
-   if ( cpu.ac & 0x02 )
+   if ( cpu.ac == 0 )
    {
       set_bit(cpu.status_flags, 1);
    }
@@ -673,8 +742,6 @@ static uint8_t PLA(void)
    {
       clear_bit(cpu.status_flags, 1);
    }
-
-   cpu.ac = stack_pop();
 
    return 0;
 }
@@ -697,10 +764,12 @@ static uint8_t ROR(void){return 0;}
 */
 static uint8_t AND(void)
 {
+   // use operand directly in immediate mode
    if (decoded_opcode->mode = IMM)
    {
       cpu.ac = cpu.ac & instruction_operand;
    }
+   // else treat operand as a effective memory address
    else
    {
       cpu.ac = cpu.ac & bus_read(instruction_operand);
@@ -717,7 +786,7 @@ static uint8_t AND(void)
    }
 
    // set or clear zero flag
-   if ( cpu.ac & 0x02 )
+   if ( cpu.ac == 0 )
    {
       set_bit(cpu.status_flags, 1);
    }
@@ -768,7 +837,62 @@ static uint8_t ADC(void){return 0;}
 static uint8_t ANC(void){return 0;}
 static uint8_t ARR(void){return 0;}
 static uint8_t ASR(void){return 0;}
-static uint8_t CMP(void){return 0;}
+
+/**
+ * Subtracts value in memory from value in accumulator, the result is not stored.
+ * Zero flag is set if value in memory is equal to value in accumulator, else reset.
+ * Negative flag is set if bit 7 in the final result of the subtraction is a 1, else reset.
+ * Carry flag set if value in memory is less than or equal to value in accumulator, else reset when greater.
+*/
+static uint8_t CMP(void)
+{
+   uint8_t result, value;
+
+   // use operand directly when in immediate mode
+   if ( decoded_opcode->mode == IMM )
+   {
+      value = instruction_operand;
+   }
+   else // use operand as effective memory address
+   {
+      value = bus_read(instruction_operand);
+   }
+
+   result = cpu.ac - value;
+
+   // set/reset zero flag
+   if ( value == cpu.ac)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   // set/reset negative flag
+   if ( result & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset carry flag
+   if ( value <= cpu.ac )
+   {
+      set_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+
+   return 0;
+}
+
 static uint8_t CPX(void){return 0;}
 static uint8_t CPY(void){return 0;}
 static uint8_t DCP(void){return 0;}
@@ -810,7 +934,7 @@ static uint8_t JMP(void)
 static uint8_t JSR(void)
 {
    /**
-    * When the third byte is fetched the program counter is not incremented by the 6502.
+    * When the third byte is fetched the program counter is not incremented by the 6502 cpu.
     * This is because the pc is going to be loaded with a new address to jump to a subroutine anyways
     * so the incrementation is skipped.
     * So we decrement to program counter to undo the increment from calling cpu_fetch() when setting
@@ -973,7 +1097,14 @@ static uint8_t CLC(void)
    return 0;
 }
 
-static uint8_t CLD(void){return 0;}
+/**
+ * clears the decimal mode flag
+*/
+static uint8_t CLD(void)
+{
+   clear_bit(cpu.status_flags, 3);
+   return 0;
+}
 static uint8_t CLI(void){return 0;}
 static uint8_t CLV(void){return 0;}
 
