@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// address of the interrupt vector
+#define INTERRUPT_VECTOR 0xFFF0
+
 typedef enum address_modes
 {
    IMP, // implied

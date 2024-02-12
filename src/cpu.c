@@ -35,22 +35,22 @@ static uint16_t instruction_operand;
 
 // load instructions
 
-static uint8_t LAS(void);
-static uint8_t LAX(void);
+static uint8_t LAS(void); // todo
+static uint8_t LAX(void); // todo
 static uint8_t LDA(void);
 static uint8_t LDX(void);
 static uint8_t LDY(void);
-static uint8_t SAX(void);
-static uint8_t SHA(void);
-static uint8_t SHX(void);
-static uint8_t SHY(void);
+static uint8_t SAX(void); // todo
+static uint8_t SHA(void); // todo
+static uint8_t SHX(void); // todo
+static uint8_t SHY(void); // todo
 static uint8_t STA(void);
 static uint8_t STX(void);
 static uint8_t STY(void);
 
 // transfer instructions
 
-static uint8_t SHS(void);
+static uint8_t SHS(void); // todo
 static uint8_t TAX(void);
 static uint8_t TAY(void);
 static uint8_t TSX(void);
@@ -145,7 +145,10 @@ static uint8_t JAM(void){return 0;}
 static uint8_t NOP(void){return 0;}
 
 // temp function to handle illegal opcodes for now
-static uint8_t TMP(void){return 0;} 
+static uint8_t TMP(void)
+{
+   return 0;
+} 
 
 // addressing modes
 // https://www.pagetable.com/c64ref/6502/
@@ -315,7 +318,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
       { 
          *extra_cycle = 0;
 
-         nestest_log("%02X %7s%4s %28s", opcode, "", decoded_opcode->mnemonic, "");
+         nestest_log("%02X %6s%4s A %26s", opcode, "", decoded_opcode->mnemonic, "");
          break;
       }
       case IMM:
@@ -686,25 +689,201 @@ static uint8_t STX(void)
    return 0;
 }
 
-static uint8_t STY(void){return 0;}
+/**
+ * transfers Y register value into memory location
+*/
+static uint8_t STY(void)
+{
+   bus_write(instruction_operand, cpu.Y);
+   return 0;
+}
 
 // transfer instructions
 
 static uint8_t SHS(void){return 0;}
-static uint8_t TAX(void){return 0;}
-static uint8_t TAY(void){return 0;}
-static uint8_t TSX(void){return 0;}
-static uint8_t TXA(void){return 0;}
-static uint8_t TXS(void){return 0;}
-static uint8_t TYA(void){return 0;}
+
+/**
+ * Transfer accumulator to X register.
+ * Negative flag is set if bit 7 in loaded value in X register is 1, else reset.
+ * Zero flag is set if loaded value in X register is zero, else reset.
+*/
+static uint8_t TAX(void)
+{
+   cpu.X = cpu.ac;
+
+   // set/reset negative flag
+   if (cpu.X & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.X == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Transfer accumulator to Y register.
+ * Negative flag is set if bit 7 in loaded value in Y register is 1, else reset.
+ * Zero flag is set if loaded value in Y register is zero, else reset.
+*/
+static uint8_t TAY(void)
+{
+   cpu.Y = cpu.ac;
+
+   // set/reset negative flag
+   if (cpu.Y & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.Y == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Transfer stack pointer to X register.
+ * Negative flag is set if bit 7 in loaded value in X register is 1, else reset.
+ * Zero flag is set if loaded value in X register is zero, else reset.
+*/
+static uint8_t TSX(void)
+{
+   cpu.X = cpu.sp;
+
+   // set/reset negative flag
+   if (cpu.X & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.X == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+   return 0;
+}
+
+/**
+ * Transfer X register to accumulator.
+ * Negative flag is set if bit 7 in loaded value in accumulator is 1, else reset.
+ * Zero flag is set if loaded value in accumulator is zero, else reset.
+*/
+static uint8_t TXA(void)
+{
+   cpu.ac = cpu.X;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Transfer X register to stack pointer.
+*/
+static uint8_t TXS(void)
+{
+   cpu.sp = cpu.X;
+   return 0;
+}
+
+/**
+ * Transfer Y register to accumulator.
+ * Negative flag is set if bit 7 in loaded value in accumulator is 1, else reset.
+ * Zero flag is set if loaded value in accumulator is zero, else reset.
+*/
+static uint8_t TYA(void)
+{
+   cpu.ac = cpu.Y;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
 
 // stack instructions
 
-static uint8_t PHA(void){return 0;}
+/**
+ * Push accumulator onto the stack.
+*/
+static uint8_t PHA(void)
+{
+   stack_push(cpu.ac);
+   return 0;
+}
 
 /**
- * pushes the status_flags register onto the stack.
- * Software instructions PHP and PHP push the status flag with 
+ * Pushes the status_flags register onto the stack.
+ * Software instructions PHP and BRK push the status flag with 
  * bit 4 (break flag) set as 1.
  * Hardware interupts push the break flag set as 0.
 */
@@ -745,14 +924,229 @@ static uint8_t PLA(void)
 
    return 0;
 }
-static uint8_t PLP(void){return 0;}
+
+/**
+ * Pop status flag register from stack.
+ * Break flag is reset as this flag only exists
+ * when the status register is pushed onto the stack.
+ * Whet the status register is poped, the break flag is
+ * "discarded" by being reset to 0.
+ * The 5th unused bit is alway set to 1.
+*/
+static uint8_t PLP(void)
+{
+   cpu.status_flags = stack_pop();
+   clear_bit(cpu.status_flags, 4);
+   set_bit(cpu.status_flags, 5);
+
+   return 0;
+}
 
 // shift instructions
 
-static uint8_t ASL(void){return 0;}
-static uint8_t LSR(void){return 0;}
-static uint8_t ROL(void){return 0;}
-static uint8_t ROR(void){return 0;}
+/**
+ * Shift either the accumulator or value in memory 1 bit to the left.
+ * Bit 0 is always set to 0, while bit 7 prior to the shift is stored
+ * in the carry flag.
+ * Set negative flag if bit 7 after the shift is set, else reset.
+ * Set zero flag if the result after shifting is 0, else reset.
+*/
+static uint8_t ASL(void)
+{
+   uint8_t shifted_value;
+
+   if (decoded_opcode->mode == ACC)
+   {
+      cpu.status_flags |= cpu.ac >> 7; // move bit 7 into carry flag
+      shifted_value = cpu.ac << 1;
+
+      cpu.ac = shifted_value;
+   }
+   else
+   {
+      uint8_t value_to_shift = bus_read(instruction_operand);
+
+      cpu.status_flags |= value_to_shift >> 7; // move bit 7 into carry flag
+      shifted_value = value_to_shift << 1;
+
+      bus_write(instruction_operand, shifted_value);
+   }
+
+   // set/reset negative flag
+   if (shifted_value & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (shifted_value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Shift either the accumulator or value in memory 1 bit to the right.
+ * Bit 7 is always zero, while bit 0 is stored in the carry flag.
+ * Negative flag is alway reset to 0.
+ * Set zero flag if result of the shit is 0, else reset.
+*/
+static uint8_t LSR(void)
+{
+   uint8_t shifted_value;
+
+   if (decoded_opcode->mode == ACC)
+   {
+      cpu.status_flags |= cpu.ac & 0x01; // store bit 0 in carry flag
+      shifted_value = cpu.ac >> 1;
+
+      cpu.ac = shifted_value;
+   }
+   else
+   {
+      uint8_t value_to_shift = bus_read(instruction_operand);
+
+      cpu.status_flags |= value_to_shift & 0x01; // store bit 0 in carry flag
+      shifted_value = value_to_shift >> 1;
+
+      bus_write(instruction_operand, shifted_value);
+   }
+
+   // reset negative flag
+   clear_bit(cpu.status_flags, 7);
+
+   // set/reset zero flag
+   if (shifted_value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Rotate either the accumulator or value in memory left 1 bit.
+ * The left most bit that is shifted out is stored in the carry flag
+ * and in bit 0.
+ * Set negative flag to bit 7 of the shifted result.
+ * Set zero flag is shifted value is zero, else reset.
+*/
+static uint8_t ROL(void)
+{
+   uint8_t shifted_value, carry_bit;
+
+   if (decoded_opcode->mode == ACC)
+   {
+      carry_bit = cpu.ac & 0x80;   // store left most bit prior to shift
+      shifted_value = cpu.ac << 1; // left shift 1 bit
+      shifted_value |= carry_bit;  // store carry_bit into bit 0 of shifted value
+
+      cpu.ac = shifted_value;
+   }
+   else
+   {
+      uint8_t value_to_shift = bus_read(instruction_operand);
+
+      carry_bit = value_to_shift & 0x80;   // store left most bit prior to shift
+      shifted_value = value_to_shift << 1; // left shift 1 bit
+      shifted_value |= carry_bit;          // store carry_bit into bit 0 of shifted value
+
+      bus_write(instruction_operand, shifted_value);
+   }
+
+   cpu.status_flags |= carry_bit; // store carry bit into carry flag
+
+   // set/reset negative flag
+   if (shifted_value & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (shifted_value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Rotate either the accumulator or value in memory right 1 bit.
+ * The right most bit that is shifted out is stored in the carry flag
+ * and in bit 7.
+ * Set negative flag to bit 7 of the shifted result.
+ * Set zero flag is shifted value is zero, else reset.
+*/
+static uint8_t ROR(void)
+{
+   uint8_t shifted_value, carry_bit;
+
+   if (decoded_opcode->mode == ACC)
+   {
+      carry_bit = cpu.ac & 0x01;   // store right most bit prior to shift
+      shifted_value = cpu.ac >> 1; // right shift 1 bit
+      shifted_value |= carry_bit << 7;  // store carry_bit into bit 7 of shifted value
+
+      cpu.ac = shifted_value;
+   }
+   else
+   {
+      uint8_t value_to_shift = bus_read(instruction_operand);
+
+      carry_bit = value_to_shift & 0x01;   // store right most bit prior to shift
+      shifted_value = value_to_shift >> 1; // right shift 1 bit
+      shifted_value |= carry_bit << 7;          // store carry_bit into bit 7 of shifted value
+
+      bus_write(instruction_operand, shifted_value);
+   }
+
+   cpu.status_flags |= carry_bit; // store carry bit into carry flag
+
+   // set/reset negative flag
+   if (shifted_value & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (shifted_value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
 
 // logic instructions
 
@@ -828,8 +1222,93 @@ static uint8_t BIT(void)
    return 0;
 }
 
-static uint8_t EOR(void){return 0;}
-static uint8_t ORA(void){return 0;}
+/**
+ * Perform bitwise XOR with accumulator and value in memory,
+ * store the result back into the accumulator.
+ * Set negative flag if bit 7 is set in result, else reset.
+ * Set zero flag if result value is zero, else reset.
+*/
+static uint8_t EOR(void)
+{
+   uint8_t operand;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      operand = instruction_operand;
+   }
+   else
+   {
+      operand = bus_read(instruction_operand);
+   }
+
+   cpu.ac = cpu.ac ^ operand;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Perform bitwise OR with accumulator and value in memory storing
+ * the result in the accumulator.
+ * Set negative flag if bit 7 in result is set, else reset.
+ * Set zero flag if result is zero, else reset.
+*/
+static uint8_t ORA(void)
+{
+   uint8_t value;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      value = instruction_operand;
+   }
+   else
+   {
+      value =  bus_read(instruction_operand);
+   }
+
+   cpu.ac = cpu.ac | value;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
 
 // arithmetic instructions
 
@@ -916,7 +1395,30 @@ static uint8_t INY(void){return 0;}
 
 // control
 
-static uint8_t BRK(void){return 0;}
+/**
+ * Program counter of the second byte and the status flags are pushed
+ * onto the stack with the bit 4 (break flag) set as 1.
+ * The cpu then transfers control to the interrupt vecter at
+ * address 0xFFFE.
+*/
+static uint8_t BRK(void)
+{
+   /**
+    * next byte is fetch and pc increment with the result discarded, 
+    * but we can just increment pc directly without calling cpu_fetch()
+   */
+   ++cpu.pc;
+
+   stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
+   stack_push( cpu.pc & 0x00FF );
+
+   set_bit(cpu.status_flags, 4); // break flag pushed as 1
+   stack_push(cpu.status_flags);
+
+   cpu.pc = bus_read_u16(INTERRUPT_VECTOR);
+
+   return 0;
+}
 
 /**
  * loads program counter with new jump value
@@ -954,7 +1456,24 @@ static uint8_t JSR(void)
    return 0;
 }
 
-static uint8_t RTI(void){return 0;}
+/**
+ * Returns from a interrupt.
+ * Pops the status flag register and the program counter from the stack
+ * and loads them back into respective cpu registers.
+*/
+static uint8_t RTI(void)
+{
+   cpu.status_flags = stack_pop();
+   uint8_t lo = stack_pop();
+   uint8_t hi = stack_pop();
+
+   set_bit(cpu.status_flags, 5);   // unused bit 5 is always set
+   clear_bit(cpu.status_flags, 4); // break flag is always reset when popped from stack
+
+   cpu.pc = ( hi << 8) | lo;
+
+   return 0;
+}
 
 /**
  * return from subroutine
@@ -1059,7 +1578,7 @@ static uint8_t BPL(void)
 }
 
 /**
- * brannch if overflow flag is cleared
+ * branch if overflow flag is cleared
 */
 static uint8_t BVC(void)
 {
@@ -1105,8 +1624,24 @@ static uint8_t CLD(void)
    clear_bit(cpu.status_flags, 3);
    return 0;
 }
-static uint8_t CLI(void){return 0;}
-static uint8_t CLV(void){return 0;}
+
+/**
+ * Clears the interupt flag.
+*/
+static uint8_t CLI(void)
+{
+   clear_bit(cpu.status_flags, 2);
+   return 0;
+}
+
+/**
+ * Clears the overflow flag.
+*/
+static uint8_t CLV(void)
+{
+   clear_bit(cpu.status_flags, 6);
+   return 0;
+}
 
 /**
  * sets the carry flag to 1
