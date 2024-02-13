@@ -30,27 +30,29 @@ static uint16_t instruction_operand;
 
 /**
  * most instruction functions will return 0 but branch instructions 
- * for example return 1 to represent 1 extra cycle when a branch is taken
+ * for example return 1 to represent 1 extra cycle when a branch is taken.
+ * Function signature commented with * are undocumented opcodes, most games
+ * do not make use of these instructions.
 */
 
 // load instructions
 
-static uint8_t LAS(void); // todo
-static uint8_t LAX(void); // todo
+static uint8_t LAS(void); // *
+static uint8_t LAX(void); // *
 static uint8_t LDA(void);
 static uint8_t LDX(void);
 static uint8_t LDY(void);
-static uint8_t SAX(void); // todo
-static uint8_t SHA(void); // todo
-static uint8_t SHX(void); // todo
-static uint8_t SHY(void); // todo
+static uint8_t SAX(void); // *
+static uint8_t SHA(void); // *
+static uint8_t SHX(void); // *
+static uint8_t SHY(void); // *
 static uint8_t STA(void);
 static uint8_t STX(void);
 static uint8_t STY(void);
 
 // transfer instructions
 
-static uint8_t SHS(void); // todo
+static uint8_t SHS(void); // *
 static uint8_t TAX(void);
 static uint8_t TAY(void);
 static uint8_t TSX(void);
@@ -357,7 +359,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * The carry out bit then needs to be added back into the high byte which results in a
           * extra cycle being taken. 
          */
-         *extra_cycle = ( instruction_operand & 0xFF00 != hi << 8 ) ? 1 : 0;
+         *extra_cycle = ( (instruction_operand & 0xFF00) != hi << 8 ) ? 1 : 0;
 
          nestest_log("%02X %02X %02X %4s $%04X, X @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
@@ -377,7 +379,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * The carry out bit then needs to be added back into the high byte which results in a
           * extra cycle being taken. 
          */
-         *extra_cycle = ( instruction_operand & 0xFF00 != hi << 8 ) ? 1 : 0;
+         *extra_cycle = ( (instruction_operand & 0xFF00) != hi << 8 ) ? 1 : 0;
 
          nestest_log("%02X %02X %02X %4s $%04X, Y @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
@@ -413,7 +415,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s %02X, X @ %02X = %02X %13s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s %02X, X @ %02X = %02X %12s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YZP:
@@ -424,7 +426,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s %02X, Y @ %02X = %02X %13s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s %02X, Y @ %02X = %02X %12s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZI:
@@ -452,7 +454,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * The carry out bit then needs to be added back into the high byte which results in a
           * extra cycle being taken. 
          */
-         *extra_cycle = ( instruction_operand & 0xFF00 != base_address & 0xFF00 ) ? 1 : 0;
+         *extra_cycle = ( (instruction_operand & 0xFF00) != (base_address & 0xFF00) ) ? 1 : 0;
 
          nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X = %02X  ", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, base_address, instruction_operand, bus_read(instruction_operand));
          break;
@@ -484,7 +486,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * The carry out bit then needs to be added back into the high byte which results in a
           * extra cycle being taken.
          */
-         *extra_cycle = ( instruction_operand & 0xFF00 != cpu.pc & 0xFF00 ) ? 1 : 0;
+         *extra_cycle = ( (instruction_operand & 0xFF00) != (cpu.pc & 0xFF00) ) ? 1 : 0;
 
          nestest_log("%02X %02X %3s%4s $%04X %22s", opcode, offset_byte, "", decoded_opcode->mnemonic, instruction_operand, "");
          break;
@@ -946,7 +948,7 @@ static uint8_t PLP(void)
 
 /**
  * Shift either the accumulator or value in memory 1 bit to the left.
- * Bit 0 is always set to 0, while bit 7 prior to the shift is stored
+ * Bit 0 after shifting is always set to 0, while bit 7 prior to the shift is stored
  * in the carry flag.
  * Set negative flag if bit 7 after the shift is set, else reset.
  * Set zero flag if the result after shifting is 0, else reset.
@@ -997,7 +999,8 @@ static uint8_t ASL(void)
 
 /**
  * Shift either the accumulator or value in memory 1 bit to the right.
- * Bit 7 is always zero, while bit 0 is stored in the carry flag.
+ * Bit 7 that is shifted in is always zero, while bit 0 which is shifted out 
+ * is stored in the carry flag.
  * Negative flag is alway reset to 0.
  * Set zero flag if result of the shit is 0, else reset.
 */
@@ -1106,8 +1109,8 @@ static uint8_t ROR(void)
 
    if (decoded_opcode->mode == ACC)
    {
-      carry_bit = cpu.ac & 0x01;   // store right most bit prior to shift
-      shifted_value = cpu.ac >> 1; // right shift 1 bit
+      carry_bit = cpu.ac & 0x01;        // store right most bit prior to shift
+      shifted_value = cpu.ac >> 1;      // right shift 1 bit
       shifted_value |= carry_bit << 7;  // store carry_bit into bit 7 of shifted value
 
       cpu.ac = shifted_value;
@@ -1118,7 +1121,7 @@ static uint8_t ROR(void)
 
       carry_bit = value_to_shift & 0x01;   // store right most bit prior to shift
       shifted_value = value_to_shift >> 1; // right shift 1 bit
-      shifted_value |= carry_bit << 7;          // store carry_bit into bit 7 of shifted value
+      shifted_value |= carry_bit << 7;     // store carry_bit into bit 7 of shifted value
 
       bus_write(instruction_operand, shifted_value);
    }
@@ -1159,7 +1162,7 @@ static uint8_t ROR(void)
 static uint8_t AND(void)
 {
    // use operand directly in immediate mode
-   if (decoded_opcode->mode = IMM)
+   if (decoded_opcode->mode == IMM)
    {
       cpu.ac = cpu.ac & instruction_operand;
    }
@@ -1372,7 +1375,61 @@ static uint8_t CMP(void)
    return 0;
 }
 
-static uint8_t CPX(void){return 0;}
+/**
+ * Subtract value in memory from the X register,
+ * but does not store the result.
+ * Set carry flag when absolute value of X is >= than value in memory.
+ * Set negative flag if result has bit 7 set, else reset.
+ * Set zero flag if value in memory is equal to X, else reset.
+*/
+static uint8_t CPX(void)
+{
+   uint8_t value, result;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      value = instruction_operand;
+   }
+   else
+   {
+      value = bus_read(instruction_operand);
+   }
+
+   result = cpu.X - value;
+
+   // set/reset carry flag
+   if ( cpu.X >= value )
+   {
+      set_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+
+   // set/reset negative flag
+   if ( result & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if ( cpu.X == result )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
 static uint8_t CPY(void){return 0;}
 static uint8_t DCP(void){return 0;}
 static uint8_t ISC(void){return 0;}
@@ -1386,12 +1443,200 @@ static uint8_t XAA(void){return 0;}
 
 // increment instructions
 
-static uint8_t DEC(void){return 0;}
-static uint8_t DEX(void){return 0;}
-static uint8_t DEY(void){return 0;}
-static uint8_t INC(void){return 0;}
-static uint8_t INX(void){return 0;}
-static uint8_t INY(void){return 0;}
+/**
+ * Subtract 1 from value in memory in 2's complement
+ * and store result back into memory.
+ * Set negative flag if bit 7 of result is on, else reset.
+ * Set zero flag if result is zero, else reset.
+*/
+static uint8_t DEC(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+   bus_write(instruction_operand, --value);
+
+   // set/reset negative flag
+   if (value & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Decrement value in X register by 1 and store result in X.
+ * Set negative flag if bit 7 of result is on, else reset.
+ * Set zero flag if result is zero, else reset.
+*/
+static uint8_t DEX(void)
+{
+   --cpu.X;
+
+   // set/reset negative flag
+   if (cpu.X & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.X == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Decrement value in Y register by 1 and store result in Y.
+ * Set negative flag if bit 7 of result is on, else reset.
+ * Set zero flag if result is zero, else reset.
+*/
+static uint8_t DEY(void)
+{
+   --cpu.Y;
+
+   // set/reset negative flag
+   if (cpu.Y & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.Y == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Increment value in memory by one and store result back into memory.
+ * Set negative flag if bit 7 of result is on, else reset.
+ * Set zero flag if result is zero, else reset. 
+*/
+static uint8_t INC(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+   bus_write(instruction_operand, ++value);
+
+   // set/reset negative flag
+   if (value & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Increment value in X register by 1 and store result in X.
+ * Set negative flag if bit 7 of result is on, else reset.
+ * Set zero flag if result is zero, else reset.
+*/
+static uint8_t INX(void)
+{
+   ++cpu.X;
+
+   // set/reset negative flag
+   if (cpu.X & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.X == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Increment value in Y register by 1 and store result in Y.
+ * Set negative flag if bit 7 of result is on, else reset.
+ * Set zero flag if result is zero, else reset.
+*/
+static uint8_t INY(void)
+{
+   ++cpu.Y;
+
+   // set/reset negative flag
+   if (cpu.Y & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.Y == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
 
 // control
 
