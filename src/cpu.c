@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 
 #include "../includes/cpu.h"
 #include "../includes/cpu_ram.h"
@@ -84,21 +86,21 @@ static uint8_t ORA(void);
 // arithmetic instructions
 
 static uint8_t ADC(void);
-static uint8_t ANC(void);
-static uint8_t ARR(void);
-static uint8_t ASR(void);
+static uint8_t ANC(void); // *
+static uint8_t ARR(void); // * 
+static uint8_t ASR(void); // *
 static uint8_t CMP(void);
 static uint8_t CPX(void);
 static uint8_t CPY(void);
-static uint8_t DCP(void);
-static uint8_t ISC(void);
-static uint8_t RLA(void);
-static uint8_t RRA(void);
+static uint8_t DCP(void); // *
+static uint8_t ISC(void); // *
+static uint8_t RLA(void); // *
+static uint8_t RRA(void); // *
 static uint8_t SBC(void);
-static uint8_t SBX(void);
-static uint8_t SLO(void);
-static uint8_t SRE(void);
-static uint8_t XAA(void);
+static uint8_t SBX(void); // *
+static uint8_t SLO(void); // *
+static uint8_t SRE(void); // *
+static uint8_t XAA(void); // *
 
 // increment instructions
 
@@ -341,7 +343,16 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         nestest_log("%02X %02X %2X %4s $%04X %22s", opcode, lo, hi, decoded_opcode->mnemonic, instruction_operand, "");
+         if (strcmp("JMP", decoded_opcode->mnemonic) == 0 || strcmp("JSR", decoded_opcode->mnemonic) == 0)
+         {
+            nestest_log("%02X %02X %02X %4s $%04X %22s", opcode, lo, hi, decoded_opcode->mnemonic, instruction_operand, "");
+            
+         }
+         else
+         {
+            nestest_log("%02X %02X %02X %4s $%04X = %02X %17s", opcode, lo, hi, decoded_opcode->mnemonic, instruction_operand, bus_read(instruction_operand), "");
+         }
+         
          break;
       }
       case XAB:
@@ -393,9 +404,14 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          uint16_t abs_address = ( hi << 8 ) | lo;
 
-         instruction_operand = bus_read_u16(abs_address);
+         // does not handle page crossing, i.e fetching at 0x02FF will read from 0x02FF and 0x0200
 
-         nestest_log("%02X %02X %2X %4s ($%04X) = %04X %13s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, "");
+         uint8_t indirect_address_lo = bus_read(abs_address);
+         uint8_t indirect_address_hi = bus_read( ( hi << 8 ) | ( ( lo + 1 ) & 0xFF ) );
+
+         instruction_operand = ( indirect_address_hi << 8 ) | indirect_address_lo;
+
+         nestest_log("%02X %02X %02X %4s ($%04X) = %04X %13s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, "");
          break;
       }
       case ZPG:
@@ -436,15 +452,22 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
          uint8_t zpg_base_address  = cpu_fetch();
          uint8_t zpg_address = ( zpg_base_address + cpu.X ) & 0x00FF; // add X index offsest to base address to form zpg address 
 
-         instruction_operand = bus_read_u16(zpg_address);
+         uint8_t lo = bus_read(zpg_address);
+         uint8_t hi = bus_read( ( zpg_address + 1 ) & 0x00FF );       // use bitmask to stay within the zero page
 
-         nestest_log("%02X %02X %3s%4s ($%02X),X @ %02X = %04X = %02X %3s", opcode, zpg_base_address, "", decoded_opcode->mnemonic, zpg_base_address, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         instruction_operand = ( hi << 8 ) | lo;
+
+         nestest_log("%02X %02X %3s%4s ($%02X,X) @ %02X = %04X = %02X %3s", opcode, zpg_base_address, "", decoded_opcode->mnemonic, zpg_base_address, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YZI:
       {
          uint8_t zpg_address = cpu_fetch();
-         uint16_t base_address = bus_read_u16(zpg_address);
+
+         uint8_t lo = bus_read(zpg_address);
+         uint8_t hi = bus_read( ( zpg_address + 1 ) & 0x00FF ); // use bitmask to stay within the zero page
+
+         uint16_t base_address = ( hi << 8 ) | lo;
 
          instruction_operand = base_address + cpu.Y;
 
@@ -555,7 +578,7 @@ static uint8_t LDA(void)
    */ 
    if (decoded_opcode->mode == IMM)
    {
-      cpu.ac = instruction_operand;
+      cpu.ac = (uint8_t) instruction_operand;
    }
    else
    {
@@ -598,7 +621,7 @@ static uint8_t LDX(void)
    */ 
    if (decoded_opcode->mode == IMM)
    {
-      cpu.X = instruction_operand;
+      cpu.X = (uint8_t) instruction_operand;
    }
    else 
    {
@@ -638,7 +661,7 @@ static uint8_t LDY(void)
    // use operand directly when in immediate mode
    if ( decoded_opcode->mode == IMM )
    {
-      cpu.Y = instruction_operand;
+      cpu.Y = (uint8_t) instruction_operand;
    }
    else // else use operand as effective memory address
    {
@@ -955,11 +978,11 @@ static uint8_t PLP(void)
 */
 static uint8_t ASL(void)
 {
-   uint8_t shifted_value;
+   uint8_t shifted_value, carry_bit;
 
    if (decoded_opcode->mode == ACC)
    {
-      cpu.status_flags |= cpu.ac >> 7; // move bit 7 into carry flag
+      carry_bit = cpu.ac >> 7; 
       shifted_value = cpu.ac << 1;
 
       cpu.ac = shifted_value;
@@ -968,11 +991,13 @@ static uint8_t ASL(void)
    {
       uint8_t value_to_shift = bus_read(instruction_operand);
 
-      cpu.status_flags |= value_to_shift >> 7; // move bit 7 into carry flag
+      carry_bit |= value_to_shift >> 7;
       shifted_value = value_to_shift << 1;
 
       bus_write(instruction_operand, shifted_value);
    }
+
+   store_bit(cpu.status_flags, carry_bit, 0); // move bit 7 into carry flag
 
    // set/reset negative flag
    if (shifted_value & 0x80)
@@ -1006,11 +1031,11 @@ static uint8_t ASL(void)
 */
 static uint8_t LSR(void)
 {
-   uint8_t shifted_value;
+   uint8_t shifted_value, carry_bit;
 
    if (decoded_opcode->mode == ACC)
    {
-      cpu.status_flags |= cpu.ac & 0x01; // store bit 0 in carry flag
+      carry_bit = ( cpu.ac & 0x01 ); 
       shifted_value = cpu.ac >> 1;
 
       cpu.ac = shifted_value;
@@ -1019,11 +1044,13 @@ static uint8_t LSR(void)
    {
       uint8_t value_to_shift = bus_read(instruction_operand);
 
-      cpu.status_flags |= value_to_shift & 0x01; // store bit 0 in carry flag
+      carry_bit |= value_to_shift & 0x01;
       shifted_value = value_to_shift >> 1;
 
       bus_write(instruction_operand, shifted_value);
    }
+
+   store_bit(cpu.status_flags, carry_bit, 0); // move bit 0 into carry flag
 
    // reset negative flag
    clear_bit(cpu.status_flags, 7);
@@ -1043,20 +1070,21 @@ static uint8_t LSR(void)
 
 /**
  * Rotate either the accumulator or value in memory left 1 bit.
- * The left most bit that is shifted out is stored in the carry flag
- * and in bit 0.
+ * The right most bit (bit 0) after the shift takes the value of the carry flag.
+ * The left most bit (bit 7) that is shifted out is moved into the carry flag.
  * Set negative flag to bit 7 of the shifted result.
  * Set zero flag is shifted value is zero, else reset.
 */
 static uint8_t ROL(void)
 {
    uint8_t shifted_value, carry_bit;
+   uint8_t carry_flag = cpu.status_flags & 0x01;
 
    if (decoded_opcode->mode == ACC)
    {
-      carry_bit = cpu.ac & 0x80;   // store left most bit prior to shift
-      shifted_value = cpu.ac << 1; // left shift 1 bit
-      shifted_value |= carry_bit;  // store carry_bit into bit 0 of shifted value
+      carry_bit = cpu.ac & 0x80;                // store left most bit prior to shift
+      shifted_value = cpu.ac << 1;              // left shift 1 bit
+      store_bit(shifted_value, carry_flag, 0);  // store the carry flag into the right most bit
 
       cpu.ac = shifted_value;
    }
@@ -1064,9 +1092,9 @@ static uint8_t ROL(void)
    {
       uint8_t value_to_shift = bus_read(instruction_operand);
 
-      carry_bit = value_to_shift & 0x80;   // store left most bit prior to shift
-      shifted_value = value_to_shift << 1; // left shift 1 bit
-      shifted_value |= carry_bit;          // store carry_bit into bit 0 of shifted value
+      carry_bit = value_to_shift & 0x80;         // store left most bit prior to shift
+      shifted_value = value_to_shift << 1;       // left shift 1 bit
+      store_bit(shifted_value, carry_flag, 0);   // store the carry flag into the right most bit
 
       bus_write(instruction_operand, shifted_value);
    }
@@ -1098,20 +1126,21 @@ static uint8_t ROL(void)
 
 /**
  * Rotate either the accumulator or value in memory right 1 bit.
- * The right most bit that is shifted out is stored in the carry flag
- * and in bit 7.
+ * The left most bit (bit 7) after the shift takes the value of the carry flag.
+ * The right most bit (bit 0) that is shifted out is moved into the carry flag.
  * Set negative flag to bit 7 of the shifted result.
  * Set zero flag is shifted value is zero, else reset.
 */
 static uint8_t ROR(void)
 {
    uint8_t shifted_value, carry_bit;
+   uint8_t carry_flag = cpu.status_flags & 0x01;
 
    if (decoded_opcode->mode == ACC)
    {
-      carry_bit = cpu.ac & 0x01;        // store right most bit prior to shift
-      shifted_value = cpu.ac >> 1;      // right shift 1 bit
-      shifted_value |= carry_bit << 7;  // store carry_bit into bit 7 of shifted value
+      carry_bit = cpu.ac & 0x01;                // store right most bit prior to shift
+      shifted_value = cpu.ac >> 1;              // right shift 1 bit
+      store_bit(shifted_value, carry_flag, 7);  // store the carry flag into the leftmost bit
 
       cpu.ac = shifted_value;
    }
@@ -1119,14 +1148,14 @@ static uint8_t ROR(void)
    {
       uint8_t value_to_shift = bus_read(instruction_operand);
 
-      carry_bit = value_to_shift & 0x01;   // store right most bit prior to shift
-      shifted_value = value_to_shift >> 1; // right shift 1 bit
-      shifted_value |= carry_bit << 7;     // store carry_bit into bit 7 of shifted value
+      carry_bit = value_to_shift & 0x01;         // store right most bit prior to shift
+      shifted_value = value_to_shift >> 1;       // right shift 1 bit
+      store_bit(shifted_value, carry_flag, 7);   // store the carry flag into the leftmost bit
 
       bus_write(instruction_operand, shifted_value);
    }
 
-   cpu.status_flags |= carry_bit; // store carry bit into carry flag
+   cpu.status_flags |= carry_bit;            // store carry bit into carry flag
 
    // set/reset negative flag
    if (shifted_value & 0x80)
@@ -1164,7 +1193,7 @@ static uint8_t AND(void)
    // use operand directly in immediate mode
    if (decoded_opcode->mode == IMM)
    {
-      cpu.ac = cpu.ac & instruction_operand;
+      cpu.ac = cpu.ac & (uint8_t) instruction_operand;
    }
    // else treat operand as a effective memory address
    else
@@ -1237,7 +1266,7 @@ static uint8_t EOR(void)
 
    if (decoded_opcode->mode == IMM)
    {
-      operand = instruction_operand;
+      operand = (uint8_t) instruction_operand;
    }
    else
    {
@@ -1281,7 +1310,7 @@ static uint8_t ORA(void)
 
    if (decoded_opcode->mode == IMM)
    {
-      value = instruction_operand;
+      value = (uint8_t) instruction_operand;
    }
    else
    {
@@ -1315,7 +1344,86 @@ static uint8_t ORA(void)
 
 // arithmetic instructions
 
-static uint8_t ADC(void){return 0;}
+/**
+ * Add value in memory and carry bit to the value in the accumulator,
+ * the result is stored in the accumulator.
+ * Set carry flag on overflow in bit 7 (i.e if the sum exceeds 255), else reset.
+ * Set overflow flag when bit 7 of sum is changed due to exceeding +127 or -128, else reset.
+ * Set negative flag if bit 7 of sum is set, else reset.
+ * Set zero flag if result is 0, else reset.
+*/
+static uint8_t ADC(void)
+{
+   uint32_t sum;
+   uint8_t value;
+   uint8_t carry_bit = cpu.status_flags & 1;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      value = (uint8_t) instruction_operand;
+   }
+   else
+   {
+      value = bus_read(instruction_operand);
+   }
+
+   sum = cpu.ac + value + carry_bit; // do addition
+
+   // set/reset carry flag
+   if ( sum > 255 )
+   {
+      set_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 0);
+   }   
+
+   // set/reset overflow flag
+
+   // ~( cpu.ac ^ value)  ---- has bit 7 on if the sign bit (bit 7) is the same on both operands, else it is off
+   //  ( cpu.ac ^ sum )   ---- has bit 7 on if the sign bit (bit 7) is different on both values, else it is off
+   /**
+    * Overflowing 127 or -128 will only ever happen if both operands are of a different sign.
+    * If the sign bit of both values are different, the expression will always evaluate as false.
+    * Otherwise if both sign bits are the same, we check if the sign bit of the value prior to
+    * the addition in cpu.ac is different to the sign bit in sum after the addition. If the sign bits
+    * are different AND the sign bits of both operands are different, then we know a overflow has happened.
+   */
+   if ( ( ~( cpu.ac ^ value ) & ( cpu.ac ^ sum ) ) & 0x80 )
+   {
+      set_bit(cpu.status_flags, 6);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 6);
+   }
+
+   cpu.ac = sum & 0xFF;
+
+   // set/reset negative flag
+   if ( cpu.ac & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if ( cpu.ac == 0 )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
 static uint8_t ANC(void){return 0;}
 static uint8_t ARR(void){return 0;}
 static uint8_t ASR(void){return 0;}
@@ -1333,7 +1441,7 @@ static uint8_t CMP(void)
    // use operand directly when in immediate mode
    if ( decoded_opcode->mode == IMM )
    {
-      value = instruction_operand;
+      value = (uint8_t) instruction_operand;
    }
    else // use operand as effective memory address
    {
@@ -1388,7 +1496,7 @@ static uint8_t CPX(void)
 
    if (decoded_opcode->mode == IMM)
    {
-      value = instruction_operand;
+      value = (uint8_t) instruction_operand;
    }
    else
    {
@@ -1418,7 +1526,7 @@ static uint8_t CPX(void)
    }
 
    // set/reset zero flag
-   if ( cpu.X == result )
+   if ( cpu.X == value )
    {
       set_bit(cpu.status_flags, 1);
    }
@@ -1430,12 +1538,146 @@ static uint8_t CPX(void)
    return 0;
 }
 
-static uint8_t CPY(void){return 0;}
+/**
+ * Subtract value in memory from the Y register,
+ * but does not store the result.
+ * Set carry flag when absolute value of Y is >= than value in memory.
+ * Set negative flag if result has bit 7 set, else reset.
+ * Set zero flag if value in memory is equal to Y, else reset.
+*/
+static uint8_t CPY(void)
+{
+   uint8_t value, result;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      value = (uint8_t) instruction_operand;
+   }
+   else
+   {
+      value = bus_read(instruction_operand);
+   }
+
+   result = cpu.Y - value;
+
+   // set/reset carry flag
+   if ( cpu.Y >= value )
+   {
+      set_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+
+   // set/reset negative flag
+   if ( result & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if ( cpu.Y == value )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
 static uint8_t DCP(void){return 0;}
 static uint8_t ISC(void){return 0;}
 static uint8_t RLA(void){return 0;}
 static uint8_t RRA(void){return 0;}
-static uint8_t SBC(void){return 0;}
+
+/**
+ * Subtract value in memory and the complemented carry bit from the value in the accumulator,
+ * the result is stored in the accumulator.
+ * Set carry flag set if result is >= 0, else reset.
+ * Set overflow flag when bit 7 of difference is changed due to exceeding +127 or -128, else reset.
+ * Set negative flag if bit 7 of difference is set, else reset.
+ * Set zero flag if difference is 0, else reset.
+*/
+static uint8_t SBC(void)
+{
+   uint32_t sum;
+   uint8_t value;
+   uint8_t carry_bit = cpu.status_flags & 1;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      value = (uint8_t) instruction_operand;
+   }
+   else
+   {
+      value = bus_read(instruction_operand);
+   }
+
+   sum = cpu.ac + ~value + carry_bit; // use 2's complement to do subtraction, ( i.e. 5 - 2 == 5 + (-2) )
+
+   // set/reset carry flag
+   if ( sum > 255 )
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      set_bit(cpu.status_flags, 0);
+   }   
+
+   // set/reset overflow flag
+
+   // ~( cpu.ac ^ value)  ---- has bit 7 on if the sign bit (bit 7) is the same on both operands, else it is off
+   //  ( cpu.ac ^ sum )   ---- has bit 7 on if the sign bit (bit 7) is different on both values, else it is off
+   /**
+    * Overflowing 127 or -128 will only ever happen if both operands are of a different sign.
+    * If the sign bit of both values are different, the expression will always evaluate as false.
+    * Otherwise if both sign bits are the same, we check if the sign bit of the value prior to
+    * the addition in cpu.ac is different to the sign bit in sum after the addition. If the sign bits
+    * are different AND the sign bits of both operands are different, then we know a overflow has happened.
+   */
+   if ( ( ~( cpu.ac ^ (~value + carry_bit) ) & ( cpu.ac ^ sum ) ) & 0x80 )
+   {
+      set_bit(cpu.status_flags, 6);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 6);
+   }
+
+   cpu.ac = sum & 0xFF;
+
+   // set/reset negative flag
+   if ( cpu.ac & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if ( cpu.ac == 0 )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
 static uint8_t SBX(void){return 0;}
 static uint8_t SLO(void){return 0;}
 static uint8_t SRE(void){return 0;}
@@ -1726,7 +1968,6 @@ static uint8_t RTI(void)
 static uint8_t RTS(void)
 {
    uint8_t lo = stack_pop();
-   
    uint8_t hi = stack_pop();
    
    cpu.pc = ( hi << 8 ) | lo;
