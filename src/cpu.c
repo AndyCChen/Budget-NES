@@ -171,132 +171,132 @@ static uint8_t TMP(void)
 static opcode_t opcode_lookup_table[256] = 
 {
    /* 0x00 - 0x 0F */
-   {"BRK", &BRK, IMP, 7}, {"ORA", &ORA, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"ORA", &ORA, ZPG, 3},
-   {"ASL", &ASL, ZPG, 5}, {"???", &TMP, IMP, 0}, {"PHP", &PHP, IMP, 3},
-   {"ORA", &ORA, IMM, 2}, {"ASL", &ASL, ACC, 2}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"ORA", &ORA, ABS, 4}, {"ASL", &ASL, ABS, 6},
-   {"???", &TMP, IMP, 0},
+   {"BRK", &BRK, IMP, 7},  {"ORA", &ORA, XZI, 6},  {"*JAM", &JAM, IMP, 0},
+   {"*SLO", &SLO, XZI, 8}, {"*NOP", &NOP, ZPG, 3}, {"ORA", &ORA, ZPG, 3},
+   {"ASL", &ASL, ZPG, 5},  {"*SLO", &SLO, ZPG, 5}, {"PHP", &PHP, IMP, 3},
+   {"ORA", &ORA, IMM, 2},  {"ASL", &ASL, ACC, 2},  {"*ANC", &ANC, IMM, 2},
+   {"*NOP", &NOP, ABS, 4}, {"ORA", &ORA, ABS, 4},  {"ASL", &ASL, ABS, 6},
+   {"*SLO", &SLO, ABS, 6},
 
    /* 0x10 - 0x1F */
-   {"BPL", &BPL, REL, 2}, {"ORA", &ORA, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"ORA", &ORA, XZP, 3},
-   {"ASL", &ASL, XZP, 6}, {"???", &TMP, IMP, 0}, {"CLC", &CLC, IMP, 2},
-   {"ORA", &ORA, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"ORA", &ORA, XAB, 4}, {"ASL", &ASL, XAB, 7},
-   {"???", &TMP, IMP, 0},
+   {"BPL", &BPL, REL, 2},  {"ORA", &ORA, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*SLO", &SLO, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"ORA", &ORA, XZP, 3},
+   {"ASL", &ASL, XZP, 6},  {"*SLO", &SLO, XZP, 6}, {"CLC", &CLC, IMP, 2},
+   {"ORA", &ORA, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*SLO", &SLO, YAB, 7},
+   {"*NOP", &NOP, XAB, 4}, {"ORA", &ORA, XAB, 4},  {"ASL", &ASL, XAB, 7},
+   {"*SLO", &SLO, XAB, 7},
 
    /* 0x20 - 0x2F */
-   {"JSR", &JSR, ABS, 6}, {"AND", &AND, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"BIT", &BIT, ZPG, 3}, {"AND", &AND, ZPG, 3},
-   {"ROL", &ROL, ZPG, 5}, {"???", &TMP, IMP, 0}, {"PLP", &PLP, IMP, 4},
-   {"AND", &AND, IMM, 2}, {"ROL", &ROL, ACC, 2}, {"???", &TMP, IMP, 0},
-   {"BIT", &BIT, ABS, 4}, {"AND", &AND, ABS, 4}, {"ROL", &ROL, ABS, 6},
-   {"???", &TMP, IMP, 0},
+   {"JSR", &JSR, ABS, 6},  {"AND", &AND, XZI, 6},  {"*JAM", &JAM, IMP, 0},
+   {"*RLA", &RLA, XZI, 8}, {"BIT", &BIT, ZPG, 3},  {"AND", &AND, ZPG, 3},
+   {"ROL", &ROL, ZPG, 5},  {"*RLA", &RLA, ZPG, 5}, {"PLP", &PLP, IMP, 4},
+   {"AND", &AND, IMM, 2},  {"ROL", &ROL, ACC, 2},  {"*ANC", &ANC, IMM, 2},
+   {"BIT", &BIT, ABS, 4},  {"AND", &AND, ABS, 4},  {"ROL", &ROL, ABS, 6},
+   {"*RLA", &RLA, ABS, 6},
 
    /* 0x30 - 0x3F */
-   {"BMI", &BMI, REL, 2}, {"AND", &AND, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"AND", &AND, XZP, 4},
-   {"ROL", &ROL, XZI, 6}, {"???", &TMP, IMP, 0}, {"SEC", &SEC, IMP, 2},
-   {"AND", &AND, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"AND", &AND, XAB, 4}, {"ROL", &ROL, XAB, 7},
-   {"???", &TMP, IMP, 0},
+   {"BMI", &BMI, REL, 2},  {"AND", &AND, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*RLA", &RLA, XZI, 8}, {"*NOP", &NOP, XZP, 4}, {"AND", &AND, XZP, 4},
+   {"ROL", &ROL, XZP, 6},  {"*RLA", &RLA, XZP, 6}, {"SEC", &SEC, IMP, 2},
+   {"AND", &AND, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*RLA", &RLA, YAB, 7},
+   {"*NOP", &NOP, XAB, 4}, {"AND", &AND, XAB, 4},  {"ROL", &ROL, XAB, 7},
+   {"*RLA", &RLA, XAB, 7},
 
    /* 0x40 - 0x4F */
-   {"RTI", &RTI, IMP, 6}, {"EOR", &EOR, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"EOR", &EOR, ZPG, 3},
-   {"LSR", &LSR, ZPG, 5}, {"???", &TMP, IMP, 0}, {"PHA", &PHA, IMP, 3}, 
-   {"EOR", &EOR, IMM, 2}, {"LSR", &LSR, ACC, 2}, {"???", &TMP, IMP, 0}, 
-   {"JMP", &JMP, ABS, 3}, {"EOR", &EOR, ABS, 4}, {"LSR", &LSR, ABS, 6},
-   {"???", &TMP, IMP, 0},
+   {"RTI", &RTI, IMP, 6},  {"EOR", &EOR, XZI, 6},  {"*JAM", &JAM, IMP, 0},
+   {"*SRE", &SRE, XZI, 8}, {"*NOP", &NOP, ZPG, 3}, {"EOR", &EOR, ZPG, 3},
+   {"LSR", &LSR, ZPG, 5},  {"*SRE", &SRE, ZPG, 5}, {"PHA", &PHA, IMP, 3}, 
+   {"EOR", &EOR, IMM, 2},  {"LSR", &LSR, ACC, 2},  {"*ASR", &ASR, IMM, 2}, 
+   {"JMP", &JMP, ABS, 3},  {"EOR", &EOR, ABS, 4},  {"LSR", &LSR, ABS, 6},
+   {"*SRE", &SRE, ABS, 6},
 
    /* 0x50 - 0x5F */
-   {"BVC", &BVC, REL, 2}, {"EOR", &EOR, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"EOR", &EOR, XZP, 4},
-   {"LSR", &LSR, XZP, 6}, {"???", &TMP, IMP, 0}, {"CLI", &CLI, IMP, 2},
-   {"EOR", &EOR, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"EOR", &EOR, XAB, 4}, {"LSR", &LSR, XAB, 7},
-   {"???", &TMP, IMP, 0},
+   {"BVC", &BVC, REL, 2},  {"EOR", &EOR, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*SRE", &SRE, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"EOR", &EOR, XZP, 4},
+   {"LSR", &LSR, XZP, 6},  {"*SRE", &SRE, XZP, 6}, {"CLI", &CLI, IMP, 2},
+   {"EOR", &EOR, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*SRE", &SRE, YAB, 7},
+   {"*NOP", &NOP, XAB, 4}, {"EOR", &EOR, XAB, 4},  {"LSR", &LSR, XAB, 7},
+   {"*SRE", &SRE, XAB,7},
 
    /* 0x60 - 0x6F */
-   {"RTS", &RTS, IMP, 6}, {"ADC", &ADC, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"ADC", &ADC, ZPG, 3},
-   {"ROR", &ROR, ZPG, 5}, {"???", &TMP, IMP, 0}, {"PLA", &PLA, IMP, 4},
-   {"ADC", &ADC, IMM, 2}, {"ROR", &ROR, ACC, 2}, {"???", &TMP, IMP, 0},
-   {"JMP", &JMP, ABI, 5}, {"ADC", &ADC, ABS, 4}, {"ROR", &ROR, ABS, 6},
-   {"???", &TMP, IMP, 0},
+   {"RTS", &RTS, IMP, 6},  {"ADC", &ADC, XZI, 6},  {"*JAM", &JAM, IMP, 0},
+   {"*RRA", &RRA, XZI, 8}, {"*NOP", &NOP, ZPG, 3}, {"ADC", &ADC, ZPG, 3},
+   {"ROR", &ROR, ZPG, 5},  {"*RRA", &RRA, ZPG, 5}, {"PLA", &PLA, IMP, 4},
+   {"ADC", &ADC, IMM, 2},  {"ROR", &ROR, ACC, 2},  {"*ARR", &ARR, IMM, 2},
+   {"JMP", &JMP, ABI, 5},  {"ADC", &ADC, ABS, 4},  {"ROR", &ROR, ABS, 6},
+   {"*RRA", &RRA, ABS, 6},
 
    /* 0x70 - 7F */
-   {"BVS", &BVS, REL, 2}, {"ADC", &ADC, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"ADC", &ADC, XZP, 4},
-   {"ROR", &ROR, XZP, 6}, {"???", &TMP, IMP, 0}, {"SEI", &SEI, IMP, 2},
-   {"ADC", &ADC, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"ADC", &ADC, XAB, 4}, {"ROR", &ROR, XAB, 7},
-   {"???", &TMP, IMP, 0},
+   {"BVS", &BVS, REL, 2},  {"ADC", &ADC, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*RRA", &RRA, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"ADC", &ADC, XZP, 4},
+   {"ROR", &ROR, XZP, 6},  {"*RRA", &RRA, XZP, 6}, {"SEI", &SEI, IMP, 2},
+   {"ADC", &ADC, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*RRA", &RRA, YAB, 7},
+   {"*NOP", &NOP, XAB, 4}, {"ADC", &ADC, XAB, 4},  {"ROR", &ROR, XAB, 7},
+   {"*RRA", &RRA, XAB, 7},
 
    /* 0x80 - 0x8F */
-   {"???", &TMP, IMP, 0}, {"STA", &STA, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"STY", &STY, ZPG, 3}, {"STA", &STA, ZPG, 3},
-   {"STX", &STX, ZPG, 3}, {"???", &TMP, IMP, 0}, {"DEY", &DEY, IMP, 2},
-   {"???", &TMP, IMP, 0}, {"TXA", &TXA, IMP, 2}, {"???", &TMP, IMP, 0},
-   {"STY", &STY, ABS, 4}, {"STA", &STA, ABS, 4}, {"STX", &STX, ABS, 4},
-   {"???", &TMP, IMP, 0},
+   {"*NOP", &NOP, IMM, 2}, {"STA", &STA, XZI, 6},  {"*NOP", &NOP, IMM, 2},
+   {"*SAX", &SAX, XZI, 6}, {"STY", &STY, ZPG, 3},  {"STA", &STA, ZPG, 3},
+   {"STX", &STX, ZPG, 3},  {"*SAX", &SAX, ZPG, 3}, {"DEY", &DEY, IMP, 2},
+   {"*NOP", &NOP, IMM, 2}, {"TXA", &TXA, IMP, 2},  {"*XAA", &XAA, IMM, 2},
+   {"STY", &STY, ABS, 4},  {"STA", &STA, ABS, 4},  {"STX", &STX, ABS, 4},
+   {"*SAX", &SAX, ABS, 4},
 
    /* 0x90 - 0x9F */
-   {"BCC", &BCC, REL, 2}, {"STA", &STA, YZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"STY", &STY, XZP, 4}, {"STA", &STA, XZP, 4},
-   {"STX", &STX, XZP, 4}, {"???", &TMP, IMP, 0}, {"TYA", &TYA, IMP, 2},
-   {"STA", &STA, YAB, 5}, {"TXS", &TXS, IMP, 2}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"STA", &STA, XAB, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0},
+   {"BCC", &BCC, REL, 2},  {"STA", &STA, YZI, 6},  {"*JAM", &JAM, IMP, 0},
+   {"*SHA", &SHA, YZI, 6}, {"STY", &STY, XZP, 4},  {"STA", &STA, XZP, 4},
+   {"STX", &STX, YZP, 4},  {"*SAX", &SAX, YZP, 4}, {"TYA", &TYA, IMP, 2},
+   {"STA", &STA, YAB, 5},  {"TXS", &TXS, IMP, 2},  {"*SHS", &SHS, YAB, 5},
+   {"*SHY", &SHY, XAB, 5}, {"STA", &STA, XAB, 5},  {"*SHX", &SHX, YAB, 5},
+   {"*SHA", &SHA, YAB, 5},
 
    /* 0xA0 - 0xAF */
-   {"LDY", &LDY, IMM, 2}, {"LDA", &LDA, XZI, 6}, {"LDX", &LDX, IMM, 2},
-   {"???", &TMP, IMP, 0}, {"LDY", &LDY, ZPG, 3}, {"LDA", &LDA, ZPG, 3},
-   {"LDX", &LDX, ZPG, 3}, {"???", &TMP, IMP, 0}, {"TAY", &TAY, IMP, 2},
-   {"LDA", &LDA, IMM, 2}, {"TAX", &TAX, IMP, 2}, {"???", &TMP, IMP, 0},
-   {"LDY", &LDY, ABS, 4}, {"LDA", &LDA, ABS, 4}, {"LDX", &LDX, ABS, 4},
-   {"???", &TMP, IMP, 0},
+   {"LDY", &LDY, IMM, 2},  {"LDA", &LDA, XZI, 6},  {"LDX", &LDX, IMM, 2},
+   {"*LAX", &LAX, XZI, 6}, {"LDY", &LDY, ZPG, 3},  {"LDA", &LDA, ZPG, 3},
+   {"LDX", &LDX, ZPG, 3},  {"*LAX", &LAX, ZPG, 3}, {"TAY", &TAY, IMP, 2},
+   {"LDA", &LDA, IMM, 2},  {"TAX", &TAX, IMP, 2},  {"*LAX", &LAX, IMM, 2},
+   {"LDY", &LDY, ABS, 4},  {"LDA", &LDA, ABS, 4},  {"LDX", &LDX, ABS, 4},
+   {"*LAX", &LAX, ABS, 4},
 
    /* 0xB0 - 0xBF */
-   {"BCS", &BCS, REL, 2}, {"LDA", &LDA, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"LDY", &LDY, XZP, 4}, {"LDA", &LDA, XZP, 4},
-   {"LDX", &LDX, YZP, 4}, {"???", &TMP, IMP, 0}, {"CLV", &CLV, IMP, 2},
-   {"LDA", &LDA, YAB, 4}, {"TSX", &TSX, IMP, 2}, {"???", &TMP, IMP, 0},
-   {"LDY", &LDY, XAB, 4}, {"LDA", &LDA, XAB, 4}, {"LDX", &LDX, YAB, 4},
-   {"???", &TMP, IMP, 0},
+   {"BCS", &BCS, REL, 2},  {"LDA", &LDA, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*LAX", &LAX, YZI, 5}, {"LDY", &LDY, XZP, 4},  {"LDA", &LDA, XZP, 4},
+   {"LDX", &LDX, YZP, 4},  {"*LAX", &LAX, YZP, 4}, {"CLV", &CLV, IMP, 2},
+   {"LDA", &LDA, YAB, 4},  {"TSX", &TSX, IMP, 2},  {"*LAS", &LAS, YAB, 4},
+   {"LDY", &LDY, XAB, 4},  {"LDA", &LDA, XAB, 4},  {"LDX", &LDX, YAB, 4},
+   {"*LAX", &LAX, YAB, 4},
 
    /* 0xC0 - 0xCF */
-   {"CPY", &CPY, IMM, 2}, {"CMP", &CMP, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"CPY", &CPY, ZPG, 3}, {"CMP", &CMP, ZPG, 3},
-   {"DEC", &DEC, ZPG, 5}, {"???", &TMP, IMP, 0}, {"INY", &INY, IMP, 2},
-   {"CMP", &CMP, IMM, 2}, {"DEX", &DEX, IMP, 2}, {"???", &TMP, IMP, 0},
-   {"CPY", &CPY, ABS, 4}, {"CMP", &CMP, ABS, 4}, {"DEC", &DEC, ABS, 6},
-   {"???", &TMP, IMP, 0},
+   {"CPY", &CPY, IMM, 2},  {"CMP", &CMP, XZI, 6},  {"*NOP", &NOP, IMM, 2},
+   {"*DCP", &DCP, XZI, 8}, {"CPY", &CPY, ZPG, 3},  {"CMP", &CMP, ZPG, 3},
+   {"DEC", &DEC, ZPG, 5},  {"*DCP", &DCP, ZPG, 5}, {"INY", &INY, IMP, 2},
+   {"CMP", &CMP, IMM, 2},  {"DEX", &DEX, IMP, 2},  {"*SBX", &SBX, IMM, 2},
+   {"CPY", &CPY, ABS, 4},  {"CMP", &CMP, ABS, 4},  {"DEC", &DEC, ABS, 6},
+   {"*DCP", &DCP, ABS, 6},
 
    /* 0xD0 - 0xDF */
-   {"BNE", &BNE, REL, 2}, {"CMP", &CMP, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"CMP", &CMP, XZP, 4},
-   {"DEC", &DEC, XZP, 6}, {"???", &TMP, IMP, 0}, {"CLD", &CLD, IMP, 2},
-   {"CMP", &CMP, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"CMP", &CMP, XAB, 4}, {"DEC", &DEC, XAB, 7},
-   {"???", &TMP, IMP, 0},
+   {"BNE", &BNE, REL, 2},  {"CMP", &CMP, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*DCP", &DCP, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"CMP", &CMP, XZP, 4},
+   {"DEC", &DEC, XZP, 6},  {"*DCP", &DCP, XZP, 6}, {"CLD", &CLD, IMP, 2},
+   {"CMP", &CMP, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*DCP", &DCP, YAB, 7},
+   {"*NOP", &NOP, XAB, 4}, {"CMP", &CMP, XAB, 4},  {"DEC", &DEC, XAB, 7},
+   {"*DCP", &DCP, XAB, 7},
 
    /* 0xE0 - 0xEF */
-   {"CPX", &CPX, IMM, 2}, {"SBC", &SBC, XZI, 6}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"CPX", &CPX, ZPG, 3}, {"SBC", &SBC, ZPG, 3},
-   {"INC", &INC, ZPG, 5}, {"???", &TMP, IMP, 0}, {"INX", &INX, IMP, 2},
-   {"SBC", &SBC, IMM, 2}, {"NOP", &NOP, IMP, 2}, {"???", &TMP, IMP, 0},
-   {"CPX", &CPX, ABS, 4}, {"SBC", &SBC, ABS, 4}, {"INC", &INC, ABS, 6},
-   {"???", &TMP, IMP, 0},
+   {"CPX", &CPX, IMM, 2},  {"SBC", &SBC, XZI, 6},  {"*NOP", &NOP, IMM, 2},
+   {"*ISC", &ISC, XZI, 8}, {"CPX", &CPX, ZPG, 3},  {"SBC", &SBC, ZPG, 3},
+   {"INC", &INC, ZPG, 5},  {"*ISC", &ISC, ZPG, 5}, {"INX", &INX, IMP, 2},
+   {"SBC", &SBC, IMM, 2},  {"NOP", &NOP, IMP, 2},  {"*SBC", &SBC, IMM, 2},
+   {"CPX", &CPX, ABS, 4},  {"SBC", &SBC, ABS, 4},  {"INC", &INC, ABS, 6},
+   {"*ISC", &ISC, ABS, 6},
 
    /* 0xF0 - 0xFF */
-   {"BEQ", &BEQ, REL, 2}, {"SBC", &SBC, YZI, 5}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0}, {"SBC", &SBC, XZP, 4},
-   {"INC", &INC, XZP, 6}, {"???", &TMP, IMP, 0}, {"SED", &SED, IMP, 2},
-   {"SBC", &SBC, YAB, 4}, {"???", &TMP, IMP, 0}, {"???", &TMP, IMP, 0},
-   {"???", &TMP, IMP, 0}, {"SBC", &SBC, XAB, 4}, {"INC", &INC, XAB, 7},
-   {"???", &TMP, IMP, 0}
+   {"BEQ", &BEQ, REL, 2},  {"SBC", &SBC, YZI, 5},  {"*JAM", &JAM, IMP, 0},
+   {"*ISC", &ISC, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"SBC", &SBC, XZP, 4},
+   {"INC", &INC, XZP, 6},  {"*ISC", &ISC, XZP, 6}, {"SED", &SED, IMP, 2},
+   {"SBC", &SBC, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*ISC", &ISC, YAB, 7},
+   {"*NOP", &NOP, XAB, 4}, {"SBC", &SBC, XAB, 4},  {"INC", &INC, XAB, 7},
+   {"*ISC", &ISC, XAB, 7}
 };
 
 /**
@@ -372,7 +372,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
          */
          *extra_cycle = ( (instruction_operand & 0xFF00) != hi << 8 ) ? 1 : 0;
 
-         nestest_log("%02X %02X %02X %4s $%04X, X @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X,X @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YAB:
@@ -392,7 +392,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
          */
          *extra_cycle = ( (instruction_operand & 0xFF00) != hi << 8 ) ? 1 : 0;
 
-         nestest_log("%02X %02X %02X %4s $%04X, Y @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X = %02X %8s", opcode, lo, hi, decoded_opcode->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case ABI:
@@ -431,7 +431,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s %02X, X @ %02X = %02X %12s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X,X @ %02X = %02X %12s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case YZP:
@@ -442,7 +442,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s %02X, Y @ %02X = %02X %12s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X = %02X %12s", opcode, zpg_address, "", decoded_opcode->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
          break;
       }
       case XZI:
