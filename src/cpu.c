@@ -1385,10 +1385,11 @@ static uint8_t ADC(void)
    //  ( cpu.ac ^ sum )   ---- has bit 7 on if the sign bit (bit 7) is different on both values, else it is off
    /**
     * Overflowing 127 or -128 will only ever happen if both operands are of a different sign.
-    * If the sign bit of both values are different, the expression will always evaluate as false.
+    * If the sign bit of both values are different, the expression will always evaluate as false
+    * as overflow will never occur.
     * Otherwise if both sign bits are the same, we check if the sign bit of the value prior to
     * the addition in cpu.ac is different to the sign bit in sum after the addition. If the sign bits
-    * are different AND the sign bits of both operands are different, then we know a overflow has happened.
+    * are different AND the sign bits of both operands the same, then we know a overflow has happened.
    */
    if ( ( ~( cpu.ac ^ value ) & ( cpu.ac ^ sum ) ) & 0x80 )
    {
@@ -1635,14 +1636,15 @@ static uint8_t SBC(void)
 
    // set/reset overflow flag
 
-   // ~( cpu.ac ^ value)  ---- has bit 7 on if the sign bit (bit 7) is the same on both operands, else it is off
-   //  ( cpu.ac ^ sum )   ---- has bit 7 on if the sign bit (bit 7) is different on both values, else it is off
+   // ~( cpu.ac ^ (~value + carry_bit) )  ---- has bit 7 on if the sign bit (bit 7) is the same on both operands, else it is off
+   //  ( cpu.ac ^ sum )                   ---- has bit 7 on if the sign bit (bit 7) is different on both values, else it is off
    /**
     * Overflowing 127 or -128 will only ever happen if both operands are of a different sign.
-    * If the sign bit of both values are different, the expression will always evaluate as false.
+    * If the sign bit of both values are different, the expression will always evaluate as false
+    * as overflow will never occur.
     * Otherwise if both sign bits are the same, we check if the sign bit of the value prior to
     * the addition in cpu.ac is different to the sign bit in sum after the addition. If the sign bits
-    * are different AND the sign bits of both operands are different, then we know a overflow has happened.
+    * are different AND the sign bits of both operands the same, then we know a overflow has happened.
    */
    if ( ( ~( cpu.ac ^ (~value + carry_bit) ) & ( cpu.ac ^ sum ) ) & 0x80 )
    {
