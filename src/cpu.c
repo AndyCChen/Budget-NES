@@ -93,7 +93,7 @@ static uint8_t CMP(void);
 static uint8_t CPX(void);
 static uint8_t CPY(void);
 static uint8_t DCP(void); // *
-static uint8_t ISC(void); // *
+static uint8_t ISB(void); // *
 static uint8_t RLA(void); // *
 static uint8_t RRA(void); // *
 static uint8_t SBC(void);
@@ -284,19 +284,19 @@ static opcode_t opcode_lookup_table[256] =
 
    /* 0xE0 - 0xEF */
    {"CPX", &CPX, IMM, 2},  {"SBC", &SBC, XZI, 6},  {"*NOP", &NOP, IMM, 2},
-   {"*ISC", &ISC, XZI, 8}, {"CPX", &CPX, ZPG, 3},  {"SBC", &SBC, ZPG, 3},
-   {"INC", &INC, ZPG, 5},  {"*ISC", &ISC, ZPG, 5}, {"INX", &INX, IMP, 2},
+   {"*ISB", &ISB, XZI, 8}, {"CPX", &CPX, ZPG, 3},  {"SBC", &SBC, ZPG, 3},
+   {"INC", &INC, ZPG, 5},  {"*ISB", &ISB, ZPG, 5}, {"INX", &INX, IMP, 2},
    {"SBC", &SBC, IMM, 2},  {"NOP", &NOP, IMP, 2},  {"*SBC", &SBC, IMM, 2},
    {"CPX", &CPX, ABS, 4},  {"SBC", &SBC, ABS, 4},  {"INC", &INC, ABS, 6},
-   {"*ISC", &ISC, ABS, 6},
+   {"*ISB", &ISB, ABS, 6},
 
    /* 0xF0 - 0xFF */
    {"BEQ", &BEQ, REL, 2},  {"SBC", &SBC, YZI, 5},  {"*JAM", &JAM, IMP, 0},
-   {"*ISC", &ISC, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"SBC", &SBC, XZP, 4},
-   {"INC", &INC, XZP, 6},  {"*ISC", &ISC, XZP, 6}, {"SED", &SED, IMP, 2},
-   {"SBC", &SBC, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*ISC", &ISC, YAB, 7},
+   {"*ISB", &ISB, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"SBC", &SBC, XZP, 4},
+   {"INC", &INC, XZP, 6},  {"*ISB", &ISB, XZP, 6}, {"SED", &SED, IMP, 2},
+   {"SBC", &SBC, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*ISB", &ISB, YAB, 7},
    {"*NOP", &NOP, XAB, 4}, {"SBC", &SBC, XAB, 4},  {"INC", &INC, XAB, 7},
-   {"*ISC", &ISC, XAB, 7}
+   {"*ISB", &ISB, XAB, 7}
 };
 
 /**
@@ -563,7 +563,50 @@ static uint8_t cpu_execute(uint8_t opcode)
 // load instructions
 
 static uint8_t LAS(void){return 0;}
-static uint8_t LAX(void){return 0;}
+
+/**
+ * Loads the accumulator and X register with value form memory.
+ * Set zero flag if loaded value is zero, else reset.
+ * Set negative flag if loaded value has bit 7 set, else resest.
+*/
+static uint8_t LAX(void)
+{
+   uint8_t value;
+
+   if (decoded_opcode->mode == IMM)
+   {
+      value = instruction_operand;
+   }
+   else
+   {
+      value = bus_read(instruction_operand);
+   }
+
+   // set/reset negative flag
+   if (value & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (value == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   cpu.ac = value;
+   cpu.X = value;
+
+   return 0;
+}
 
 /**
  * load accumulator with value from memory
@@ -691,7 +734,17 @@ static uint8_t LDY(void)
    return 0;
 }
 
-static uint8_t SAX(void){return 0;}
+/**
+ * Perform bitwise AND between accumulator and X register,
+ * store result into memory
+*/
+static uint8_t SAX(void)
+{
+   bus_write(instruction_operand, cpu.ac & cpu.X);
+
+   return 0;
+}
+
 static uint8_t SHA(void){return 0;}
 static uint8_t SHX(void){return 0;}
 static uint8_t SHY(void){return 0;}
@@ -1452,7 +1505,7 @@ static uint8_t CMP(void)
    result = cpu.ac - value;
 
    // set/reset zero flag
-   if ( value == cpu.ac)
+   if ( value == cpu.ac )
    {
       set_bit(cpu.status_flags, 1);
    }
@@ -1594,8 +1647,80 @@ static uint8_t CPY(void)
    return 0;
 }
 
-static uint8_t DCP(void){return 0;}
-static uint8_t ISC(void){return 0;}
+/**
+ * Decrements value in memory by 1 in 2's complement. Then subtract the result from the accumulator
+ * and does not store the result.
+ * Set zero flag if value in memory - 1 equals value in accumulator, else reset.
+ * Set negative flag if bit 7 of result from accumulator - decremented value in memory is set, else reset.
+ * Set carry flag if decremented value in memory is <= to the accumulator, else reset.
+*/
+static uint8_t DCP(void)
+{
+   uint8_t result = bus_read(instruction_operand) + ( ~(0x01) + 1 ); // use 2's complement to add negative 1 which is equal to minus 1.
+
+   // set/reset zero flag
+   if (result == cpu.ac )
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   // set/reset negative flag
+   if ( (cpu.ac - result) & 0x80 )
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset carry flag
+   if ( result <= cpu.ac )
+   {
+      set_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+
+   bus_write(instruction_operand, result);
+
+   return 0;
+}
+
+/**
+ * Adds 1 to value in memory. Then subtracts this value and the borrow (carry flag)
+ * from the value in the accumlator with 2's complement. The final result is stored back into
+ * the accumulator.
+ * Set carry flag if result if > 255, else reset.
+ * Set overflow flag if result exceeds -127 or 127, else reset.
+ * Set negative flag if result has bit 7 set, else reset.
+ * Set zero flag if result is 0, else reset.
+*/
+static uint8_t ISB(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+   uint8_t carry_bit = cpu.status_flags & 1;
+   uint8_t result = cpu.ac + ~(value) + carry_bit;
+
+   // set/reset carry flag
+   if (result > 255)
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      
+   }
+
+   return 0;
+}
+
 static uint8_t RLA(void){return 0;}
 static uint8_t RRA(void){return 0;}
 

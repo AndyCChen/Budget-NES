@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
    cpu_reset();
 
-   for(int i = 0; i < 3348; ++i)
+   for(int i = 0; i < 6375; ++i)
    {
       cpu_emulate_instruction();
    }
