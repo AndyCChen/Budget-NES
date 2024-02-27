@@ -11,10 +11,9 @@
 static CPU_6502 cpu;
 
 static uint8_t cpu_fetch();
-static void cpu_decode(uint8_t opcode);
 static uint8_t cpu_execute(uint8_t opcode);
+static void cpu_decode(uint8_t opcode);
 static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle);
-
 static void stack_push(uint8_t value);
 static uint8_t stack_pop(void);
 
@@ -40,11 +39,11 @@ static uint16_t instruction_operand;
 // load instructions
 
 static uint8_t LAS(void); // *
-static uint8_t LAX(void); // *
+static uint8_t LAX(void); // * implemented
 static uint8_t LDA(void);
 static uint8_t LDX(void);
 static uint8_t LDY(void);
-static uint8_t SAX(void); // *
+static uint8_t SAX(void); // * implemented
 static uint8_t SHA(void); // *
 static uint8_t SHX(void); // *
 static uint8_t SHY(void); // *
@@ -92,14 +91,14 @@ static uint8_t ASR(void); // *
 static uint8_t CMP(void);
 static uint8_t CPX(void);
 static uint8_t CPY(void);
-static uint8_t DCP(void); // *
-static uint8_t ISB(void); // *
-static uint8_t RLA(void); // *
-static uint8_t RRA(void); // *
+static uint8_t DCP(void); // * implemented
+static uint8_t ISB(void); // * implemented
+static uint8_t RLA(void); // * implemented
+static uint8_t RRA(void); // * implemented
 static uint8_t SBC(void);
 static uint8_t SBX(void); // *
-static uint8_t SLO(void); // *
-static uint8_t SRE(void); // *
+static uint8_t SLO(void); // * implemented
+static uint8_t SRE(void); // * implemented
 static uint8_t XAA(void); // *
 
 // increment instructions
@@ -146,13 +145,7 @@ static uint8_t JAM(void){return 0;}
 
 // nop instructions
 
-static uint8_t NOP(void){return 0;}
-
-// temp function to handle illegal opcodes for now
-static uint8_t TMP(void)
-{
-   return 0;
-} 
+static uint8_t NOP(void){return 0;} 
 
 // addressing modes
 // https://www.pagetable.com/c64ref/6502/
@@ -196,7 +189,7 @@ static opcode_t opcode_lookup_table[256] =
 
    /* 0x30 - 0x3F */
    {"BMI", &BMI, REL, 2},  {"AND", &AND, YZI, 5},  {"*JAM", &JAM, IMP, 0},
-   {"*RLA", &RLA, XZI, 8}, {"*NOP", &NOP, XZP, 4}, {"AND", &AND, XZP, 4},
+   {"*RLA", &RLA, YZI, 8}, {"*NOP", &NOP, XZP, 4}, {"AND", &AND, XZP, 4},
    {"ROL", &ROL, XZP, 6},  {"*RLA", &RLA, XZP, 6}, {"SEC", &SEC, IMP, 2},
    {"AND", &AND, YAB, 4},  {"*NOP", &NOP, IMP, 2}, {"*RLA", &RLA, YAB, 7},
    {"*NOP", &NOP, XAB, 4}, {"AND", &AND, XAB, 4},  {"ROL", &ROL, XAB, 7},
@@ -496,11 +489,11 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
              * we need to treat the offset as a 16 bit value. The offset byte is negative value
              * in 2's complement, so the added extra 8 bits are all set to 1, hence the 0xFF00 bitmask.
             */
-            instruction_operand = (cpu.pc) + ( offset_byte | 0xFF00 );
+            instruction_operand = cpu.pc + ( offset_byte | 0xFF00 );
          }
          else
          {
-            instruction_operand = (cpu.pc) + offset_byte;
+            instruction_operand = cpu.pc + (uint16_t) offset_byte;
          }
 
          /**
@@ -565,6 +558,7 @@ static uint8_t cpu_execute(uint8_t opcode)
 static uint8_t LAS(void){return 0;}
 
 /**
+ * Undocumented.
  * Loads the accumulator and X register with value form memory.
  * Set zero flag if loaded value is zero, else reset.
  * Set negative flag if loaded value has bit 7 set, else resest.
@@ -735,6 +729,7 @@ static uint8_t LDY(void)
 }
 
 /**
+ * Undocumented.
  * Perform bitwise AND between accumulator and X register,
  * store result into memory
 */
@@ -1400,7 +1395,7 @@ static uint8_t ORA(void)
 /**
  * Add value in memory and carry bit to the value in the accumulator,
  * the result is stored in the accumulator.
- * Set carry flag on overflow in bit 7 (i.e if the sum exceeds 255), else reset.
+ * Set carry flag if the sum exceeds 255 to indicate a carry, else reset.
  * Set overflow flag when bit 7 of sum is changed due to exceeding +127 or -128, else reset.
  * Set negative flag if bit 7 of sum is set, else reset.
  * Set zero flag if result is 0, else reset.
@@ -1648,6 +1643,7 @@ static uint8_t CPY(void)
 }
 
 /**
+ * Undocumented.
  * Decrements value in memory by 1 in 2's complement. Then subtract the result from the accumulator
  * and does not store the result.
  * Set zero flag if value in memory - 1 equals value in accumulator, else reset.
@@ -1694,40 +1690,197 @@ static uint8_t DCP(void)
 }
 
 /**
- * Adds 1 to value in memory. Then subtracts this value and the borrow (carry flag)
- * from the value in the accumlator with 2's complement. The final result is stored back into
- * the accumulator.
- * Set carry flag if result if > 255, else reset.
- * Set overflow flag if result exceeds -127 or 127, else reset.
+ * Undocumented.
+ * Increments value in memory by 1, then performs the SBC instruction.
+ * The incremented value in memory is written back into memory and the result of SBC
+ * is stored back into the accumulator.
+ * Set carry flag if result if > 255 to indicate a carry, else reset.
+ * Set overflow flag if result exceeds -128 or 127, else reset.
  * Set negative flag if result has bit 7 set, else reset.
  * Set zero flag if result is 0, else reset.
 */
 static uint8_t ISB(void)
 {
-   uint8_t value = bus_read(instruction_operand);
+   uint8_t value = bus_read(instruction_operand) + 1;
+   bus_write(instruction_operand, value);
+
+   value = ~value; // negate value since subtraction is done using 2's complement addition
+
    uint8_t carry_bit = cpu.status_flags & 1;
-   uint8_t result = cpu.ac + ~(value) + carry_bit;
+   uint32_t sum = cpu.ac + value + carry_bit;
 
    // set/reset carry flag
-   if (result > 255)
+   if (sum > 255)
    {
-      clear_bit(cpu.status_flags, 0);
+      set_bit(cpu.status_flags, 0);
    }
    else
    {
-      
+      clear_bit(cpu.status_flags, 0);
+   }
+
+   // set/reset overflow flag
+   if ( (cpu.ac ^ sum) & (value ^ sum) & 0x80 )
+   {
+      set_bit(cpu.status_flags, 6);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 6);
+   }
+
+   cpu.ac =  (uint8_t) sum;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
    }
 
    return 0;
 }
 
-static uint8_t RLA(void){return 0;}
-static uint8_t RRA(void){return 0;}
+/**
+ * Undocumented.
+ * Shifts/rotates value in memory 1 bit to the left where carry flag is shifted in
+ * and the bit that is shifted out is stored in the carry flag, 
+ * result is stored back into memory. Then performs bitwise and between
+ * shifted value and the accumulator, storing the result into the accumulator.
+ * Set carry flag to the bit that is shifted out.
+ * Set negative flag if result in accumulator has bit 7 set, else reset.
+ * Set zero flag if result in accumulator is 0, else reset
+*/
+static uint8_t RLA(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+
+   uint8_t shifted_in_bit = cpu.status_flags & 1;
+   uint8_t shifted_out_bit = (value & 0x80) != 0;
+
+   value = value << 1;
+   
+   store_bit(value, shifted_in_bit, 0);             // carry flag is rotated into value
+   store_bit(cpu.status_flags, shifted_out_bit, 0); // bit that is rotated out is moved into carry flag
+
+   bus_write(instruction_operand, value);           // store result back into memory
+
+   cpu.ac = cpu.ac & value;
+
+   // set/reset negative
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Undocumented
+ * Shifts/rotates value in memory right 1 bit where the shifted in bit
+ * takes the value of the carry flag and the shifted out bit is stored in
+ * the carry flag, the result is stored back into memory. Then perform
+ * ADC instruction with rotated value and accumulator, storing the sum in
+ * the accumulator.
+ * Set carry flag if the sum exceeds 255 to indicate a carry, else reset.
+ * Set overflow flag when bit 7 of sum is changed due to exceeding +127 or -128, else reset.
+ * Set negative flag if bit 7 of sum is set, else reset.
+ * Set zero flag if result is 0, else reset.
+*/
+static uint8_t RRA(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+
+   uint8_t shifted_out_bit = value & 1;
+   uint8_t shifted_in_bit = cpu.status_flags & 1;
+
+   value = value >> 1;
+
+   store_bit(cpu.status_flags, shifted_out_bit, 0);
+   store_bit(value, shifted_in_bit, 7);
+
+   bus_write(instruction_operand, value);
+
+   uint8_t carry_bit = cpu.status_flags & 1;
+   uint32_t sum = cpu.ac + value + carry_bit;
+
+   // set/reset carry
+   if (sum > 255)
+   {
+      set_bit(cpu.status_flags, 0);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 0);
+   }
+
+   // set/reset overflow flag
+   if ( (cpu.ac ^ sum) & (value ^ sum) & 0x80 )
+   {
+      set_bit(cpu.status_flags, 6);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 6);
+   }
+
+   cpu.ac = (uint8_t) sum;
+
+   // set/reset negative
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
 
 /**
  * Subtract value in memory and the complemented carry bit from the value in the accumulator,
  * the result is stored in the accumulator.
- * Set carry flag set if result is >= 0, else reset.
+ * Set carry flag set if result is > 255 else reset.
  * Set overflow flag when bit 7 of difference is changed due to exceeding +127 or -128, else reset.
  * Set negative flag if bit 7 of difference is set, else reset.
  * Set zero flag if difference is 0, else reset.
@@ -1747,16 +1900,17 @@ static uint8_t SBC(void)
       value = bus_read(instruction_operand);
    }
 
-   sum = cpu.ac + ~value + carry_bit; // use 2's complement to do subtraction, ( i.e. 5 - 2 == 5 + (-2) )
+   // 8-bit int cast to prevent negation of value being promoted to 32-bit int
+   sum = cpu.ac + (uint8_t) ~value + carry_bit; // use 2's complement to do subtraction, ( i.e. 5 - 2 == 5 + (-2) )
 
    // set/reset carry flag
    if ( sum > 255 )
    {
-      clear_bit(cpu.status_flags, 0);
+      set_bit(cpu.status_flags, 0);
    }
    else
    {
-      set_bit(cpu.status_flags, 0);
+      clear_bit(cpu.status_flags, 0);
    }   
 
    // set/reset overflow flag
@@ -1771,7 +1925,7 @@ static uint8_t SBC(void)
     * the addition in cpu.ac is different to the sign bit in sum after the addition. If the sign bits
     * are different AND the sign bits of both operands the same, then we know a overflow has happened.
    */
-   if ( ( ~( cpu.ac ^ (~value + carry_bit) ) & ( cpu.ac ^ sum ) ) & 0x80 )
+   if ( ( ~( cpu.ac ^ (~value) ) & ( cpu.ac ^ sum ) ) & 0x80 )
    {
       set_bit(cpu.status_flags, 6);
    }
@@ -1780,7 +1934,7 @@ static uint8_t SBC(void)
       clear_bit(cpu.status_flags, 6);
    }
 
-   cpu.ac = sum & 0xFF;
+   cpu.ac = (uint8_t) sum;
 
    // set/reset negative flag
    if ( cpu.ac & 0x80 )
@@ -1806,8 +1960,95 @@ static uint8_t SBC(void)
 }
 
 static uint8_t SBX(void){return 0;}
-static uint8_t SLO(void){return 0;}
-static uint8_t SRE(void){return 0;}
+
+/**
+ * Undocumented.
+ * Shifts value in memory 1 bit to the left where bit 7 is shifted out into the
+ * carry flag, result is stored back into memory. Then performs bitwise or between
+ * shifted value and the accumulator, storing the result into the accumulator.
+ * Set carry flag to the bit that is shifted out.
+ * Set negative flag if result in accumulator has bit 7 set, else reset.
+ * Set zero flag if result in accumulator is 0, else reset
+*/
+static uint8_t SLO(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+
+   uint8_t shifted_out_bit = (value & 0x80) != 0;
+   store_bit(cpu.status_flags, shifted_out_bit, 0);
+
+   value = value << 1;
+   bus_write(instruction_operand, value);
+
+   cpu.ac = cpu.ac | value;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
+/**
+ * Undocumented
+ * Shift value in memory right 1 bit, shifted out bit is stored
+ * in carry flag, result is stored back into memory. Then perform
+ * bitwise XOR the shifted value with accumulator, store result back into
+ * accumulator.
+ * Set negative flag if bit 7 of accumulator is set, else reset.
+ * Set zero flag if result in accumulator is 0, else reset.
+*/
+static uint8_t SRE(void)
+{
+   uint8_t value = bus_read(instruction_operand);
+
+   uint8_t shifted_out_bit = value & 1;
+   store_bit(cpu.status_flags, shifted_out_bit, 0);
+
+   value = value >> 1;
+   bus_write(instruction_operand, value);
+
+   cpu.ac = cpu.ac ^ value;
+
+   // set/reset negative flag
+   if (cpu.ac & 0x80)
+   {
+      set_bit(cpu.status_flags, 7);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 7);
+   }
+
+   // set/reset zero flag
+   if (cpu.ac == 0)
+   {
+      set_bit(cpu.status_flags, 1);
+   }
+   else
+   {
+      clear_bit(cpu.status_flags, 1);
+   }
+
+   return 0;
+}
+
 static uint8_t XAA(void){return 0;}
 
 // increment instructions
