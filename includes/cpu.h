@@ -43,13 +43,13 @@ typedef struct
    uint8_t status_flags;
 } CPU_6502;
 
-typedef struct opcode
+typedef struct instruction
 {
-   char* mnemonic;                   // 3 character mnemonic of the a instruction
-   uint8_t (*opcode_function) (void);   // pointer to a function that contain the execution code of a instruction
-   address_modes_t mode;             // enum that represents the addressing mode of the instruction
-   uint8_t cycles;                   // number of cycles this instruction takes
-} opcode_t;
+   char* mnemonic;                    // 3 character mnemonic of the a instruction
+   uint8_t (*opcode_function) (void); // pointer to a function that contain the execution code of a instruction, may return extra cycle if branching occurs
+   address_modes_t mode;              // enum that represents the addressing mode of the instruction
+   uint8_t cycles;                    // number of base clock cycles this instruction takes
+} instruction_t;
 
 void cpu_emulate_instruction(void);
 void cpu_reset(void);
