@@ -83,10 +83,10 @@ add_executable(nes
    main.c
    src/bus.c
    src/cartridge.c
-   src/cpu_ram.c
    src/cpu.c
    src/log.c
    src/display.c
+   src/ppu.c
 )
 target_include_directories(nes PRIVATE includes/ glad_loader/include/glad)
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
