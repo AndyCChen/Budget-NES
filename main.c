@@ -36,8 +36,9 @@ int main(int argc, char *argv[])
    {
       display_process_event(&done);
 
-      display_create_gui();
 
+
+      display_create_gui();
       display_render();
       display_update();
    }

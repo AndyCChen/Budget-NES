@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 
-// address of the interrupt vector
-#define INTERRUPT_VECTOR 0xFFF0
+#define NMI_VECTOR       0xFFFA // address of non-maskable interrupt vector
+#define RESET_VECTOR     0xFFFC // address of reset vector
+#define INTERRUPT_VECTOR 0xFFFE // address of the interrupt vector
 
-typedef enum address_modes
+typedef enum address_modes_t
 {
    IMP, // implied
    ACC, // accumulator
@@ -23,7 +24,7 @@ typedef enum address_modes
    REL  // relative
 } address_modes_t;
 
-typedef struct 
+typedef struct cpu_6502_t
 {
    uint8_t ac;  // accumulator
    uint8_t X;   // x index register
@@ -41,9 +42,9 @@ typedef struct
    // 1st bit - zero
    // 0th bit - carry
    uint8_t status_flags;
-} CPU_6502;
+} cpu_6502_t;
 
-typedef struct instruction
+typedef struct instruction_t
 {
    char* mnemonic;                    // 3 character mnemonic of the a instruction
    uint8_t (*opcode_function) (void); // pointer to a function that contain the execution code of a instruction, may return extra cycle if branching occurs

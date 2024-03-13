@@ -3,22 +3,23 @@
 #include <stdbool.h>
 
 #include "../includes/cpu.h"
-#include "../includes/cpu_ram.h"
 #include "../includes/log.h"
 #include "../includes/bus.h"
 #include "../includes/util.h"
 
-static CPU_6502 cpu;
+static cpu_6502_t cpu;
 
 static uint8_t cpu_fetch(void);
-static uint8_t cpu_execute(uint8_t opcode);
+static uint8_t cpu_execute();
 static void cpu_decode(uint8_t opcode);
 static uint8_t branch(void);
-static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle);
+static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra_cycle);
 static void stack_push(uint8_t value);
 static uint8_t stack_pop(void);
 static bool check_opcode_access_mode(uint8_t opcode);
 
+// current opcode of the current instruction
+static uint8_t current_opcode;
 
 // current instruction to be executed
 static instruction_t* current_instruction = NULL;
@@ -300,11 +301,10 @@ static instruction_t instruction_lookup_table[256] =
  * Read more on different addressing modes here -> https://www.pagetable.com/c64ref/6502/?tab=3
  * Forms the instruction operand depending on the provided address mode.
  * @param address_mode the address mode of the current opcode
- * @param opcode opcode to execute is passed in for logging purposes
  * @param extra_cycle set to 1 if page is crossed to represent 1 extra cycle,
  * else is set to zero
 */
-static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode, uint8_t *extra_cycle)
+static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra_cycle)
 {
    *extra_cycle = 0;
 
@@ -312,19 +312,19 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
    {
       case IMP:
       {
-         nestest_log("%02X %6s%4s %28s", opcode, "", current_instruction->mnemonic, "");
+         nestest_log("%02X %6s%4s %28s", current_opcode, "", current_instruction->mnemonic, "");
          break;
       }
       case ACC:
       { 
-         nestest_log("%02X %6s%4s A %26s", opcode, "", current_instruction->mnemonic, "");
+         nestest_log("%02X %6s%4s A %26s", current_opcode, "", current_instruction->mnemonic, "");
          break;
       }
       case IMM:
       {
          instruction_operand = cpu_fetch();
 
-         nestest_log("%02X %02X %3s%4s #$%02X %23s", opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, "");
+         nestest_log("%02X %02X %3s%4s #$%02X %23s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, "");
          break;
       }
       case ABS:
@@ -335,13 +335,13 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
          instruction_operand = ( hi << 8 ) | lo;
 
          // output the logs of JMP and JSR instruction without reading value at absolute address
-         if (opcode == 0x4C || opcode == 0x20)
+         if (current_opcode == 0x4C || current_opcode == 0x20)
          {
-            nestest_log("%02X %02X %02X %4s $%04X %22s", opcode, lo, hi, current_instruction->mnemonic, instruction_operand, "");
+            nestest_log("%02X %02X %02X %4s $%04X %22s", current_opcode, lo, hi, current_instruction->mnemonic, instruction_operand, "");
          }
          else
          {
-            nestest_log("%02X %02X %02X %4s $%04X = %02X %17s", opcode, lo, hi, current_instruction->mnemonic, instruction_operand, bus_read(instruction_operand), "");
+            nestest_log("%02X %02X %02X %4s $%04X = %02X %17s", current_opcode, lo, hi, current_instruction->mnemonic, instruction_operand, cpu_bus_read(instruction_operand), "");
          }
          
          break;
@@ -361,7 +361,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * by default included in the base clock cycle count. This is why the extra cycle is ignored
           * for write instructions as it is already accounted for.
          */
-         if ( !check_opcode_access_mode(opcode) )
+         if ( !check_opcode_access_mode(current_opcode) )
          {
             /**
              * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
@@ -372,7 +372,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
             *extra_cycle = ( (instruction_operand & 0xFF00) != (hi << 8) ) ? 1 : 0;
          }
 
-         nestest_log("%02X %02X %02X %4s $%04X,X @ %04X = %02X %8s", opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X,X @ %04X = %02X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, cpu_bus_read(instruction_operand), "");
          break;
       }
       case YAB:
@@ -391,7 +391,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * by default included in the base clock cycle count. This is why the extra cycle is ignored
           * for write instructions as it is already accounted for.
          */
-         if ( !(check_opcode_access_mode(opcode)) )
+         if ( !(check_opcode_access_mode(current_opcode)) )
          {
             /**
              * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
@@ -402,7 +402,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
             *extra_cycle = ( (instruction_operand & 0xFF00) != hi << 8 ) ? 1 : 0;
          }
 
-         nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X = %02X %8s", opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X = %02X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, cpu_bus_read(instruction_operand), "");
          break;
       }
       case ABI:
@@ -414,19 +414,19 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          // does not handle page crossing, i.e fetching at 0x02FF will read from 0x02FF and 0x0200
 
-         uint8_t indirect_address_lo = bus_read(abs_address);
-         uint8_t indirect_address_hi = bus_read( ( hi << 8 ) | ( ( lo + 1 ) & 0xFF ) );
+         uint8_t indirect_address_lo = cpu_bus_read(abs_address);
+         uint8_t indirect_address_hi = cpu_bus_read( ( hi << 8 ) | ( ( lo + 1 ) & 0xFF ) );
 
          instruction_operand = ( indirect_address_hi << 8 ) | indirect_address_lo;
 
-         nestest_log("%02X %02X %02X %4s ($%04X) = %04X %13s", opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
+         nestest_log("%02X %02X %02X %4s ($%04X) = %04X %13s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
          break;
       }
       case ZPG:
       {
          instruction_operand = cpu_fetch();
 
-         nestest_log("%02X %02X %3s%4s $%02X = %02X %19s", opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X = %02X %19s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, cpu_bus_read(instruction_operand), "");
          break;
       }
       case XZP:
@@ -435,7 +435,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s $%02X,X @ %02X = %02X %12s", opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X,X @ %02X = %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, cpu_bus_read(instruction_operand), "");
          break;
       }
       case YZP:
@@ -444,7 +444,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
 
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X = %02X %12s", opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X = %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, cpu_bus_read(instruction_operand), "");
          break;
       }
       case XZI:
@@ -452,20 +452,20 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
          uint8_t zpg_base_address  = cpu_fetch();
          uint8_t zpg_address = ( zpg_base_address + cpu.X ); // add X index offsest to base address to form zpg address 
 
-         uint8_t lo = bus_read(zpg_address);
-         uint8_t hi = bus_read( (uint8_t) ( zpg_address + 1 ) ); // use 8-bit cast to stay within the zero page
+         uint8_t lo = cpu_bus_read(zpg_address);
+         uint8_t hi = cpu_bus_read( (uint8_t) ( zpg_address + 1 ) ); // use 8-bit cast to stay within the zero page
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         nestest_log("%02X %02X %3s%4s ($%02X,X) @ %02X = %04X = %02X %3s", opcode, zpg_base_address, "", current_instruction->mnemonic, zpg_base_address, zpg_address, instruction_operand, bus_read(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s ($%02X,X) @ %02X = %04X = %02X %3s", current_opcode, zpg_base_address, "", current_instruction->mnemonic, zpg_base_address, zpg_address, instruction_operand, cpu_bus_read(instruction_operand), "");
          break;
       }
       case YZI:
       {
          uint8_t zpg_address = cpu_fetch();
 
-         uint8_t lo = bus_read(zpg_address);
-         uint8_t hi = bus_read( (uint8_t) (zpg_address + 1) ); // 8-bit cast to stay within the zero page
+         uint8_t lo = cpu_bus_read(zpg_address);
+         uint8_t hi = cpu_bus_read( (uint8_t) (zpg_address + 1) ); // 8-bit cast to stay within the zero page
 
          uint16_t base_address = ( hi << 8 ) | lo;
 
@@ -477,7 +477,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
           * by default included in the base clock cycle count. This is why the extra cycle is ignored
           * for write instructions as it is already accounted for.
          */
-         if ( !(check_opcode_access_mode(opcode)) )
+         if ( !(check_opcode_access_mode(current_opcode)) )
          {
             /**
              * +1 extra cycle when the hi bytes are not equal, meaning page is crossed.
@@ -488,7 +488,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
             *extra_cycle = ( (instruction_operand & 0xFF00) != (base_address & 0xFF00) ) ? 1 : 0;
          }
 
-         nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X = %02X  ", opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, base_address, instruction_operand, bus_read(instruction_operand));
+         nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X = %02X  ", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, base_address, instruction_operand, cpu_bus_read(instruction_operand));
          break;
       }
       case REL:
@@ -512,7 +512,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t opcode
             instruction_operand = cpu.pc + (uint16_t) offset_byte;
          }
 
-         nestest_log("%02X %02X %3s%4s $%04X %22s", opcode, offset_byte, "", current_instruction->mnemonic, instruction_operand, "");
+         nestest_log("%02X %02X %3s%4s $%04X %22s", current_opcode, offset_byte, "", current_instruction->mnemonic, instruction_operand, "");
          break;
       }
    }
@@ -540,7 +540,7 @@ static uint8_t LAX(void)
    }
    else
    {
-      value = bus_read(instruction_operand);
+      value = cpu_bus_read(instruction_operand);
    }
 
    // set/reset negative flag
@@ -586,7 +586,7 @@ static uint8_t LDA(void)
    }
    else
    {
-      cpu.ac = bus_read(instruction_operand);
+      cpu.ac = cpu_bus_read(instruction_operand);
    }
 
    // set zero flag
@@ -629,7 +629,7 @@ static uint8_t LDX(void)
    }
    else 
    {
-      cpu.X = bus_read(instruction_operand);
+      cpu.X = cpu_bus_read(instruction_operand);
    }
    
    // set zero flag
@@ -669,7 +669,7 @@ static uint8_t LDY(void)
    }
    else // else use operand as effective memory address
    {
-      cpu.Y = bus_read(instruction_operand);
+      cpu.Y = cpu_bus_read(instruction_operand);
    }
 
    // set/reset negative flag
@@ -702,7 +702,7 @@ static uint8_t LDY(void)
 */
 static uint8_t SAX(void)
 {
-   bus_write(instruction_operand, cpu.ac & cpu.X);
+   cpu_bus_write(instruction_operand, cpu.ac & cpu.X);
 
    return 0;
 }
@@ -716,7 +716,7 @@ static uint8_t SHY(void){return 0;}
 */
 static uint8_t STA(void)
 {
-   bus_write(instruction_operand, cpu.ac);
+   cpu_bus_write(instruction_operand, cpu.ac);
    return 0;
 }
 
@@ -725,7 +725,7 @@ static uint8_t STA(void)
 */
 static uint8_t STX(void)
 {
-   bus_write(instruction_operand, cpu.X);
+   cpu_bus_write(instruction_operand, cpu.X);
    return 0;
 }
 
@@ -734,7 +734,7 @@ static uint8_t STX(void)
 */
 static uint8_t STY(void)
 {
-   bus_write(instruction_operand, cpu.Y);
+   cpu_bus_write(instruction_operand, cpu.Y);
    return 0;
 }
 
@@ -1004,12 +1004,12 @@ static uint8_t ASL(void)
    }
    else
    {
-      uint8_t value_to_shift = bus_read(instruction_operand);
+      uint8_t value_to_shift = cpu_bus_read(instruction_operand);
 
       carry_bit |= value_to_shift >> 7;
       shifted_value = value_to_shift << 1;
 
-      bus_write(instruction_operand, shifted_value);
+      cpu_bus_write(instruction_operand, shifted_value);
    }
 
    store_bit(cpu.status_flags, carry_bit, 0); // move bit 7 into carry flag
@@ -1057,12 +1057,12 @@ static uint8_t LSR(void)
    }
    else
    {
-      uint8_t value_to_shift = bus_read(instruction_operand);
+      uint8_t value_to_shift = cpu_bus_read(instruction_operand);
 
       carry_bit |= value_to_shift & 0x01;
       shifted_value = value_to_shift >> 1;
 
-      bus_write(instruction_operand, shifted_value);
+      cpu_bus_write(instruction_operand, shifted_value);
    }
 
    store_bit(cpu.status_flags, carry_bit, 0); // move bit 0 into carry flag
@@ -1105,13 +1105,13 @@ static uint8_t ROL(void)
    }
    else
    {
-      uint8_t value_to_shift = bus_read(instruction_operand);
+      uint8_t value_to_shift = cpu_bus_read(instruction_operand);
 
       carry_bit = value_to_shift & 0x80;         // store left most bit prior to shift
       shifted_value = value_to_shift << 1;       // left shift 1 bit
       store_bit(shifted_value, carry_flag, 0);   // store the carry flag into the right most bit
 
-      bus_write(instruction_operand, shifted_value);
+      cpu_bus_write(instruction_operand, shifted_value);
    }
 
    cpu.status_flags |= carry_bit; // store carry bit into carry flag
@@ -1161,13 +1161,13 @@ static uint8_t ROR(void)
    }
    else
    {
-      uint8_t value_to_shift = bus_read(instruction_operand);
+      uint8_t value_to_shift = cpu_bus_read(instruction_operand);
 
       carry_bit = value_to_shift & 0x01;         // store right most bit prior to shift
       shifted_value = value_to_shift >> 1;       // right shift 1 bit
       store_bit(shifted_value, carry_flag, 7);   // store the carry flag into the leftmost bit
 
-      bus_write(instruction_operand, shifted_value);
+      cpu_bus_write(instruction_operand, shifted_value);
    }
 
    cpu.status_flags |= carry_bit;            // store carry bit into carry flag
@@ -1213,7 +1213,7 @@ static uint8_t AND(void)
    // else treat operand as a effective memory address
    else
    {
-      cpu.ac = cpu.ac & bus_read(instruction_operand);
+      cpu.ac = cpu.ac & cpu_bus_read(instruction_operand);
    }
 
    // set or clear negative flag
@@ -1248,7 +1248,7 @@ static uint8_t AND(void)
 */
 static uint8_t BIT(void)
 {
-   uint8_t value = bus_read(instruction_operand);
+   uint8_t value = cpu_bus_read(instruction_operand);
 
    // clear bits before transfer
    clear_bit(cpu.status_flags, 7);
@@ -1285,7 +1285,7 @@ static uint8_t EOR(void)
    }
    else
    {
-      operand = bus_read(instruction_operand);
+      operand = cpu_bus_read(instruction_operand);
    }
 
    cpu.ac = cpu.ac ^ operand;
@@ -1329,7 +1329,7 @@ static uint8_t ORA(void)
    }
    else
    {
-      value =  bus_read(instruction_operand);
+      value =  cpu_bus_read(instruction_operand);
    }
 
    cpu.ac = cpu.ac | value;
@@ -1379,7 +1379,7 @@ static uint8_t ADC(void)
    }
    else
    {
-      value = bus_read(instruction_operand);
+      value = cpu_bus_read(instruction_operand);
    }
 
    sum = cpu.ac + value + carry_bit; // do addition
@@ -1461,7 +1461,7 @@ static uint8_t CMP(void)
    }
    else // use operand as effective memory address
    {
-      value = bus_read(instruction_operand);
+      value = cpu_bus_read(instruction_operand);
    }
 
    result = cpu.ac - value;
@@ -1516,7 +1516,7 @@ static uint8_t CPX(void)
    }
    else
    {
-      value = bus_read(instruction_operand);
+      value = cpu_bus_read(instruction_operand);
    }
 
    result = cpu.X - value;
@@ -1571,7 +1571,7 @@ static uint8_t CPY(void)
    }
    else
    {
-      value = bus_read(instruction_operand);
+      value = cpu_bus_read(instruction_operand);
    }
 
    result = cpu.Y - value;
@@ -1619,7 +1619,7 @@ static uint8_t CPY(void)
 */
 static uint8_t DCP(void)
 {
-   uint8_t result = bus_read(instruction_operand) + ( ~(0x01) + 1 ); // use 2's complement to add negative 1 which is equal to minus 1.
+   uint8_t result = cpu_bus_read(instruction_operand) + ( ~(0x01) + 1 ); // use 2's complement to add negative 1 which is equal to minus 1.
 
    // set/reset zero flag
    if (result == cpu.ac )
@@ -1651,7 +1651,7 @@ static uint8_t DCP(void)
       clear_bit(cpu.status_flags, 0);
    }
 
-   bus_write(instruction_operand, result);
+   cpu_bus_write(instruction_operand, result);
 
    return 0;
 }
@@ -1668,8 +1668,8 @@ static uint8_t DCP(void)
 */
 static uint8_t ISB(void)
 {
-   uint8_t value = bus_read(instruction_operand) + 1;
-   bus_write(instruction_operand, value);
+   uint8_t value = cpu_bus_read(instruction_operand) + 1;
+   cpu_bus_write(instruction_operand, value);
 
    value = ~value; // negate value since subtraction is done using 2's complement addition
 
@@ -1733,7 +1733,7 @@ static uint8_t ISB(void)
 */
 static uint8_t RLA(void)
 {
-   uint8_t value = bus_read(instruction_operand);
+   uint8_t value = cpu_bus_read(instruction_operand);
 
    uint8_t shifted_in_bit = cpu.status_flags & 1;
    uint8_t shifted_out_bit = (value & 0x80) != 0;
@@ -1743,7 +1743,7 @@ static uint8_t RLA(void)
    store_bit(value, shifted_in_bit, 0);             // carry flag is rotated into value
    store_bit(cpu.status_flags, shifted_out_bit, 0); // bit that is rotated out is moved into carry flag
 
-   bus_write(instruction_operand, value);           // store result back into memory
+   cpu_bus_write(instruction_operand, value);           // store result back into memory
 
    cpu.ac = cpu.ac & value;
 
@@ -1784,7 +1784,7 @@ static uint8_t RLA(void)
 */
 static uint8_t RRA(void)
 {
-   uint8_t value = bus_read(instruction_operand);
+   uint8_t value = cpu_bus_read(instruction_operand);
 
    uint8_t shifted_out_bit = value & 1;
    uint8_t shifted_in_bit = cpu.status_flags & 1;
@@ -1794,7 +1794,7 @@ static uint8_t RRA(void)
    store_bit(cpu.status_flags, shifted_out_bit, 0);
    store_bit(value, shifted_in_bit, 7);
 
-   bus_write(instruction_operand, value);
+   cpu_bus_write(instruction_operand, value);
 
    uint8_t carry_bit = cpu.status_flags & 1;
    uint32_t sum = cpu.ac + value + carry_bit;
@@ -1864,7 +1864,7 @@ static uint8_t SBC(void)
    }
    else
    {
-      value = bus_read(instruction_operand);
+      value = cpu_bus_read(instruction_operand);
    }
 
    // 8-bit int cast to prevent negation of value being promoted to 32-bit int
@@ -1939,13 +1939,13 @@ static uint8_t SBX(void){return 0;}
 */
 static uint8_t SLO(void)
 {
-   uint8_t value = bus_read(instruction_operand);
+   uint8_t value = cpu_bus_read(instruction_operand);
 
    uint8_t shifted_out_bit = (value & 0x80) != 0;
    store_bit(cpu.status_flags, shifted_out_bit, 0);
 
    value = value << 1;
-   bus_write(instruction_operand, value);
+   cpu_bus_write(instruction_operand, value);
 
    cpu.ac = cpu.ac | value;
 
@@ -1983,13 +1983,13 @@ static uint8_t SLO(void)
 */
 static uint8_t SRE(void)
 {
-   uint8_t value = bus_read(instruction_operand);
+   uint8_t value = cpu_bus_read(instruction_operand);
 
    uint8_t shifted_out_bit = value & 1;
    store_bit(cpu.status_flags, shifted_out_bit, 0);
 
    value = value >> 1;
-   bus_write(instruction_operand, value);
+   cpu_bus_write(instruction_operand, value);
 
    cpu.ac = cpu.ac ^ value;
 
@@ -2028,8 +2028,8 @@ static uint8_t XAA(void){return 0;}
 */
 static uint8_t DEC(void)
 {
-   uint8_t value = bus_read(instruction_operand);
-   bus_write(instruction_operand, --value);
+   uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, --value);
 
    // set/reset negative flag
    if (value & 0x80)
@@ -2125,8 +2125,8 @@ static uint8_t DEY(void)
 */
 static uint8_t INC(void)
 {
-   uint8_t value = bus_read(instruction_operand);
-   bus_write(instruction_operand, ++value);
+   uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, ++value);
 
    // set/reset negative flag
    if (value & 0x80)
@@ -2225,11 +2225,7 @@ static uint8_t INY(void)
 */
 static uint8_t BRK(void)
 {
-   /**
-    * next byte is fetch and pc increment with the result discarded, 
-    * but we can just increment pc directly without calling cpu_fetch()
-   */
-   ++cpu.pc;
+   cpu_fetch(); // read next byte and ingore fetched result while incrementing pc
 
    stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
    stack_push( cpu.pc & 0x00FF );
@@ -2237,7 +2233,7 @@ static uint8_t BRK(void)
    set_bit(cpu.status_flags, 4); // break flag pushed as 1
    stack_push(cpu.status_flags);
 
-   cpu.pc = bus_read_u16(INTERRUPT_VECTOR);
+   cpu.pc = cpu_bus_read_u16(INTERRUPT_VECTOR);
 
    return 0;
 }
@@ -2506,7 +2502,7 @@ static uint8_t branch(void)
 static uint8_t cpu_fetch(void)
 {
    // fetch
-   uint8_t fetched_byte = bus_read(cpu.pc);
+   uint8_t fetched_byte = cpu_bus_read(cpu.pc);
    ++cpu.pc;
 
    return fetched_byte;
@@ -2521,18 +2517,18 @@ static uint8_t cpu_fetch(void)
 static void cpu_decode(uint8_t opcode)
 {
    current_instruction = &instruction_lookup_table[opcode];
+   current_opcode = opcode;
 }
 
 /**
  * execute the instruction that was previously decoded from a call to cpu_decode().
  * Only call this function after cpu_decode() has been called.
- * @param opcode the opcode to execute is passed for logging purposes
  * @returns the number of cycles the executed instruction takes
 */
-static uint8_t cpu_execute(uint8_t opcode)
+static uint8_t cpu_execute()
 {
    uint8_t extra_cycles = 0;
-   set_instruction_operand(current_instruction->mode, opcode, &extra_cycles);
+   set_instruction_operand(current_instruction->mode, &extra_cycles);
    extra_cycles += current_instruction->opcode_function(); // execute the current instruction
 
    return current_instruction->cycles + extra_cycles;
@@ -2544,7 +2540,7 @@ static uint8_t cpu_execute(uint8_t opcode)
  */ 
 static void stack_push(uint8_t value)
 {
-   bus_write(CPU_STACK_ADDRESS + cpu.sp, value);
+   cpu_bus_write(CPU_STACK_ADDRESS + cpu.sp, value);
    --cpu.sp;
 }
 
@@ -2555,7 +2551,7 @@ static void stack_push(uint8_t value)
 static uint8_t stack_pop(void)
 {
    ++cpu.sp;
-   return bus_read(CPU_STACK_ADDRESS + cpu.sp);
+   return cpu_bus_read(CPU_STACK_ADDRESS + cpu.sp);
 }
 
 /**
@@ -2595,6 +2591,7 @@ void cpu_reset(void)
  * that contains page crossing is a write or read instruction.
  * This is to handle edge cases where write instructions do not take an
  * extra cycle as the extra cycle is already included in the base cycle count.
+ * @param opcode the opcode to check
  * @returns true if opcode is a write instruction, else return false.
 */
 static bool check_opcode_access_mode(uint8_t opcode)

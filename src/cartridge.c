@@ -1,15 +1,17 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../includes/cartridge.h"
 
+static mapper_t *mapper = NULL;
+
 // this is where the cartridge program (game code) is loaded into
 // fixed to 32kb for now
-static uint8_t program_rom[0x8000];
+static uint8_t *program_rom = NULL;
+static uint8_t *chr_rom = NULL;
 
-// start loading program rom into memory
-// todo: handle ines header
 bool cartridge_load(const char* const filepath)
 {
    FILE *file = fopen(filepath, "rb");
@@ -21,7 +23,7 @@ bool cartridge_load(const char* const filepath)
    }
 
    fseek(file, 0, SEEK_END);
-   uint32_t size = ftell(file); // total bytes to read from file
+   size_t size = ftell(file); // total bytes to read from file
    rewind(file);
 
    if (size == 0)
@@ -30,7 +32,7 @@ bool cartridge_load(const char* const filepath)
       return false;
    }
 
-   // read in the 16 byte long iNES header
+   // read iNes header into array
 
    uint8_t iNES_header[iNES_HEADER_SIZE];
 
@@ -39,9 +41,31 @@ bool cartridge_load(const char* const filepath)
 
    if (bytes_read != iNES_HEADER_SIZE)
    {
-      printf("File reading error!\n");
+      printf("Failed to read iNES header!\n");
       return false;
    }
+
+   // allocate memory for program and chr rom
+
+   program_rom = calloc( iNES_header[4] * 1024 * 16, sizeof(uint8_t) );  // alocate with 16kb units
+
+   // program_rom must always have alocated memory
+   if (program_rom == NULL)
+   {
+      printf("Failed to allocate memory for PRG-rom!\n");
+      return false;
+   }
+
+   chr_rom = calloc( iNES_header[5] * 1024 * 8, sizeof(uint8_t) );       // allocate with 8 kb units
+
+   // if size of chr_rom is zero according to iNES header, then we use chr_ram instead
+   // otherwise we need to check if request memory for chr_rom is successful
+   if (iNES_header[5] != 0 && chr_rom == NULL)
+   {
+      printf("Failed to allocated memory for CHR-rom!\n");
+      return false;
+   }
+   
 
    printf("iNES header\n");
    for(int i = 0; i < 16; ++i)
@@ -64,11 +88,13 @@ bool cartridge_load(const char* const filepath)
    return true;
 }
 
-// read data from cartridge from at specified position
-uint8_t cartridge_read(uint16_t position)
+void cartridge_free_memory()
 {
-   position = position - 0x8000;
-   position = position & 0x3FFF;
+   free(program_rom);
+   free(chr_rom);
+}
 
-   return program_rom[position];
+uint8_t cartridge_cpu_read(uint16_t position)
+{
+   return program_rom[position & 0x3FFF];
 }
