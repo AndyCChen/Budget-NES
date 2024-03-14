@@ -4,6 +4,7 @@
 #include "../includes/bus.h"
 #include "../includes/cartridge.h"
 #include "../includes/ppu.h"
+#include "../includes/cpu.h"
 
 static uint8_t cpu_ram[CPU_RAM_SIZE];
 
@@ -11,7 +12,7 @@ static uint8_t cpu_ram[CPU_RAM_SIZE];
 uint8_t cpu_bus_read(uint16_t position)
 {
    // accessing program rom address space inside the cartridge
-   if ( position >= CARTRIDGE_PRG_START )
+   if ( position >= CPU_CARTRIDGE_START )
    {
       return cartridge_cpu_read(position);
    }  
@@ -21,7 +22,7 @@ uint8_t cpu_bus_read(uint16_t position)
       return cpu_ram[position & 0x7FF];
    }
    // accessing ppu registers
-   else if ( (position >= PPU_REG_START && position <= PPU_REG_END) || position == OAM_DMA )
+   else if ( (position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END) || position == OAM_DMA )
    {
       return ppu_cpu_read( position & 0x7 );
    }
@@ -38,7 +39,7 @@ void cpu_bus_write(uint16_t position, uint8_t data)
       cpu_ram[position & 0x7FF] = data;
    }
    // accessing ppu registers
-   else if ( (position >= PPU_REG_START && position <= PPU_REG_END) || position == OAM_DMA )
+   else if ( (position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END) || position == OAM_DMA )
    {
       ppu_cpu_write( position & 0x7, data );
    }

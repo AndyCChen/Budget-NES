@@ -7,6 +7,29 @@
 #define RESET_VECTOR     0xFFFC // address of reset vector
 #define INTERRUPT_VECTOR 0xFFFE // address of the interrupt vector
 
+#define CPU_RAM_SIZE 1024 * 2
+#define CPU_RAM_END  0x1FFF     // ending address space of cpu ram
+
+// memory mapped addresses used by cpu to access cartridge space
+
+#define CPU_CARTRIDGE_START         0x4020
+#define CPU_CARTRIDGE_PRG_RAM_START 0x6000
+#define CPU_CARTRIDGE_PRG_RAM_END   0x7FFF
+#define CPU_CARTRIDGE_PRG_ROM_START 0x8000
+
+// address range used by cpu to access ppu registers
+
+#define CPU_PPU_REG_START 0x2000
+#define CPU_PPU_REG_END   0x3FFF
+
+/**
+ * Bottom address of the stack.
+ * Stack pointer value is added to this address as a offset.
+ * When a value is pushed, the stack pointer is decremented and when
+ * a value is popped, the stack pointer is incremented
+*/
+#define CPU_STACK_ADDRESS 0x0100
+
 typedef enum address_modes_t
 {
    IMP, // implied

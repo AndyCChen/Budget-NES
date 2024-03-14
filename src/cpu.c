@@ -10,7 +10,7 @@
 static cpu_6502_t cpu;
 
 static uint8_t cpu_fetch(void);
-static uint8_t cpu_execute();
+static uint8_t cpu_execute(void);
 static void cpu_decode(uint8_t opcode);
 static uint8_t branch(void);
 static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra_cycle);
@@ -2525,7 +2525,7 @@ static void cpu_decode(uint8_t opcode)
  * Only call this function after cpu_decode() has been called.
  * @returns the number of cycles the executed instruction takes
 */
-static uint8_t cpu_execute()
+static uint8_t cpu_execute(void)
 {
    uint8_t extra_cycles = 0;
    set_instruction_operand(current_instruction->mode, &extra_cycles);
@@ -2558,14 +2558,14 @@ static uint8_t stack_pop(void)
  * Emulate the execution of one 6502 cpu instruction
  * and counts the number of cycles that the execution would have taken.
 */
-void cpu_emulate_instruction()
+void cpu_emulate_instruction(void)
 {
    static uint32_t total_cycles = 7;
    nestest_log("%04X  ", cpu.pc); // log current pc value before fetching
 
    uint8_t opcode = cpu_fetch();
    cpu_decode(opcode);
-   uint8_t cycles = cpu_execute(opcode);
+   uint8_t cycles = cpu_execute();
 
    nestest_log(" CYC:%d\n", total_cycles);
    total_cycles += cycles;

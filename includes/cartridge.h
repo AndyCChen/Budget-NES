@@ -3,22 +3,21 @@
 
 #include <stdbool.h>
 
-#define iNES_HEADER_SIZE 16 // iNES headers are all 16 bytes long
-#define CARTRIDGE_PRG_START 0x8000 // starting address of program rom
-
-typedef struct mapper_t
+typedef enum cartridge_mode_t
 {
-   uint8_t (*cpu_read) (uint16_t);
-   uint8_t (*ppu_read) (uint16_t);
-   void (*cpu_write) (uint16_t, uint8_t);
-   void (*ppu_write) (uint16_t, uint8_t);
-} mapper_t;
+   PROGRAM_ROM,
+   CHR_ROM,
+   CHR_RAM,
+   PROGRAM_RAM
+} cartridge_mode_t;
 
-/**
- * Loads correct mapper that contains pointers to cpu/ppu read/write
- * function depending on the iNES header.
-*/
-void load_mapper();
+typedef struct nes_header_t 
+{
+   uint8_t trainer;
+   uint32_t program_rom_size; // in 16kb units
+   uint32_t chr_rom_size;     // in 8kb units
+   uint32_t mapper_id;
+} nes_header_t;
 
 /**
  * Loads program rom in cartridge into memory and
@@ -33,6 +32,13 @@ bool cartridge_load(const char* const romPath);
  * @returns data that is read
 */
 uint8_t cartridge_cpu_read(uint16_t position);
+
+/**
+ * Lets ppu read data from cartridge.
+ * @param position location to read data from
+ * @returns data that is read
+*/
+uint8_t cartridge_ppu_read(uint16_t position);
 
 /**
  * Frees the allocated memory for program and chr roms.

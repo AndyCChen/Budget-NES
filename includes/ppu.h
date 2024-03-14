@@ -17,23 +17,22 @@
 #define PPU_DATA    0x2007
 #define OAM_DMA     0x4041
 
-// address range to access ppu registers
+// memory mapped addresses used by ppu to access cartridge space
 
-#define PPU_REG_START 0x2000
-#define PPU_REG_END   0x3FFF
+#define PPU_CARTRIDGE_PATTERN_TABLE_END 0x1FFF
 
 /**
  * Lets cpu write data to a ppu register
  * @param position address of ppu register to write to
  * @param data content that is to be written to memory
 */
-void ppu_cpu_write(uint8_t position, uint8_t data);
+void ppu_cpu_write(uint16_t position, uint8_t data);
 
 /**
  * Lets cpu read data from a ppu register
  * @param position address of ppu register to read from
  * @returns data that is read from ppu register
 */
-uint8_t ppu_cpu_read(uint8_t position);
+uint8_t ppu_cpu_read(uint16_t position);
 
 #endif

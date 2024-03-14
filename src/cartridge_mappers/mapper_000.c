@@ -1,21 +1,47 @@
 #include "../includes/mappers/mapper_000.h"
 
-uint8_t cpu_read(uint16_t position)
+void mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode)
 {
-   
+   switch (mode)
+   {
+      case PROGRAM_ROM:
+      {
+         *mapped_addr = (header->program_rom_size > 1) ? position & 0x7FFF : position & 0x3FFF;
+         break;
+      }
+      case PROGRAM_RAM:
+      {
+         break;
+      }
+   }   
 }
 
-uint8_t ppu_read(uint16_t position)
+void mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode)
 {
-
+   switch (position)
+   {
+      case CHR_ROM:
+      {
+         *mapped_addr = position;
+         break;
+      }
+   }
 }
 
-void cpu_write(uint16_t position, uint8_t data)
+void mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode)
 {
+   // if chr_rom_size is 0 then chr_ram is being used so writes are allowed
+   if (header->chr_rom_size == 0)
+   {
 
+   }
 }
 
-void ppu_write(uint16_t position, uint8_t data)
+void mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode)
 {
+   // if chr_rom_size is 0 then chr_ram is being used so writes are allowed
+   if (header->chr_rom_size == 0)
+   {
 
+   }
 }

@@ -2,11 +2,14 @@
 #define MAPPER_001_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
-uint8_t cpu_read(uint16_t position);
-uint8_t ppu_read(uint16_t position);
+#include "../cartridge.h"
 
-void cpu_write(uint16_t position, uint8_t data);
-void ppu_write(uint16_t position, uint8_t data);
+void mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
+void mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
+
+void mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
+void mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
 
 #endif
