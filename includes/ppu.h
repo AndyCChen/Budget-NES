@@ -17,7 +17,7 @@
 #define PPU_DATA    0x2007
 #define OAM_DMA     0x4041
 
-// memory mapped addresses used by ppu to access cartridge space
+// address ranges used by ppu to access cartridge space
 
 #define PPU_CARTRIDGE_PATTERN_TABLE_END 0x1FFF
 

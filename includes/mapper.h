@@ -2,15 +2,16 @@
 #define MAPPER_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "../includes/cartridge.h"
 
 typedef struct mapper_t
 {
-   void (*cpu_read) (nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode);
-   void (*ppu_read) (nes_header_t *header, uint16_t position, uint16_t * mapped_addr, cartridge_mode_t mode);
-   void (*cpu_write) (nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode);
-   void (*ppu_write) (nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode_t mode);
+   cartridge_access_mode_t (*cpu_read) (nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
+   cartridge_access_mode_t (*ppu_read) (nes_header_t *header, uint16_t position, uint16_t * mapped_addr);
+   cartridge_access_mode_t (*cpu_write) (nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
+   cartridge_access_mode_t (*ppu_write) (nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
 } mapper_t;
 
 /**
@@ -19,6 +20,6 @@ typedef struct mapper_t
  * @param mapper_id id of mapper to load
  * @param mapper pointer to mapper struct that will contain loaded function pointer for reads/writes
 */
-static bool load_mapper(uint32_t mapper_id, mapper_t *mapper);
+bool load_mapper(uint32_t mapper_id, mapper_t *mapper);
 
 #endif

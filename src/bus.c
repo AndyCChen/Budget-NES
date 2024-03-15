@@ -11,7 +11,7 @@ static uint8_t cpu_ram[CPU_RAM_SIZE];
 // read single byte from bus
 uint8_t cpu_bus_read(uint16_t position)
 {
-   // accessing program rom address space inside the cartridge
+   // addressing cartridge space
    if ( position >= CPU_CARTRIDGE_START )
    {
       return cartridge_cpu_read(position);

@@ -1,7 +1,7 @@
 #include "../includes/mapper.h"
 #include "../includes/mappers/mapper_000.h"
 
-static bool load_mapper(uint32_t mapper_id, mapper_t *mapper)
+bool load_mapper(uint32_t mapper_id, mapper_t *mapper)
 {
    bool status;
 
@@ -14,6 +14,7 @@ static bool load_mapper(uint32_t mapper_id, mapper_t *mapper)
          mapper->cpu_write = &mapper000_cpu_write;
          mapper->ppu_write = &mapper000_ppu_write;
          status = true;
+         break;
       }
       default:
          status = false;

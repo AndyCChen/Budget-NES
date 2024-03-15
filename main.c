@@ -2,14 +2,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "glad.h"
+#include "glad_loader/include/glad/glad.h"
 #include "SDL.h"
 
-#include "bus.h"
-#include "cpu.h"
-#include "cartridge.h"
-#include "log.h"
-#include "display.h"
+#include "includes/cpu.h"
+#include "includes/cartridge.h"
+#include "includes/log.h"
+#include "includes/display.h"
 
 bool nestest_log_flag = true;
 
@@ -43,8 +42,6 @@ int main(int argc, char *argv[])
       display_update();
    }
 
-   
-
    nestest_log_open();
 
    cpu_reset();
@@ -56,6 +53,7 @@ int main(int argc, char *argv[])
  
    nestest_log_close();
    
+   cartridge_free_memory();
    display_shutdown();
 
    return 0;

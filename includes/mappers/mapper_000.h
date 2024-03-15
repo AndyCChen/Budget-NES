@@ -6,10 +6,10 @@
 
 #include "../cartridge.h"
 
-void mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
-void mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
+cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
+cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
 
-void mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
-void mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, cartridge_mode mode);
+cartridge_access_mode_t mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
+cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr);
 
 #endif
