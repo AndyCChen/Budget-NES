@@ -43,7 +43,19 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
 
 cartridge_access_mode_t mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
-   return NO_CARTRIDGE_DEVICE;
+   cartridge_access_mode_t mode;
+
+   if ( position >= CPU_CARTRIDGE_PRG_RAM_START && position <= CPU_CARTRIDGE_PRG_RAM_END )
+   {
+      *mapped_addr = position & 0x1FFF;
+      mode = ACCESS_PRG_RAM;
+   }
+   else
+   {
+      mode = NO_CARTRIDGE_DEVICE;
+   }
+
+   return mode;
 }
 
 cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
