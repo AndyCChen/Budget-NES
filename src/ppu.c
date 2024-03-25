@@ -31,6 +31,8 @@ static uint8_t oam_dma;
 static uint8_t vram[PPU_RAM_SIZE];
 static uint8_t palette[32];
 
+static uint8_t open_bus = 0;
+
 void ppu_cpu_write(uint16_t position, uint8_t data)
 {
    switch(position)
@@ -46,7 +48,14 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          oam_address = data;
          break;
       case PPUSCROLL:
+         ppu_scroll = data;
+         break;
       case PPUADDR:
+         ppu_address = data;
+         break;
+      case OAMDMA:
+         oam_dma = data;
+         break;
 
       // read/write
       case OAMDATA:
@@ -54,11 +63,14 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          break;
       case PPUDATA:
          ppu_data = data;
+         break;
 
       // read only
       case PPUSTATUS:
-         
+         break;
    }
+
+   open_bus = data; // writes to any ppu ports loads a value into the I/O bus
 }
 
 uint8_t ppu_cpu_read(uint16_t position)
@@ -71,15 +83,24 @@ uint8_t ppu_cpu_read(uint16_t position)
       case OAMADDR:
       case PPUSCROLL:
       case PPUADDR:
+      case OAMDMA:
+         break;
 
       // read/write
       case OAMDATA:
+         open_bus = oam_data;
+         break;
       case PPUDATA:
+         open_bus = ppu_data;
+         break;
 
       // read only
       case PPUSTATUS:
+         open_bus = (ppu_status & 0xE0) | open_bus;
+         break;
    }
-   return 0;
+
+   return open_bus;
 }
 
 void ppu_cycle(void)
