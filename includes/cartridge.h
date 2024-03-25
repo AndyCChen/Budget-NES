@@ -15,11 +15,11 @@ typedef enum cartridge_access_mode_t
 typedef struct nes_header_t 
 {
    uint8_t trainer;
-   uint32_t prg_rom_size; // in 16kb units
-   uint32_t prg_ram_size; // in 8kb units
-   uint32_t chr_rom_size; // in 8kb units
+   uint32_t prg_rom_size;         // in 16kb units
+   uint32_t prg_ram_size;         // in 8kb units
+   uint32_t chr_rom_size;         // in 8kb units
    uint16_t mapper_id;
-  //uint8_t nametable_arrangement; // 0: horizontal mirroring, 1: vertical mirroring
+   uint8_t nametable_arrangement; // 0: horizontal mirroring, 1: vertical mirroring
 } nes_header_t;
 
 /**

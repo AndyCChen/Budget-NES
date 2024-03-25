@@ -194,6 +194,7 @@ static bool load_iNES(uint8_t *iNES_header, nes_header_t *header )
    }
 
    header->trainer = iNES_header[6] & 0x04;
+   header->nametable_arrangement = iNES_header[6] & 0x1;
    header->prg_rom_size = iNES_header[4];
    header->prg_ram_size = iNES_header[8];
    header->chr_rom_size = iNES_header[5];

@@ -6,6 +6,9 @@
 #include "../includes/ppu.h"
 #include "../includes/cpu.h"
 
+#define CPU_RAM_SIZE 1024 * 2
+#define CPU_RAM_END  0x1FFF     // ending address space of cpu ram
+
 static uint8_t cpu_ram[CPU_RAM_SIZE];
 
 // read single byte from bus
@@ -22,9 +25,9 @@ uint8_t cpu_bus_read(uint16_t position)
       return cpu_ram[position & 0x7FF];
    }
    // accessing ppu registers
-   else if ( (position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END) || position == OAM_DMA )
+   else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
    {
-      return ppu_cpu_read( position & 0x7 );
+      return ppu_cpu_read( 0x2000 | (position & 0x7) );
    }
 
    return 0xFF;
@@ -39,9 +42,9 @@ void cpu_bus_write(uint16_t position, uint8_t data)
       cpu_ram[position & 0x7FF] = data;
    }
    // accessing ppu registers
-   else if ( (position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END) || position == OAM_DMA )
+   else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
    {
-      ppu_cpu_write( position & 0x7, data );
+      ppu_cpu_write( 0x2000 | (position & 0x7), data );
    }
 }
 

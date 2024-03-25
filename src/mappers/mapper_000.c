@@ -1,6 +1,5 @@
 #include "../includes/mappers/mapper_000.h"
-#include "../includes/cpu.h"
-#include "../includes/ppu.h"
+#include "../includes/bus.h"
 
 cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
