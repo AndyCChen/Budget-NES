@@ -1,6 +1,16 @@
 #include "../includes/mappers/mapper_000.h"
 #include "../includes/bus.h"
 
+// address ranges used by cpu to access cartridge space
+
+#define CPU_CARTRIDGE_PRG_RAM_START 0x6000
+#define CPU_CARTRIDGE_PRG_RAM_END   0x7FFF
+#define CPU_CARTRIDGE_PRG_ROM_START 0x8000
+
+// address ranges used by ppu to access cartridge space
+
+#define PPU_CARTRIDGE_PATTERN_TABLE_END 0x1FFF
+
 cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
    cartridge_access_mode_t mode;

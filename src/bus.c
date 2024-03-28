@@ -6,8 +6,19 @@
 #include "../includes/ppu.h"
 #include "../includes/cpu.h"
 
+// address ranges used by cpu to access cartridge space
+
+#define CPU_CARTRIDGE_START 0x4020
+
+// address ranges used by cpu to access ppu registers
+
+#define CPU_PPU_REG_START 0x2000
+#define CPU_PPU_REG_END   0x3FFF
+
+// cpu ram
+
 #define CPU_RAM_SIZE 1024 * 2
-#define CPU_RAM_END  0x1FFF     // ending address space of cpu ram
+#define CPU_RAM_END  0x1FFF
 
 static uint8_t cpu_ram[CPU_RAM_SIZE];
 
