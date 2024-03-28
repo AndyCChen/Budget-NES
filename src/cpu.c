@@ -2289,7 +2289,10 @@ static uint8_t BRK(void)
    set_bit(cpu.status_flags, 4); // break flag pushed as 1
    stack_push(cpu.status_flags);
 
-   cpu.pc = cpu_bus_read_u16(INTERRUPT_VECTOR);
+   uint8_t lo = cpu_bus_read(INTERRUPT_VECTOR);
+   uint8_t hi = cpu_bus_read(INTERRUPT_VECTOR + 1);
+
+   cpu.pc = (hi << 8) | lo;
 
    return 0;
 }

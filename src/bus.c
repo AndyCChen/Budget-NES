@@ -58,22 +58,3 @@ void cpu_bus_write(uint16_t position, uint8_t data)
       ppu_cpu_write( 0x2000 | (position & 0x7), data );
    }
 }
-
-// read 2 bytes from bus, unpack from little endian
-uint16_t cpu_bus_read_u16(uint16_t position)
-{
-   uint8_t lo = cpu_bus_read(position);
-   uint16_t hi = cpu_bus_read(position + 1) << 8;
-
-   return hi | lo;
-}
-
-// write 2 bytes to bus, packed in little endian
-void cpu_bus_write_u16(uint16_t position, uint16_t data)
-{
-   uint8_t lo = data & 0x00FF;
-   cpu_bus_write(position, lo);
-   
-   uint8_t hi = ( data & 0xFF00 ) >> 8;
-   cpu_bus_write(position + 1, hi);
-}
