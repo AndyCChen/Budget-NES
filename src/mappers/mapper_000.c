@@ -1,15 +1,22 @@
 #include "../includes/mappers/mapper_000.h"
-#include "../includes/bus.h"
-
-// address ranges used by cpu to access cartridge space
 
 #define CPU_CARTRIDGE_PRG_RAM_START 0x6000
 #define CPU_CARTRIDGE_PRG_RAM_END   0x7FFF
 #define CPU_CARTRIDGE_PRG_ROM_START 0x8000
 
-// address ranges used by ppu to access cartridge space
-
 #define PPU_CARTRIDGE_PATTERN_TABLE_END 0x1FFF
+#define PPU_VRAM_START 0x2000
+#define PPU_VRAM_END 0x3EFF
+
+#define NAMETABLE_0_START 0x2000
+#define NAMETABLE_0_END   0x23BF
+#define NAMETABLE_1_START 0x2400
+#define NAMETABLE_1_END   0x27FF
+#define NAMETABLE_2_START 0x2800
+#define NAMETABLE_2_END   0x2BFF
+#define NAMETABLE_3_START 0x2C00
+#define NAMETABLE_3_END   0x2FFF
+
 
 cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
@@ -36,6 +43,7 @@ cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t positi
 cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
    cartridge_access_mode_t mode;
+   position = position & 0x3FFF; // ppu addresses only a 14 bit address space
 
    if ( position <= PPU_CARTRIDGE_PATTERN_TABLE_END )
    {
@@ -44,7 +52,35 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
    }
    else
    {
-      mode = NO_CARTRIDGE_DEVICE;
+      position = position & 0x2FFF; // addresses 0x3000 - 0x3FFF are mirrors of 0x2000 - 0x2FFF
+
+      if ( header->nametable_arrangement )
+      {
+         // vertical mirroring
+         if ( position >= NAMETABLE_2_START && position <= NAMETABLE_2_END )
+         {
+            position = position & NAMETABLE_0_END;
+         }
+         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
+         {
+            position = position & NAMETABLE_1_END;
+         }
+      }
+      else
+      {
+         // horizontal mirroring
+         if ( position >= NAMETABLE_1_START && position <= NAMETABLE_1_END )
+         {
+            position = position & NAMETABLE_0_END;
+         }
+         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
+         {
+            position = position & NAMETABLE_2_END;
+         }
+      }
+
+      *mapped_addr = position & 0x7FF;
+      mode = ACCESS_VRAM;
    }
 
    return mode;
@@ -70,6 +106,7 @@ cartridge_access_mode_t mapper000_cpu_write(nes_header_t *header, uint16_t posit
 cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
    cartridge_access_mode_t mode;
+   position = position & 0x3FFF; // ppu addresses only a 14 bit address space
 
    if ( position <= PPU_CARTRIDGE_PATTERN_TABLE_END )
    {
@@ -81,7 +118,35 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
    }
    else
    {
-      mode = NO_CARTRIDGE_DEVICE;
+      position = position & 0x2FFF; // addresses 0x3000 - 0x3FFF are mirrors of 0x2000 - 0x2FFF
+
+      if ( header->nametable_arrangement )
+      {
+         // vertical mirroring
+         if ( position >= NAMETABLE_2_START && position <= NAMETABLE_2_END )
+         {
+            position = position & NAMETABLE_0_END;
+         }
+         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
+         {
+            position = position & NAMETABLE_1_END;
+         }
+      }
+      else
+      {
+         // horizontal mirroring
+         if ( position >= NAMETABLE_1_START && position <= NAMETABLE_1_END )
+         {
+            position = position & NAMETABLE_0_END;
+         }
+         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
+         {
+            position = position & NAMETABLE_2_END;
+         }
+      }
+
+      *mapped_addr = position & 0x7FF;
+      mode = ACCESS_VRAM;
    }
 
    return mode;

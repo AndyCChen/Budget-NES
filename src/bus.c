@@ -15,8 +15,6 @@
 #define CPU_PPU_REG_START 0x2000
 #define CPU_PPU_REG_END   0x3FFF
 
-// cpu ram
-
 #define CPU_RAM_SIZE 1024 * 2
 #define CPU_RAM_END  0x1FFF
 

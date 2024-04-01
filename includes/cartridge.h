@@ -9,6 +9,7 @@ typedef enum cartridge_access_mode_t
    ACCESS_PRG_ROM,
    ACCESS_PRG_RAM,
    ACCESS_CHR_MEM,     // CHR_MEM can represent either chr-ram or chr-rom
+   ACCESS_VRAM,        // cartridge is able to map the location of ppu's vram
    NO_CARTRIDGE_DEVICE // adressed location has no active devices
 } cartridge_access_mode_t;
 
@@ -37,11 +38,19 @@ bool cartridge_load(const char* const romPath);
 uint8_t cartridge_cpu_read(uint16_t position);
 
 /**
- * Lets ppu read data from cartridge.
+ * ppu reads are intercepted by cartridge mapper which decides how to map physical memory to addresses.
+ * Exception is the palette ram which is non-configurable.
  * @param position location to read data from
- * @returns data that is read, will return data from previous read if addressed location has no devices
+ * @returns data that is read, will return data from previous read if addressed location has no devices.
 */
 uint8_t cartridge_ppu_read(uint16_t position);
+
+/**
+ * Cartridge determines where ppu writes are mapped to.
+ * @param position location to write data to
+ * @param data data to write
+*/
+void cartridge_ppu_write(uint16_t position, uint8_t data);
 
 /**
  * Frees the allocated memory for program and chr rom/ram.

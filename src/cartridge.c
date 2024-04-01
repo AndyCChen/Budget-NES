@@ -17,6 +17,7 @@ static nes_header_t header;
 static uint8_t *prg_rom = NULL;
 static uint8_t *prg_ram = NULL;
 static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom, very few cartridge have chr-ram and rom so we ignore those cases
+static uint8_t *ppu_vram = NULL;   // pointer to ppu's vram so cartridge can configure memory addresses to vram
 
 static bool load_iNES(uint8_t *iNES_header, nes_header_t *header );
 
@@ -46,17 +47,42 @@ uint8_t cartridge_ppu_read(uint16_t position)
    uint16_t mapped_addr = 0;
    cartridge_access_mode_t mode = mapper.ppu_read(&header, position, &mapped_addr);
 
-   static uint8_t data = 0;
+   uint8_t data = 0;
    switch ( mode )
    {
       case ACCESS_CHR_MEM:
          data = chr_memory[mapped_addr];
          break;
-      case NO_CARTRIDGE_DEVICE: // when addressed location has no attached device, return value from previous read in static data
+      case ACCESS_VRAM:
+         data = ppu_vram[mapped_addr]; // returned mapped address for vram
+         break;
+      default: // default case will never happen but who knows
+         printf("PPU read error!\n");
+         exit(EXIT_FAILURE);
          break;
    }
 
    return data;
+}
+
+void cartridge_ppu_write(uint16_t position, uint8_t data)
+{
+   uint16_t mapped_addr = 0;
+   cartridge_access_mode_t mode = mapper.ppu_write(&header, position, &mapped_addr);
+
+   switch ( mode )
+   {
+      case ACCESS_CHR_MEM:
+         chr_memory[mapped_addr] = data;
+         break;
+      case ACCESS_VRAM:
+         ppu_vram[mapped_addr] = data;
+         break;
+      default: // default case will never happen but who knows
+         printf("PPU write error!\n");
+         exit(EXIT_FAILURE);
+         break;
+   }
 }
 
 bool cartridge_load(const char* const filepath)
@@ -141,6 +167,8 @@ bool cartridge_load(const char* const filepath)
       printf("Failed to allocated memory for CHR-rom!\n");
       return false;
    }
+
+   ppu_vram = get_ppu_vram();
 
    // read nes file contents into corresponding allocated memory blocks
 
