@@ -78,9 +78,7 @@ void cartridge_ppu_write(uint16_t position, uint8_t data)
       case ACCESS_VRAM:
          ppu_vram[mapped_addr] = data;
          break;
-      default: // default case will never happen but who knows
-         printf("PPU write error!\n");
-         exit(EXIT_FAILURE);
+      default: // default should case will never happen unless you write to rom, in which case no write will occur
          break;
    }
 }

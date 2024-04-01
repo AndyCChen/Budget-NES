@@ -115,6 +115,10 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
          *mapped_addr = position;
          mode = ACCESS_CHR_MEM;
       }
+      else
+      {
+         mode = NO_CARTRIDGE_DEVICE;
+      }
    }
    else
    {
