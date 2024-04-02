@@ -5,5 +5,6 @@
 
 void cpu_emulate_instruction(void);
 void cpu_reset(void);
+void cpu_IRQ(void);
 
 #endif

@@ -38,23 +38,25 @@ bool cartridge_load(const char* const romPath);
 uint8_t cartridge_cpu_read(uint16_t position);
 
 /**
- * ppu reads are intercepted by cartridge mapper which decides how to map physical memory to addresses.
+ * Called by the ppu to when reading from cartridge or memory that can be configured by the cartridge mapper.
  * Exception is the palette ram which is non-configurable.
  * @param position location to read data from
+ * @param ppu_vram pointer to 2kb ppu vram so cartridge can directly read from vram after mapping the incoming address
  * @returns data that is read, will return data from previous read if addressed location has no devices.
 */
-uint8_t cartridge_ppu_read(uint16_t position);
+uint8_t cartridge_ppu_read(uint16_t position, uint8_t ppu_vram[]);
 
 /**
- * Cartridge determines where ppu writes are mapped to.
+ * Called by the ppu to when writing to cartridge or memory that can be configured by the cartridge mapper.
  * @param position location to write data to
- * @param data data to write
+ * @param data data to write, if writing to non writable location the write will not occur
+ * @param ppu_vram pointer to 2kb ppu vram so cartridge can directly write to vram after mapping the incoming address
 */
-void cartridge_ppu_write(uint16_t position, uint8_t data);
+void cartridge_ppu_write(uint16_t position, uint8_t data, uint8_t ppu_vram[]);
 
 /**
  * Frees the allocated memory for program and chr rom/ram.
 */
-void cartridge_free_memory();
+void cartridge_free_memory(void);
 
 #endif

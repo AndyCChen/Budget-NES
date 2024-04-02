@@ -3,6 +3,7 @@
 
 #include "../includes/ppu.h"
 #include "../includes/cartridge.h"
+#include "../includes/cpu.h"
 
 #define PPU_RAM_SIZE 1024 * 2
 #define PALETTE_SIZE 32
@@ -96,7 +97,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          }
          else
          {
-            cartridge_ppu_write(vram_address, data);
+            cartridge_ppu_write(vram_address, data, vram);
          }
          
          vram_address += (ppu_control & 4) ? 32 : 1; // increment vram address by 1 if bit 2 of control register is 0, else increment by 32
@@ -124,13 +125,12 @@ uint8_t ppu_cpu_read(uint16_t position)
          break;
       case PPUDATA:
          open_bus = vram_buffer;
-         vram_buffer = cartridge_ppu_read(vram_address);
+         vram_buffer = cartridge_ppu_read(vram_address, vram);
          
          // when reading palette, data is returned directly from palette ram rather than the internal read buffer
          if ( vram_address >= PALETTE_START )
          {
-            uint8_t palette_data = palette_ram[ vram_address & 0x1F ];
-            return palette_data;
+            return palette_ram[ vram_address & 0x1F ];
          }
 
          vram_address += (ppu_control & 4) ? 32 : 1; // increment vram address by 1 if bit 2 of control register is 0, else increment by 32
@@ -142,9 +142,4 @@ uint8_t ppu_cpu_read(uint16_t position)
    }
 
    return open_bus;
-}
-
-uint8_t* get_ppu_vram()
-{
-   return (uint8_t*) &vram;
 }

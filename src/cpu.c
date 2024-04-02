@@ -1028,7 +1028,7 @@ static uint8_t PLA(void)
  * when the status register is pushed onto the stack.
  * Whet the status register is poped, the break flag is
  * "discarded" by being reset to 0.
- * The 5th unused bit is alway set to 1.
+ * The 5th unused bit is always set to 1.
 */
 static uint8_t PLP(void)
 {
@@ -2537,6 +2537,25 @@ static uint8_t SEI(void)
 {
    set_bit(cpu.status_flags, 2);
    return 0;
+}
+
+/**
+ * Function that services hardware interrupts.
+*/
+void cpu_IRQ(void)
+{
+   stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
+   stack_push( cpu.pc & 0x00FF );
+
+   clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed, it should be cleared anyways
+   stack_push(cpu.status_flags);
+
+   set_bit(cpu.status_flags, 2);  // set interrupt flag to ignore further IRQs
+
+   uint8_t lo = cpu_bus_read(INTERRUPT_VECTOR);
+   uint8_t hi = cpu_bus_read(INTERRUPT_VECTOR + 1);
+
+   cpu.pc = (hi << 8) | lo;
 }
 
 /**

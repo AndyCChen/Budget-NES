@@ -22,9 +22,4 @@ uint8_t ppu_cpu_read(uint16_t position);
 */
 void ppu_cycle(void);
 
-/**
- * @returns ppu vram array address
-*/
-uint8_t* get_ppu_vram();
-
 #endif
