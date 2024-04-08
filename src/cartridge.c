@@ -35,6 +35,7 @@ uint8_t cartridge_cpu_read(uint16_t position)
          data = prg_ram[mapped_addr];
          break;
       case NO_CARTRIDGE_DEVICE: // when addressed location has no attached device, return value from previous read in static data
+         default: // default case should never happen here
          break;
    }
 
@@ -100,7 +101,7 @@ bool cartridge_load(const char* const filepath)
       return false;
    }
 
-   if ( iNES_header[7] & 0x0C == 0x08 )
+   if ( (iNES_header[7] & 0x0C) == 0x08 )
    {
       // implement iNES 2.0 in future, for now return false and exit
       printf("iNES 2.0 not supported!\n");

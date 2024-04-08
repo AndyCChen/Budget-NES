@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "../includes/ppu.h"
 #include "../includes/cartridge.h"
@@ -115,6 +116,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          write_toggle = !write_toggle;
          break;
       case OAMDMA: // todo: handle clock cycles
+      {
          uint16_t read_address = data << 8;
          for (size_t i = 0; i < 256; ++i)
          {
@@ -123,6 +125,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
             oam_address += 1;
          }
          break;
+      }
       case OAMDATA:
          oam_data = data;
          oam_ram[oam_address] = oam_data;
@@ -159,7 +162,7 @@ uint8_t ppu_cpu_read(uint16_t position)
          vram_buffer = cartridge_ppu_read(v_register & 0x3FFF, vram);
          
          // when reading palette, data is returned directly from palette ram rather than the internal read buffer
-         if ( v_register & 0x3FFF >= PALETTE_START )
+         if ( (v_register & 0x3FFF) >= PALETTE_START )
          {
             return palette_ram[v_register & 0x1F];
          }
