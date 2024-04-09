@@ -6,7 +6,6 @@
 #include "SDL.h"
 #include "SDL_opengl.h"
 #include "cglm.h"
-
 #include "display.h"
 
 static SDL_Window* window = NULL;
@@ -26,6 +25,7 @@ static void display_gui_display();
 
 static GLuint VBO[2];
 static GLuint VAO[2];
+static GLuint EBO;
 static GLuint shader_program;
 
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
@@ -115,16 +115,17 @@ void display_render()
 {
    glUseProgram(shader_program);
 
-   float timeValue = SDL_GetTicks64() / 1000.0f;
-   float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
-   int vertexColorLocation = glGetUniformLocation(shader_program, "ourColor");
-   glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
-
+   //float timeValue = SDL_GetTicks64() / 1000.0f;
+   //float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+   //int vertexColorLocation = glGetUniformLocation(shader_program, "ourColor");
+   //glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
    glBindVertexArray(VAO[0]);
-   glDrawArrays(GL_TRIANGLES, 0, 3);
+   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+   //glDrawArrays(GL_TRIANGLES, 0, 3);
    
-   glBindVertexArray(VAO[1]);
-   glDrawArrays(GL_TRIANGLES, 0, 3);
+   //glBindVertexArray(VAO[1]);
+   //glDrawArrays(GL_TRIANGLES, 0, 3);
 
    igRender();
    ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
@@ -265,60 +266,60 @@ static void display_gui_display()
 void graphics_create_triangle()
 {
    float triangle1[] = {
-      // position          // colors
-      -0.9f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,
-      -0.0f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
-      -0.45f, 0.5f, 0.0f,  0.0f, 0.0f, 1.0f
+      // position
+      -0.5f, -0.5f, 0.0f, // bottom left
+       0.5f, -0.5f, 0.0f, // bottom right
+       0.5f,  0.5f, 0.0f, // top right
+      -0.5f,  0.5f, 0.0f, // top left
+   };
+
+   GLuint indices1[] = {
+      0, 1, 3, // first triangle
+      1, 2, 3, // second triangle
    };
 
    float triangle2[] = {
-      // position         // colors
-      0.0f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,
-      0.9f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,
-      0.45f, 0.5f, 0.0f,   0.0f, 0.0f, 1.0f
+      // position
+      0.0f, -0.5f, 0.0f,
+      0.9f, -0.5f, 0.0f,
+      0.45f, 0.5f, 0.0f,
    };
 
    glGenVertexArrays(2, VAO);
    glGenBuffers(2, VBO);
+   glGenBuffers(1, &EBO);
 
    glBindVertexArray(VAO[0]);
    glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
    glBufferData(GL_ARRAY_BUFFER, sizeof(triangle1), triangle1, GL_STATIC_DRAW);
-   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices1), indices1, GL_STATIC_DRAW);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
    glEnableVertexAttribArray(0);
-   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
-   glEnableVertexAttribArray(1);
 
    glBindVertexArray(VAO[1]);
    glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
    glBufferData(GL_ARRAY_BUFFER, sizeof(triangle2), triangle2, GL_STATIC_DRAW);
-   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) 0);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
    glEnableVertexAttribArray(0);
-   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*) (3 * sizeof(float)));
-   glEnableVertexAttribArray(1);
 }
 
 void graphics_create_shaders()
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
-      "layout (location = 1) in vec3 aColor;\n"
-
-      "out vec3 ourColor;\n"
 
       "void main()\n"
       "{\n"
       "   gl_Position = vec4(aPos, 1.0);\n"
-      "   ourColor = aColor;\n"
       "}\0";
 
    GLchar* fragment_shader_code = "#version 330 core\n"
       "out vec4 fragColor;\n"
-      "in vec3 ourColor;\n"
 
       "void main()\n"
       "{\n"
-      "  fragColor = vec4(ourColor, 1.0);\n"
+      "  fragColor = vec4(0.5, 0.0, 0.0, 1.0);\n"
       "}\0";
 
    shader_program = glCreateProgram();
