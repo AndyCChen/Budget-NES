@@ -97,10 +97,22 @@ else (DEFINED CGLM_PATH)
    message(FATAL_ERROR "Please define CGLM_PATH")
 endif(DEFINED CGLM_PATH)
 
-
-target_include_directories(nes PRIVATE includes/ glad_loader/include/glad CGLM_PATH)
+target_include_directories(nes PRIVATE includes/ glad_loader/include/glad ${CGLM_PATH})
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(nes PRIVATE "-mconsole")
 endif()
-target_link_libraries(nes ${SDL_MAIN} cimgui_sdl cglm)
+
+find_library(
+   CGLM_LIB
+   NAMES cglm
+   HINTS /usr/local/lib
+)
+
+if (NOT CGLM_LIB)
+   message(STATUS "Did not find lib")
+else(NOT CGLM_LIB)
+   message(STATUS ${CGLM_LIB})
+endif(NOT CGLM_LIB)
+
+target_link_libraries(nes ${SDL_MAIN} cimgui_sdl ${CGLM_LIB})
