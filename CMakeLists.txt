@@ -91,9 +91,11 @@ add_executable(nes
    src/mappers/mapper_000.c
 )
 
-target_include_directories(nes PRIVATE includes/ glad_loader/include/glad)
+find_package(cglm)
+
+target_include_directories(nes PRIVATE includes/ glad_loader/include/glad C:/msys64/ucrt64/include/cglm)
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(nes PRIVATE "-mconsole")
 endif()
-target_link_libraries(nes ${SDL_MAIN} cimgui_sdl)
+target_link_libraries(nes ${SDL_MAIN} cimgui_sdl cglm::cglm)
