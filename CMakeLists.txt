@@ -67,9 +67,9 @@ if(SDL2_FOUND)
    message(STATUS ${SDL_MAIN} ${IMGUI_SDL_LIBRARY})
 else(SDL2_FOUND)
 	if(DEFINED SDL_PATH)
-		message(FATAL_ERROR "Cannot find SDL at SDL_PATH")
+		message(FATAL_ERROR " Cannot find SDL at SDL_PATH")
 	else(DEFINED SDL_PATH)
-		message(FATAL_ERROR "Cannot find SDL. Maybe try specifying SDL_PATH?")
+		message(FATAL_ERROR " Cannot find SDL. Maybe try specifying SDL_PATH?")
 	endif(DEFINED SDL_PATH)
 endif(SDL2_FOUND)
 
@@ -91,11 +91,16 @@ add_executable(nes
    src/mappers/mapper_000.c
 )
 
-find_package(cglm)
+if (DEFINED CGLM_PATH)
+   message(STATUS "Path to cglm: " ${CGLM_PATH})
+else (DEFINED CGLM_PATH)
+   message(FATAL_ERROR "Please define CGLM_PATH")
+endif(DEFINED CGLM_PATH)
 
-target_include_directories(nes PRIVATE includes/ glad_loader/include/glad C:/msys64/ucrt64/include/cglm)
+
+target_include_directories(nes PRIVATE includes/ glad_loader/include/glad CGLM_PATH)
 target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(nes PRIVATE "-mconsole")
 endif()
-target_link_libraries(nes ${SDL_MAIN} cimgui_sdl cglm::cglm)
+target_link_libraries(nes ${SDL_MAIN} cimgui_sdl cglm)
