@@ -53,14 +53,13 @@ if(DEFINED SDL_PATH)
 	message(STATUS "SDL_PATH defined as " ${SDL_PATH})
 	FIND_PACKAGE(SDL2 PATHS ${SDL_PATH})
 else(DEFINED SDL_PATH)
-	message(STATUS "FINDING PACKAGE")
 	# If SDL_PATH is not set, fallback and attempt to find SDL cmake script at a default location
 	find_package(SDL2)
 endif(DEFINED SDL_PATH)
 
 if(SDL2_FOUND)
 	get_target_property(SDL_INCLUDE SDL2::SDL2 INTERFACE_INCLUDE_DIRECTORIES)
-	message(STATUS "sdlinclude is " ${SDL_INCLUDE})
+	message(STATUS "sdl include is " ${SDL_INCLUDE})
    include_directories(${SDL_INCLUDE})
    set(IMGUI_SDL_LIBRARY SDL2::SDL2)
    set(SDL_MAIN SDL2::SDL2main)
@@ -110,9 +109,9 @@ find_library(
 )
 
 if (NOT CGLM_LIB)
-   message(STATUS "Did not find lib")
+   message(STATUS "Did not find library path for cglm")
 else(NOT CGLM_LIB)
-   message(STATUS ${CGLM_LIB})
+   message(STATUS "CGLM library at: " ${CGLM_LIB})
 endif(NOT CGLM_LIB)
 
 target_link_libraries(nes ${SDL_MAIN} cimgui_sdl ${CGLM_LIB})

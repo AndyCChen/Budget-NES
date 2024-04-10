@@ -1,11 +1,11 @@
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui.h"
 #include "cimgui_impl.h"
-
 #include "glad.h"
 #include "SDL.h"
 #include "SDL_opengl.h"
-#include "cglm.h"
+#include "struct.h" // struct api for cglm
+
 #include "display.h"
 
 static SDL_Window* window = NULL;
@@ -114,15 +114,27 @@ bool display_init()
 void display_render()
 {
    glUseProgram(shader_program);
+   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
    //float timeValue = SDL_GetTicks64() / 1000.0f;
    //float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
    //int vertexColorLocation = glGetUniformLocation(shader_program, "ourColor");
    //glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
-   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+   mat4 transform = GLM_MAT4_IDENTITY_INIT;
+   vec3 translate = {0.5f, -0.5f, 0.0f};
+   vec3 axis = {0.0f, 0.0f, 1.0f};
+   vec3 scaling = {0.5f, 0.5f, 0.5f};
+   glm_translate(transform, translate);
+   glm_rotate(transform, SDL_GetTicks64() / 1000.0f, axis);
+   
+   //glm_scale(transform, scaling);
+   
+   GLuint transformLoc = glGetUniformLocation(shader_program, "transform");
+   glUniformMatrix4fv(transformLoc, 1, GL_FALSE, (GLfloat*) transform);
+
    glBindVertexArray(VAO[0]);
    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-   //glDrawArrays(GL_TRIANGLES, 0, 3);
    
    //glBindVertexArray(VAO[1]);
    //glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -308,10 +320,11 @@ void graphics_create_shaders()
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
+      "uniform mat4 transform;\n"
 
       "void main()\n"
       "{\n"
-      "   gl_Position = vec4(aPos, 1.0);\n"
+      "   gl_Position = transform * vec4(aPos, 1.0);\n"
       "}\0";
 
    GLchar* fragment_shader_code = "#version 330 core\n"
