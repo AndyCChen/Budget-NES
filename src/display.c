@@ -7,6 +7,11 @@
 #include "cglm.h"
 #include "display.h"
 
+#define NES_PIXELS_W 256
+#define NES_PIXELS_H 240
+#define DISPLAY_W 1280.0f
+#define DISPLAY_H 720.0f
+
 static SDL_Window* window = NULL;
 static SDL_GLContext gContext = NULL;
 static ImGuiIO* io = NULL;
@@ -16,16 +21,19 @@ static ImVec4 clear_color = {0.45f, 0.55f, 0.60f, 1.00f};
 // gui components
 // ---------------------------------------------------------------
 
-static void display_gui_demo();
-static void display_gui_display();
+static void display_create_gui(void);
+static void display_gui_demo(void);
+static void display_gui_viewport(void);
+static void set_pixel_pos(float pixel_w, float pixel_h);
 
 // opengl graphics
 // ---------------------------------------------------------------
 
-static GLuint VBO[2];
-static GLuint VAO[2];
-static GLuint EBO;
+static GLuint VBO;
+static GLuint VAO;
 static GLuint shader_program;
+
+static vec3 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
 
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 
@@ -34,7 +42,7 @@ static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
  * set ImGui io config flags
  * \returns true on success and false on failure
 */
-bool display_init()
+bool display_init(void)
 {
    // sdl init
    if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0 )
@@ -62,8 +70,8 @@ bool display_init()
    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-   SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-   window = SDL_CreateWindow("cimgui demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256 * 3, 240 * 3, window_flags);
+   SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+   window = SDL_CreateWindow("cimgui demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W, DISPLAY_H, window_flags);
 
    if (window == NULL)
    {
@@ -104,80 +112,17 @@ bool display_init()
    ImGui_ImplSDL2_InitForOpenGL(window, gContext);
    ImGui_ImplOpenGL3_Init(glsl_version);
 
+   float pixel_w = DISPLAY_W / NES_PIXELS_W;
+   float pixel_h = DISPLAY_H / NES_PIXELS_H;
+   set_pixel_pos(pixel_w, pixel_h);
+
    return true;
-}
-
-/**
- * render imgui components
-*/
-void display_render()
-{
-   glUseProgram(shader_program);
-   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-   float timeValue = SDL_GetTicks64() / 1000.0f;
-   float s = fabs(sin(timeValue)) / 2 + 0.1f;
-   //float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
-   //int vertexColorLocation = glGetUniformLocation(shader_program, "ourColor");
-   //glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
-
-   vec3 translate = {0.0f, 0.0f, -2.0f};
-   vec3 axis = {0.0f, 0.0f, 1.0f};
-   vec3 scaling = {2.0f, 0.3f, 0.3f};
-
-   mat4 model = GLM_MAT4_IDENTITY_INIT;
-   glm_scale(model, scaling);
-
-   mat4 view = GLM_MAT4_IDENTITY_INIT;
-   glm_translate(view, translate);
-
-   mat4 projection = GLM_MAT4_IDENTITY_INIT;
-   glm_perspective(glm_rad(45.0f), io->DisplaySize.x / io->DisplaySize.y, 0.1f, 100.0f, projection);
-
-   GLuint modelLoc = glGetUniformLocation(shader_program, "model");
-   glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) model);
-
-   GLuint viewLoc = glGetUniformLocation(shader_program, "view");
-   glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
-
-   GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
-   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) projection);
-
-   //glm_translate(transform, translate);
-   //glm_rotate(transform, timeValue, axis);
-   //glm_scale(transform, scaling);
-   //printf("%f\n", fabs(sin(timeValue)));
-
-   glBindVertexArray(VAO[0]);
-   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-   //glBindVertexArray(VAO[1]);
-   //glDrawArrays(GL_TRIANGLES, 0, 3);
-
-   igRender();
-   ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
-
-   if ( io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
-   {
-      SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
-      SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-      igUpdatePlatformWindows();
-      igRenderPlatformWindowsDefault(NULL,NULL);
-      SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
-   }
-}
-
-/**
- * updates the screen
-*/
-void display_update()
-{
-   SDL_GL_SwapWindow(window);
 }
 
 /**
  * call functions to shutdown and free all resources
 */
-void display_shutdown()
+void display_shutdown(void)
 {
    ImGui_ImplOpenGL3_Shutdown();
    ImGui_ImplSDL2_Shutdown();
@@ -186,23 +131,6 @@ void display_shutdown()
    SDL_GL_DeleteContext(gContext);
    SDL_DestroyWindow(window);
    SDL_Quit();
-}
-
-/**
- * create imgui components
-*/
-void display_create_gui()
-{
-   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
-   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-   glClear(GL_COLOR_BUFFER_BIT);
-
-   ImGui_ImplOpenGL3_NewFrame();
-   ImGui_ImplSDL2_NewFrame();
-   igNewFrame();
-
-   display_gui_demo();
-   display_gui_display();
 }
 
 /**
@@ -226,7 +154,72 @@ void display_process_event(bool* done)
    }
 }
 
-static void display_gui_demo()
+/**
+ * render imgui components
+*/
+void display_render(void)
+{
+   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
+   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+   glClear(GL_COLOR_BUFFER_BIT);
+
+   display_create_gui();
+
+   glUseProgram(shader_program);
+   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+   mat4 view = GLM_MAT4_IDENTITY_INIT;
+   vec3 translate = {0.0f, 0.0f, 0.0f};
+   glm_translate(view, translate);
+   GLuint viewLoc = glGetUniformLocation(shader_program, "view");
+   glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
+
+   mat4 ortho_projection = GLM_MAT4_IDENTITY_INIT;
+   glm_ortho(0.0f, DISPLAY_W, DISPLAY_H, 0.0f, -1.0f, 1.0f, ortho_projection);
+   GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
+   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
+
+   glBindVertexArray(VAO);
+   int max = 256*240;
+   for (int i = 0; i < max; ++i)
+   {
+      mat4 model = GLM_MAT4_IDENTITY_INIT;
+      glm_translate(model, pixel_pos[i]);
+      GLuint modelLoc = glGetUniformLocation(shader_program, "model");
+      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) model);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+   }
+
+   igRender();
+   ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
+
+   if ( io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable )
+   {
+      SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
+      SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
+      igUpdatePlatformWindows();
+      igRenderPlatformWindowsDefault(NULL,NULL);
+      SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
+   }
+
+   SDL_GL_SwapWindow(window);
+}
+
+/**
+ * create imgui components
+*/
+static void display_create_gui(void)
+{
+   ImGui_ImplOpenGL3_NewFrame();
+   ImGui_ImplSDL2_NewFrame();
+   igNewFrame();
+
+   display_gui_demo();
+   display_gui_viewport();
+}
+
+static void display_gui_demo(void)
 {
    static bool show_demo_window = true;
    static bool show_another_window = false;
@@ -276,7 +269,7 @@ static void display_gui_demo()
 /**
  * create the gui for the main display viewport
 */
-static void display_gui_display()
+static void display_gui_viewport(void)
 {
    static bool show_main_viewport = true;
 
@@ -289,48 +282,36 @@ static void display_gui_display()
    }
 }
 
-void graphics_create_triangle()
+void graphics_create_pixels(void)
 {
-   float rectangle1[] = {
-      // position
-      -0.5f, -0.5f, 0.0f, // bottom left
-       0.5f, -0.5f, 0.0f, // bottom right
-       0.5f,  0.5f, 0.0f, // top right
-      -0.5f,  0.5f, 0.0f, // top left
+   float pixel_w = DISPLAY_W / 256.0f;
+   float pixel_h = DISPLAY_H / 240.0f;
+
+   printf("%f %f\n", pixel_w, pixel_h);
+
+   float pixel[] = {
+      // triangle 1
+      0.0f,  0.0f, 0.0f, // top left
+      0.0f,  pixel_h, 0.0f, // bottom left
+      pixel_w,  pixel_h, 0.0f, // bottom right
+      
+      // triangle 2
+      0.0f,  0.0f, 0.0f, // top left
+      pixel_w, 0.0f, 0.0f, // top right
+      pixel_w,  pixel_h, 0.0f, // bottom right
    };
 
-   GLuint indices1[] = {
-      0, 1, 3, // first triangle
-      1, 2, 3, // second triangle
-   };
+   glGenVertexArrays(1, &VAO);
+   glGenBuffers(1, &VBO);
 
-   float triangle2[] = {
-      // position
-      0.0f, -0.5f, 0.0f,
-      0.9f, -0.5f, 0.0f,
-      0.45f, 0.5f, 0.0f,
-   };
-
-   glGenVertexArrays(2, VAO);
-   glGenBuffers(2, VBO);
-   glGenBuffers(1, &EBO);
-
-   glBindVertexArray(VAO[0]);
-   glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(rectangle1), rectangle1, GL_STATIC_DRAW);
-   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices1), indices1, GL_STATIC_DRAW);
-   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
-   glEnableVertexAttribArray(0);
-
-   glBindVertexArray(VAO[1]);
-   glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(triangle2), triangle2, GL_STATIC_DRAW);
+   glBindVertexArray(VAO);
+   glBindBuffer(GL_ARRAY_BUFFER, VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(pixel), pixel, GL_STATIC_DRAW);
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
    glEnableVertexAttribArray(0);
 }
 
-void graphics_create_shaders()
+void graphics_create_shaders(void)
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
@@ -364,11 +345,11 @@ void graphics_create_shaders()
 
    glLinkProgram(shader_program);
 
-   int sucess;
+   int success;
    char shader_prog_log[512];
 
-   glGetProgramiv(shader_program, GL_LINK_STATUS, &sucess);
-   if (sucess == 0) // shader program linking failure
+   glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
+   if (success == 0) // shader program linking failure
    {
       glGetProgramInfoLog(shader_program, sizeof(shader_prog_log), NULL, shader_prog_log);
       printf("shader program linker error: %s\n", shader_prog_log);
@@ -394,11 +375,11 @@ static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
    glShaderSource(shader, 1, &shader_code, NULL);
    glCompileShader(shader);
 
-   int sucess;
+   int success;
    char shader_log[512];
 
-   glGetShaderiv(shader, GL_COMPILE_STATUS, &sucess);
-   if (sucess == 0) // shader compile error
+   glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+   if (success == 0) // shader compile error
    {
       glGetShaderInfoLog(shader, sizeof(shader_log), NULL, shader_log);
       printf("Shader compilation error: %s", shader_log);
@@ -406,4 +387,23 @@ static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
    }
 
    glAttachShader(program, shader);
+}
+
+/**
+ * Sets the position of each pixel of the nes display
+ * @param pixel_w width of the pixel
+ * @param pixel_h height of the pixel
+*/
+static void set_pixel_pos(float pixel_w, float pixel_h)
+{
+
+   for (size_t row = 0; row < NES_PIXELS_H; ++row)
+   {
+      for (size_t col = 0; col < NES_PIXELS_W; ++col)
+      {
+         pixel_pos[(row * NES_PIXELS_W) + col][0] = pixel_w * col;
+         pixel_pos[(row * NES_PIXELS_W) + col][1] = pixel_h * row;
+         pixel_pos[(row * NES_PIXELS_W) + col][2] = 0.0f;
+      }
+   }
 }

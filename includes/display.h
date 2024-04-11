@@ -9,14 +9,12 @@
  * renders/updates to the screen
 */
 
-bool display_init();
-void display_render();
-void display_update();
-void display_shutdown();
+bool display_init(void);
+void display_render(void);
+void display_shutdown(void);
 void display_process_event(bool* done);
-void display_create_gui();
 
-void graphics_create_triangle();
-void graphics_create_shaders();
+void graphics_create_pixels(void);
+void graphics_create_shaders(void);
 
 #endif

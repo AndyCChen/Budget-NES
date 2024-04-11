@@ -28,18 +28,14 @@ int main(int argc, char *argv[])
    }
 
    graphics_create_shaders();
-   graphics_create_triangle();
+   graphics_create_pixels();
 
    bool done = false;
    while (!done)
    {
       display_process_event(&done);
 
-
-
-      display_create_gui();
       display_render();
-      display_update();
    }
 
    nestest_log_open();
