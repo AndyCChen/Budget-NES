@@ -4,8 +4,7 @@
 #include "glad.h"
 #include "SDL.h"
 #include "SDL_opengl.h"
-#include "struct.h" // struct api for cglm
-
+#include "cglm.h"
 #include "display.h"
 
 static SDL_Window* window = NULL;
@@ -64,7 +63,7 @@ bool display_init()
    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
    SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-   window = SDL_CreateWindow("cimgui demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+   window = SDL_CreateWindow("cimgui demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256 * 3, 240 * 3, window_flags);
 
    if (window == NULL)
    {
@@ -116,26 +115,41 @@ void display_render()
    glUseProgram(shader_program);
    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-   //float timeValue = SDL_GetTicks64() / 1000.0f;
+   float timeValue = SDL_GetTicks64() / 1000.0f;
+   float s = fabs(sin(timeValue)) / 2 + 0.1f;
    //float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
    //int vertexColorLocation = glGetUniformLocation(shader_program, "ourColor");
    //glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
 
-   mat4 transform = GLM_MAT4_IDENTITY_INIT;
-   vec3 translate = {0.5f, -0.5f, 0.0f};
+   vec3 translate = {0.0f, 0.0f, -2.0f};
    vec3 axis = {0.0f, 0.0f, 1.0f};
-   vec3 scaling = {0.5f, 0.5f, 0.5f};
-   glm_translate(transform, translate);
-   glm_rotate(transform, SDL_GetTicks64() / 1000.0f, axis);
-   
+   vec3 scaling = {2.0f, 0.3f, 0.3f};
+
+   mat4 model = GLM_MAT4_IDENTITY_INIT;
+   glm_scale(model, scaling);
+
+   mat4 view = GLM_MAT4_IDENTITY_INIT;
+   glm_translate(view, translate);
+
+   mat4 projection = GLM_MAT4_IDENTITY_INIT;
+   glm_perspective(glm_rad(45.0f), io->DisplaySize.x / io->DisplaySize.y, 0.1f, 100.0f, projection);
+
+   GLuint modelLoc = glGetUniformLocation(shader_program, "model");
+   glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) model);
+
+   GLuint viewLoc = glGetUniformLocation(shader_program, "view");
+   glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
+
+   GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
+   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) projection);
+
+   //glm_translate(transform, translate);
+   //glm_rotate(transform, timeValue, axis);
    //glm_scale(transform, scaling);
-   
-   GLuint transformLoc = glGetUniformLocation(shader_program, "transform");
-   glUniformMatrix4fv(transformLoc, 1, GL_FALSE, (GLfloat*) transform);
+   //printf("%f\n", fabs(sin(timeValue)));
 
    glBindVertexArray(VAO[0]);
    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-   
    //glBindVertexArray(VAO[1]);
    //glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -277,7 +291,7 @@ static void display_gui_display()
 
 void graphics_create_triangle()
 {
-   float triangle1[] = {
+   float rectangle1[] = {
       // position
       -0.5f, -0.5f, 0.0f, // bottom left
        0.5f, -0.5f, 0.0f, // bottom right
@@ -303,7 +317,7 @@ void graphics_create_triangle()
 
    glBindVertexArray(VAO[0]);
    glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(triangle1), triangle1, GL_STATIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(rectangle1), rectangle1, GL_STATIC_DRAW);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices1), indices1, GL_STATIC_DRAW);
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
@@ -320,11 +334,14 @@ void graphics_create_shaders()
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
-      "uniform mat4 transform;\n"
+
+      "uniform mat4 model;\n"
+      "uniform mat4 view;\n"
+      "uniform mat4 projection;\n"
 
       "void main()\n"
       "{\n"
-      "   gl_Position = transform * vec4(aPos, 1.0);\n"
+      "   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
       "}\0";
 
    GLchar* fragment_shader_code = "#version 330 core\n"
