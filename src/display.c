@@ -29,11 +29,10 @@ static void set_pixel_pos(float pixel_w, float pixel_h);
 // opengl graphics
 // ---------------------------------------------------------------
 
-static GLuint VBO;
-static GLuint VAO;
+static GLuint pixel_VAO;
 static GLuint shader_program;
 
-static vec3 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
+static mat4 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
 
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 
@@ -112,10 +111,6 @@ bool display_init(void)
    ImGui_ImplSDL2_InitForOpenGL(window, gContext);
    ImGui_ImplOpenGL3_Init(glsl_version);
 
-   float pixel_w = DISPLAY_W / NES_PIXELS_W;
-   float pixel_h = DISPLAY_H / NES_PIXELS_H;
-   set_pixel_pos(pixel_w, pixel_h);
-
    return true;
 }
 
@@ -165,7 +160,6 @@ void display_render(void)
 
    display_create_gui();
 
-   glUseProgram(shader_program);
    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
    mat4 view = GLM_MAT4_IDENTITY_INIT;
@@ -179,17 +173,18 @@ void display_render(void)
    GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
 
-   glBindVertexArray(VAO);
    int max = 256*240;
-   for (int i = 0; i < max; ++i)
-   {
-      mat4 model = GLM_MAT4_IDENTITY_INIT;
-      glm_translate(model, pixel_pos[i]);
-      GLuint modelLoc = glGetUniformLocation(shader_program, "model");
-      glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) model);
+   //for (int i = 0; i < max; ++i)
+   //{
+      //mat4 model = GLM_MAT4_IDENTITY_INIT;
+      //glm_translate(model, pixel_pos[i]);
+      //GLuint modelLoc = glGetUniformLocation(shader_program, "model");
+     // glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) pixel_pos[i]);
 
-      glDrawArrays(GL_TRIANGLES, 0, 6);
-   }
+      //glDrawArrays(GL_TRIANGLES, 0, 6);
+      glBindVertexArray(pixel_VAO);
+      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, max);
+  // }
 
    igRender();
    ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
@@ -284,12 +279,11 @@ static void display_gui_viewport(void)
 
 void graphics_create_pixels(void)
 {
-   float pixel_w = DISPLAY_W / 256.0f;
-   float pixel_h = DISPLAY_H / 240.0f;
+   float pixel_w = DISPLAY_W / NES_PIXELS_W;
+   float pixel_h = DISPLAY_H / NES_PIXELS_H;
+   set_pixel_pos(pixel_w, pixel_h);
 
-   printf("%f %f\n", pixel_w, pixel_h);
-
-   float pixel[] = {
+   float pixel_vertices[] = {
       // triangle 1
       0.0f,  0.0f, 0.0f, // top left
       0.0f,  pixel_h, 0.0f, // bottom left
@@ -301,28 +295,49 @@ void graphics_create_pixels(void)
       pixel_w,  pixel_h, 0.0f, // bottom right
    };
 
-   glGenVertexArrays(1, &VAO);
-   glGenBuffers(1, &VBO);
-
-   glBindVertexArray(VAO);
-   glBindBuffer(GL_ARRAY_BUFFER, VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(pixel), pixel, GL_STATIC_DRAW);
-   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+   // send vertex data of pixels
+   GLuint pixel_VBO;
+   glGenVertexArrays(1, &pixel_VAO);
+   glGenBuffers(1, &pixel_VBO);
+   glBindVertexArray(pixel_VAO);
+   glBindBuffer(GL_ARRAY_BUFFER, pixel_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
    glEnableVertexAttribArray(0);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+
+   // send instanced data of pixels
+   GLuint instance_VBO;
+   glGenBuffers(1, &instance_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, instance_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * NES_PIXELS_W * NES_PIXELS_H, pixel_pos, GL_STATIC_DRAW);
+   glBindBuffer(GL_ARRAY_BUFFER, instance_VBO);
+   glEnableVertexAttribArray(1);
+   glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)0);
+   glEnableVertexAttribArray(2);
+   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)( 1 * sizeof(vec4) ));
+   glEnableVertexAttribArray(3);
+   glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)( 2 * sizeof(vec4) ));
+   glEnableVertexAttribArray(4);
+   glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)( 3 * sizeof(vec4) ));
+
+   glVertexAttribDivisor(1, 1);
+   glVertexAttribDivisor(2, 1);
+   glVertexAttribDivisor(3, 1);
+   glVertexAttribDivisor(4, 1);
 }
 
 void graphics_create_shaders(void)
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
+      "layout (location = 1) in mat4 instanceMatrix;\n"
 
-      "uniform mat4 model;\n"
       "uniform mat4 view;\n"
       "uniform mat4 projection;\n"
 
       "void main()\n"
       "{\n"
-      "   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+      "   gl_Position = projection * view * instanceMatrix * vec4(aPos, 1.0);\n"
       "}\0";
 
    GLchar* fragment_shader_code = "#version 330 core\n"
@@ -355,6 +370,8 @@ void graphics_create_shaders(void)
       printf("shader program linker error: %s\n", shader_prog_log);
       return;
    }
+
+   glUseProgram(shader_program);
 }
 
 /**
@@ -396,14 +413,14 @@ static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
 */
 static void set_pixel_pos(float pixel_w, float pixel_h)
 {
-
    for (size_t row = 0; row < NES_PIXELS_H; ++row)
    {
       for (size_t col = 0; col < NES_PIXELS_W; ++col)
       {
-         pixel_pos[(row * NES_PIXELS_W) + col][0] = pixel_w * col;
-         pixel_pos[(row * NES_PIXELS_W) + col][1] = pixel_h * row;
-         pixel_pos[(row * NES_PIXELS_W) + col][2] = 0.0f;
+         mat4 model = GLM_MAT4_IDENTITY_INIT;
+         vec3 translation = {pixel_w * col, pixel_h * row, 0.0f};
+         glm_translate(model, translation);
+         glm_mat4_copy(model, pixel_pos[row * NES_PIXELS_W + col]);
       }
    }
 }
