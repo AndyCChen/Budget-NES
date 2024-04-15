@@ -30,9 +30,11 @@ static void set_pixel_pos(float pixel_w, float pixel_h);
 // ---------------------------------------------------------------
 
 static GLuint pixel_VAO;
+static GLuint instanced_color_VBO;
 static GLuint shader_program;
 
 static mat4 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
+static vec4 colors[NES_PIXELS_H * NES_PIXELS_W];
 
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 
@@ -160,7 +162,7 @@ void display_render(void)
 
    display_create_gui();
 
-   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+   //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
    mat4 view = GLM_MAT4_IDENTITY_INIT;
    vec3 translate = {0.0f, 0.0f, 0.0f};
@@ -182,6 +184,8 @@ void display_render(void)
      // glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) pixel_pos[i]);
 
       //glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
       glBindVertexArray(pixel_VAO);
       glDrawArraysInstanced(GL_TRIANGLES, 0, 6, max);
   // }
@@ -295,35 +299,54 @@ void graphics_create_pixels(void)
       pixel_w,  pixel_h, 0.0f, // bottom right
    };
 
-   // send vertex data of pixels
+   // send vertex data for pixels
    GLuint pixel_VBO;
    glGenVertexArrays(1, &pixel_VAO);
    glGenBuffers(1, &pixel_VBO);
+
    glBindVertexArray(pixel_VAO);
    glBindBuffer(GL_ARRAY_BUFFER, pixel_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
    glEnableVertexAttribArray(0);
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
 
-   // send instanced data of pixels
+   // send instanced transformation data for pixels
    GLuint instance_VBO;
    glGenBuffers(1, &instance_VBO);
+
    glBindBuffer(GL_ARRAY_BUFFER, instance_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * NES_PIXELS_W * NES_PIXELS_H, pixel_pos, GL_STATIC_DRAW);
-   glBindBuffer(GL_ARRAY_BUFFER, instance_VBO);
    glEnableVertexAttribArray(1);
-   glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)0);
+   glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
    glEnableVertexAttribArray(2);
-   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)( 1 * sizeof(vec4) ));
+   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 1 * sizeof(vec4) ));
    glEnableVertexAttribArray(3);
-   glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)( 2 * sizeof(vec4) ));
+   glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 2 * sizeof(vec4) ));
    glEnableVertexAttribArray(4);
-   glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*)( 3 * sizeof(vec4) ));
+   glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 3 * sizeof(vec4) ));
 
    glVertexAttribDivisor(1, 1);
    glVertexAttribDivisor(2, 1);
    glVertexAttribDivisor(3, 1);
    glVertexAttribDivisor(4, 1);
+
+   float dec = 1.0f / (256*240);
+   for (size_t i = 0; i < NES_PIXELS_H * NES_PIXELS_W; ++i)
+   {
+      colors[i][0] = 1.0f - (i * dec);
+      colors[i][1] = 0.5f;
+      colors[i][2] = 1.0f - (i * dec);
+      colors[i][3] = 1.0f;
+   }
+
+   // send instanced color data for pixels
+   glGenBuffers(1, &instanced_color_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, colors, GL_STATIC_DRAW);
+   glEnableVertexAttribArray(5);
+   glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
+   
+   glVertexAttribDivisor(5, 1);
 }
 
 void graphics_create_shaders(void)
@@ -331,6 +354,9 @@ void graphics_create_shaders(void)
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
       "layout (location = 1) in mat4 instanceMatrix;\n"
+      "layout (location = 5) in vec4 instanceColor;\n"
+
+      "out vec4 color;\n"
 
       "uniform mat4 view;\n"
       "uniform mat4 projection;\n"
@@ -338,14 +364,16 @@ void graphics_create_shaders(void)
       "void main()\n"
       "{\n"
       "   gl_Position = projection * view * instanceMatrix * vec4(aPos, 1.0);\n"
+      "   color = instanceColor;\n"
       "}\0";
 
    GLchar* fragment_shader_code = "#version 330 core\n"
       "out vec4 fragColor;\n"
+      "in vec4 color;\n"
 
       "void main()\n"
       "{\n"
-      "  fragColor = vec4(0.5, 0.0, 0.0, 1.0);\n"
+      "  fragColor = color;\n"
       "}\0";
 
    shader_program = glCreateProgram();
