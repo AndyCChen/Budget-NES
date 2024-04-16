@@ -2,6 +2,8 @@
 #define GUI_H
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <vec4.h>
 
 /**
  * display.h handles setting up and shutting down all sdl
@@ -13,8 +15,6 @@ bool display_init(void);
 void display_render(void);
 void display_shutdown(void);
 void display_process_event(bool* done);
-
-void graphics_create_pixels(void);
-void graphics_create_shaders(void);
+void set_pixel_color(uint32_t row, uint32_t col, vec4 color);
 
 #endif

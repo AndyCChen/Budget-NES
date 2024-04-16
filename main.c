@@ -27,9 +27,6 @@ int main(int argc, char *argv[])
       return EXIT_FAILURE;
    }
 
-   graphics_create_shaders();
-   graphics_create_pixels();
-
    bool done = false;
    while (!done)
    {

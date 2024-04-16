@@ -34,9 +34,11 @@ static GLuint instanced_color_VBO;
 static GLuint shader_program;
 
 static mat4 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
-static vec4 colors[NES_PIXELS_H * NES_PIXELS_W];
+static vec4 pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
+static void graphics_create_pixels(void);
+static bool graphics_create_shaders(void);
 
 /**
  * setup sdl, create window, and opengl context
@@ -113,6 +115,9 @@ bool display_init(void)
    ImGui_ImplSDL2_InitForOpenGL(window, gContext);
    ImGui_ImplOpenGL3_Init(glsl_version);
 
+   graphics_create_pixels();
+   if ( !graphics_create_shaders() ) return false;
+
    return true;
 }
 
@@ -135,7 +140,7 @@ void display_shutdown(void)
 */
 void display_process_event(bool* done)
 {
-   static SDL_Event event;
+   SDL_Event event;
 
    while ( SDL_PollEvent(&event) )
    {
@@ -176,19 +181,23 @@ void display_render(void)
    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
 
    int max = 256*240;
-   //for (int i = 0; i < max; ++i)
-   //{
-      //mat4 model = GLM_MAT4_IDENTITY_INIT;
-      //glm_translate(model, pixel_pos[i]);
-      //GLuint modelLoc = glGetUniformLocation(shader_program, "model");
-     // glUniformMatrix4fv(modelLoc, 1, GL_FALSE, (GLfloat*) pixel_pos[i]);
+   //glDrawArrays(GL_TRIANGLES, 0, 6);
+   for (size_t row = 0; row < 240; ++row)
+   {
+      for (size_t col = 0; col < 256; ++col)
+      {
+         vec4 newColor = {fabsf( (float) sin((SDL_GetTicks64() / 1000.0f) / 2.0f + 0.5f) ), 0.0f, 0.0f, 1.0f};
+         set_pixel_color(row, col, newColor);
+      }
+   }
 
-      //glDrawArrays(GL_TRIANGLES, 0, 6);
+   // send the updated color values buffer for pixels all at once
+   glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * max, &pixel_colors);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-
-      glBindVertexArray(pixel_VAO);
-      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, max);
-  // }
+   glBindVertexArray(pixel_VAO);
+   glDrawArraysInstanced(GL_TRIANGLES, 0, 6, max);
 
    igRender();
    ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
@@ -281,7 +290,7 @@ static void display_gui_viewport(void)
    }
 }
 
-void graphics_create_pixels(void)
+static void graphics_create_pixels(void)
 {
    float pixel_w = DISPLAY_W / NES_PIXELS_W;
    float pixel_h = DISPLAY_H / NES_PIXELS_H;
@@ -333,23 +342,23 @@ void graphics_create_pixels(void)
    float dec = 1.0f / (256*240);
    for (size_t i = 0; i < NES_PIXELS_H * NES_PIXELS_W; ++i)
    {
-      colors[i][0] = 1.0f - (i * dec);
-      colors[i][1] = 0.5f;
-      colors[i][2] = 1.0f - (i * dec);
-      colors[i][3] = 1.0f;
+      pixel_colors[i][0] = 1.0f - (i * dec);
+      pixel_colors[i][1] = 0.5f;
+      pixel_colors[i][2] = 1.0f - (i * dec);
+      pixel_colors[i][3] = 1.0f;
    }
 
    // send instanced color data for pixels
    glGenBuffers(1, &instanced_color_VBO);
    glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, colors, GL_STATIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, pixel_colors, GL_STATIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
    
    glVertexAttribDivisor(5, 1);
 }
 
-void graphics_create_shaders(void)
+static bool graphics_create_shaders(void)
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
@@ -380,7 +389,7 @@ void graphics_create_shaders(void)
    if (shader_program == 0)
    {
       printf("Error creating shader program!\n");
-      return;
+      return false;
    }
 
    add_shader(shader_program, vertex_shader_code, GL_VERTEX_SHADER);
@@ -396,10 +405,11 @@ void graphics_create_shaders(void)
    {
       glGetProgramInfoLog(shader_program, sizeof(shader_prog_log), NULL, shader_prog_log);
       printf("shader program linker error: %s\n", shader_prog_log);
-      return;
+      return false;
    }
 
    glUseProgram(shader_program);
+   return true;
 }
 
 /**
@@ -451,4 +461,19 @@ static void set_pixel_pos(float pixel_w, float pixel_h)
          glm_mat4_copy(model, pixel_pos[row * NES_PIXELS_W + col]);
       }
    }
+}
+
+/**
+ * Updates color of a pixel in the buffer on host memory side.
+ * @param row of the pixel
+ * @param col of the pixel
+*/
+void set_pixel_color(uint32_t row, uint32_t col, vec4 color)
+{
+   uint32_t index = row * NES_PIXELS_W + col;
+
+   pixel_colors[index][0] = color[0];
+   pixel_colors[index][1] = color[1];
+   pixel_colors[index][2] = color[2];
+   pixel_colors[index][3] = color[3];
 }
