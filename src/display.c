@@ -186,7 +186,7 @@ void display_render(void)
    {
       for (size_t col = 0; col < 256; ++col)
       {
-         vec4 newColor = {fabsf( (float) sin((SDL_GetTicks64() / 1000.0f) / 2.0f + 0.5f) ), 0.0f, 0.0f, 1.0f};
+         vec4 newColor = {fabsf( (float) sin( (SDL_GetTicks64() / 1000.0f) / 3.0f) ), 0.55f, 0.60f, 1.00f};
          set_pixel_color(row, col, newColor);
       }
    }

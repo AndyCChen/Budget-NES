@@ -2656,6 +2656,16 @@ void cpu_emulate_instruction(void)
 */
 void cpu_reset(void)
 {
+   cpu.sp = 0xFD;
+   cpu.status_flags = cpu.status_flags || 0x4;
+   cpu.pc = 0xC000;
+}
+
+/**
+ * Initilize cpu state at power up
+*/
+void cpu_init(void)
+{
    cpu.ac = 0;
    cpu.X = 0;
    cpu.Y = 0;

@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 
    nestest_log_open();
 
-   cpu_reset();
+   cpu_init();
 
    for(int i = 0; i < 8991; ++i)
    {

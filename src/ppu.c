@@ -28,14 +28,11 @@ static uint8_t oam_address = 0;
 static uint8_t oam_data = 0;
 
 static bool write_toggle = false; // false: first write, true: second write for PPUADDR and PPUSCROLL port, set to false when ppu_status is read
-static uint8_t x_register = 0; // fine x scroll (3 bits)
-static uint16_t t_register = 0; // 15-bit temporary vram address
-static uint16_t v_register = 0; // current vram address that when used through port $2007 to access ppu memory only 14 bits are used, but it is otherwise a 15 bit register
+static uint8_t x_register = 0;    // fine x scroll (3 bits)
+static uint16_t t_register = 0;   // 15-bit temporary vram address
+static uint16_t v_register = 0;   // current vram address that when used through port $2007 to access ppu memory only 14 bits are used, but it is otherwise a 15 bit register
 
-static uint8_t vram_hi_address = 0; // lo and hi addresses used to form the full effective vram address
-static uint8_t vram_lo_address = 0;
-static uint8_t vram_buffer = 0; // internal buffer that holds contents being read from vram
-
+static uint8_t vram_buffer = 0;   // internal buffer that holds contents being read from vram
 static uint8_t open_bus = 0;
 
 // memory
@@ -59,7 +56,15 @@ void ppu_cycle(void)
       
 
    }
+   else if (scanline >= 241 && scanline <= 260) // vertical blank scanlines
+   {
+
+   }
    else if (scanline == 261) // pre-render scanline
+   {
+
+   }
+   else // scanline 240, idle scanline
    {
 
    }
@@ -74,7 +79,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          
          // transfer bits 0-1 of ppu_control to bits 10-11 of t_register
          uint16_t NN = (ppu_control & 0x3) << 10;
-         t_register = t_register & 0xF3FF; // clear bits 10-11 of t_register before transfering bits 0-1
+         t_register = t_register & ~(0x0C00); // clear bits 10-11 of t_register before transfering bits 0-1
          t_register = t_register | NN;
          break;
       case PPUMASK:
@@ -88,12 +93,12 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          {
             x_register = data & 0x7; // bits 0-2 stored into x_register
 
-            t_register = t_register & 0x7FE0; // clear bits 0-4 before transfer
+            t_register = t_register & ~(0x001F); // clear bits 0-4 before transfer
             t_register = t_register | ( (data & 0xF8) >> 3 ); // bits 3-7 stored into bits 0-4 of t_register
          }
          else // second write
          {
-            t_register = t_register & 0x0C1F; // clear bits 5-9 and bits 12-14 before transfer
+            t_register = t_register & ~(0xE3E0); // clear bits 5-9 and bits 12-14 before transfer
             t_register = t_register | ( (data & 0x7) << 12 ); // bits 0-2 stored into bits 12-14 of t_register
             t_register = t_register | ( (data & 0xF8) << 2 ); // bits 3-7 stored into bits 5-9 of t_register
          }
@@ -104,13 +109,15 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          if (!write_toggle)
          {
             // writing high byte (first write)
-            vram_hi_address = data;
+            t_register = t_register & ~(0x3F00);
+            t_register = t_register | (data & 0x3F) << 8; 
          }
          else
          {
             // writing low byte (second write)
-            vram_lo_address = data;
-            v_register = ( (vram_hi_address << 8) | vram_lo_address ) & 0x3FFF;
+            t_register = t_register & ~(0x00FF);
+            t_register = t_register | data;
+            v_register = t_register;
          }
 
          write_toggle = !write_toggle;
@@ -172,6 +179,7 @@ uint8_t ppu_cpu_read(uint16_t position)
       case PPUSTATUS: // read only
          open_bus = (ppu_status & 0xE0) | open_bus;
          write_toggle = false;
+         ppu_status = ppu_status & ~(0x80); // clear vertical blank flag after read
          break;
    }
 
