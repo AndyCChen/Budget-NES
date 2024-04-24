@@ -21,6 +21,8 @@
 
 #define PALETTE_START 0x3F00
 
+// internal registers
+
 static uint8_t ppu_control = 0;
 static uint8_t ppu_mask = 0;
 static uint8_t ppu_status = 0xA0;
@@ -32,21 +34,35 @@ static uint8_t x_register = 0;    // fine x scroll (3 bits)
 static uint16_t t_register = 0;   // 15-bit temporary vram address
 static uint16_t v_register = 0;   // current vram address that when used through port $2007 to access ppu memory only 14 bits are used, but it is otherwise a 15 bit register
 
+static uint8_t  nametable_byte;
+static uint8_t  attribute_byte;
+static uint16_t u16_shift_register1;
+static uint16_t u16_shift_register2;
+static uint8_t  u8_shift_register1;
+static uint8_t  u8_shift_register2;
+
+// bus
+
 static uint8_t vram_buffer = 0;   // internal buffer that holds contents being read from vram
 static uint8_t open_bus = 0;
 
 // memory
 
-#define PPU_RAM_SIZE 1024 * 2
-#define PALETTE_SIZE 32
-#define OAM_SIZE 256
+static uint8_t vram[1024 * 2];
+static uint8_t palette_ram[32];
+static uint8_t oam_ram[256];
+static uint8_t secondary_oam_ram[32];
 
-static uint8_t vram[PPU_RAM_SIZE];
-static uint8_t palette_ram[PALETTE_SIZE];
-static uint8_t oam_ram[OAM_SIZE];
+// track current scanline and cycles
 
 static uint16_t scanline = 261;
 static uint16_t cycle = 0;
+
+// render pipeline events
+
+static void fetch_nametable_byte();
+static void fetch_attribute_byte();
+
 
 void ppu_cycle(void)
 {
@@ -109,7 +125,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          if (!write_toggle)
          {
             // writing high byte (first write)
-            t_register = t_register & ~(0x3F00);
+            t_register = t_register & ~(0x7F00);
             t_register = t_register | (data & 0x3F) << 8; 
          }
          else
@@ -127,7 +143,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
          uint16_t read_address = data << 8;
          for (size_t i = 0; i < 256; ++i)
          {
-            oam_data = cpu_bus_read(read_address | i);
+            oam_data = cpu_bus_read(read_address + i);
             oam_ram[oam_address] = oam_data;
             oam_address += 1;
          }

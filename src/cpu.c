@@ -2657,7 +2657,7 @@ void cpu_emulate_instruction(void)
 void cpu_reset(void)
 {
    cpu.sp = 0xFD;
-   cpu.status_flags = cpu.status_flags || 0x4;
+   cpu.status_flags = cpu.status_flags | 0x4;
    cpu.pc = 0xC000;
 }
 
