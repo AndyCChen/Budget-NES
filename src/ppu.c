@@ -86,7 +86,7 @@ void ppu_cycle(void)
    }
 }
 
-void ppu_cpu_write(uint16_t position, uint8_t data)
+void ppu_port_write(uint16_t position, uint8_t data)
 {
    switch(position)
    {
@@ -172,7 +172,7 @@ void ppu_cpu_write(uint16_t position, uint8_t data)
    open_bus = data; // writes to any ppu ports loads a value into the I/O bus
 }
 
-uint8_t ppu_cpu_read(uint16_t position)
+uint8_t ppu_port_read(uint16_t position)
 {
    switch(position)
    {

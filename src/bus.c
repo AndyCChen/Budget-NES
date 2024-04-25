@@ -23,6 +23,31 @@ static uint8_t cpu_ram[CPU_RAM_SIZE];
 // read single byte from bus
 uint8_t cpu_bus_read(uint16_t position)
 {
+   cpu_tick();
+   return cpu_bus_read_no_tick(position);
+}
+
+// write single byte to bus
+void cpu_bus_write(uint16_t position, uint8_t data)
+{
+   cpu_tick();
+   // accessing 2 kb cpu ram address space
+   if ( position <= CPU_RAM_END )
+   {
+      cpu_ram[position & 0x7FF] = data;
+   }
+   // accessing ppu registers
+   else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
+   {
+      ppu_port_write( 0x2000 | (position & 0x7), data );
+   }
+}
+
+/**
+ * Reads byte from bus without clocking the cpu
+*/
+uint8_t cpu_bus_read_no_tick(uint16_t position)
+{
    // addressing cartridge space
    if ( position >= CPU_CARTRIDGE_START )
    {
@@ -36,23 +61,8 @@ uint8_t cpu_bus_read(uint16_t position)
    // accessing ppu registers
    else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
    {
-      return ppu_cpu_read( 0x2000 | (position & 0x7) );
+      return ppu_port_read( 0x2000 | (position & 0x7) );
    }
 
-   return 0xFF;
-}
-
-// write single byte to bus
-void cpu_bus_write(uint16_t position, uint8_t data)
-{
-   // accessing 2 kb cpu ram address space
-   if ( position <= CPU_RAM_END )
-   {
-      cpu_ram[position & 0x7FF] = data;
-   }
-   // accessing ppu registers
-   else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
-   {
-      ppu_cpu_write( 0x2000 | (position & 0x7), data );
-   }
+   return 0x00;
 }
