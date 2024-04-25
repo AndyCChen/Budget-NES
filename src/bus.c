@@ -20,14 +20,14 @@
 
 static uint8_t cpu_ram[CPU_RAM_SIZE];
 
-// read single byte from bus
+// read single byte from bus and clocks cpu by 1 tick
 uint8_t cpu_bus_read(uint16_t position)
 {
    cpu_tick();
    return cpu_bus_read_no_tick(position);
 }
 
-// write single byte to bus
+// write single byte to bus and clocks cpu by 1 tick
 void cpu_bus_write(uint16_t position, uint8_t data)
 {
    cpu_tick();
@@ -64,5 +64,5 @@ uint8_t cpu_bus_read_no_tick(uint16_t position)
       return ppu_port_read( 0x2000 | (position & 0x7) );
    }
 
-   return 0x00;
+   return 0xFF;
 }

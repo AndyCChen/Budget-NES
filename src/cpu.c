@@ -208,9 +208,22 @@ static uint8_t SEI(void);
 
 static uint8_t JAM(void){return 0;}
 
-// nop instructions
+// nop instruction
 
-static uint8_t NOP(void){return 0;} 
+static uint8_t NOP(void){
+   switch (current_instruction->mode)
+   {
+      case ZPG:
+      case XZP:
+      case XAB:
+      case ABS:
+         cpu_bus_read(instruction_operand);
+         break;
+      default:
+   }
+
+   return 0;
+} 
 
 // addressing modes
 // https://www.pagetable.com/c64ref/6502/
@@ -372,20 +385,19 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
    {
       case IMP:
       {
-         cpu_tick(); // instruction take minimum 2 cycles, even for 1 byte implied instructions
+         cpu_bus_read(cpu.pc); // dummy read next byte
          nestest_log("%02X %6s%4s %28s", current_opcode, "", current_instruction->mnemonic, "");
          break;
       }
       case ACC:
       { 
-         cpu_tick(); // minimum 2 cycles just liked implied instruction
+         cpu_bus_read(cpu.pc); // dummy read next byte
          nestest_log("%02X %6s%4s A %26s", current_opcode, "", current_instruction->mnemonic, "");
          break;
       }
       case IMM:
       {
          instruction_operand = cpu_fetch();
-
          nestest_log("%02X %02X %3s%4s #$%02X %23s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, "");
          break;
       }
@@ -413,7 +425,8 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint8_t lo = cpu_fetch();
          uint8_t hi = cpu_fetch();
 
-         uint16_t abs_address = ( hi << 8 ) | (uint8_t) ( lo + cpu.X  );
+        // uint16_t abs_address = ( hi << 8 ) | (uint8_t) ( lo + cpu.X  );
+         uint16_t abs_address = ( hi << 8 ) | lo;
 
          instruction_operand = abs_address + cpu.X;
 
@@ -432,9 +445,17 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
              * extra cycle being taken. 
             */
             *extra_cycle = ( (instruction_operand & 0xFF00) != (hi << 8) ) ? 1 : 0;
-         }
 
-         if (extra_cycle) cpu_tick();
+            if (*extra_cycle)
+            {
+               // when page is crossed, emulate the dummy read to the incorrect address
+               cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.X) );
+            }
+         }
+         else
+         {
+            cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.X) );
+         }
 
          nestest_log("%02X %02X %02X %4s $%04X,X @ %04X = %02X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
          break;
@@ -447,7 +468,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint16_t abs_address = ( hi << 8 ) | lo;
 
          instruction_operand = abs_address + cpu.Y;
-
 
          /**
           * Only read instructions are able to take advantage of optimizing away a extra cycle
@@ -464,9 +484,17 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
              * extra cycle being taken. 
             */
             *extra_cycle = ( (instruction_operand & 0xFF00) != hi << 8 ) ? 1 : 0;
-         }
 
-         if (extra_cycle) cpu_tick();
+            if (*extra_cycle)
+            {
+               // when page is crossed, emulate the dummy read to the incorrect address
+               cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
+            }
+         }
+         else
+         {
+            cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
+         }
 
          nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X = %02X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
          break;
@@ -499,7 +527,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
       {
          uint8_t zpg_address = cpu_fetch();
 
-         cpu_bus_read(zpg_address);
+         cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
 
          nestest_log("%02X %02X %3s%4s $%02X,X @ %02X = %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
@@ -509,6 +537,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
       {
          uint8_t zpg_address = cpu_fetch();
 
+         cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
          nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X = %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
@@ -554,9 +583,17 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
              * extra cycle being taken. 
             */
             *extra_cycle = ( (instruction_operand & 0xFF00) != (base_address & 0xFF00) ) ? 1 : 0;
-         }
 
-         if (extra_cycle) cpu_tick();
+            if (*extra_cycle)
+            {
+               // when page is crossed, emulate the dummy read to the incorrect address
+               cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
+            }
+         }
+         else
+         {
+            cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
+         }
 
          nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X = %02X  ", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, base_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand));
          break;
@@ -579,7 +616,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          }
          else
          {
-            instruction_operand = cpu.pc + (uint16_t) offset_byte;
+            instruction_operand = cpu.pc + offset_byte;
          }
 
          nestest_log("%02X %02X %3s%4s $%04X %22s", current_opcode, offset_byte, "", current_instruction->mnemonic, instruction_operand, "");
@@ -1695,7 +1732,9 @@ static uint8_t CPY(void)
 */
 static uint8_t DCP(void)
 {
-   uint8_t result = cpu_bus_read(instruction_operand) + ( ~(0x01) + 1 ); // use 2's complement to add negative 1 which is equal to minus 1.
+   uint8_t result = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, result); // dummy write
+   result = result + ( ~(0x01) + 1 ); // use 2's complement to add negative 1 which is equal to minus 1.
 
    // set/reset zero flag
    if (result == cpu.ac )
@@ -1744,7 +1783,9 @@ static uint8_t DCP(void)
 */
 static uint8_t ISB(void)
 {
-   uint8_t value = cpu_bus_read(instruction_operand) + 1;
+   uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, value); // dummy write
+   value += 1;
    cpu_bus_write(instruction_operand, value);
 
    value = ~value; // negate value since subtraction is done using 2's complement addition
@@ -1810,6 +1851,7 @@ static uint8_t ISB(void)
 static uint8_t RLA(void)
 {
    uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, value); // dummy write
 
    uint8_t shifted_in_bit = cpu.status_flags & 1;
    uint8_t shifted_out_bit = (value & 0x80) != 0;
@@ -1861,6 +1903,7 @@ static uint8_t RLA(void)
 static uint8_t RRA(void)
 {
    uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, value);
 
    uint8_t shifted_out_bit = value & 1;
    uint8_t shifted_in_bit = cpu.status_flags & 1;
@@ -2016,6 +2059,7 @@ static uint8_t SBX(void){return 0;}
 static uint8_t SLO(void)
 {
    uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, value); // dummy write
 
    uint8_t shifted_out_bit = (value & 0x80) != 0;
    store_bit(cpu.status_flags, shifted_out_bit, 0);
@@ -2060,6 +2104,7 @@ static uint8_t SLO(void)
 static uint8_t SRE(void)
 {
    uint8_t value = cpu_bus_read(instruction_operand);
+   cpu_bus_write(instruction_operand, value); // dummy write
 
    uint8_t shifted_out_bit = value & 1;
    store_bit(cpu.status_flags, shifted_out_bit, 0);
@@ -2203,7 +2248,7 @@ static uint8_t DEY(void)
 static uint8_t INC(void)
 {
    uint8_t value = cpu_bus_read(instruction_operand);
-   cpu_bus_write(instruction_operand, value);
+   cpu_bus_write(instruction_operand, value); // dummy write
    cpu_bus_write(instruction_operand, ++value);
 
    // set/reset negative flag
@@ -2585,10 +2630,10 @@ void cpu_IRQ(void)
 */
 static uint8_t branch(void)
 {
-   cpu_tick(); // extra cycle when branch is taken
+   cpu_fetch(); // next instruction byte is fetched in the cpu pipeline
    uint8_t extra_cycle = (instruction_operand & 0xFF00) != (cpu.pc & 0xFF00);
 
-   if (extra_cycle) cpu_tick(); // extra cycle when page is crossed
+   if (extra_cycle) cpu_tick(); // extra cycle to fix pc hight byte due to page cross
 
    cpu.pc = instruction_operand;
 
