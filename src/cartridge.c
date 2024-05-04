@@ -14,6 +14,7 @@
 static mapper_t mapper;
 static nes_header_t header;
 
+static uint8_t ppu_vram[1024 * 2];
 static uint8_t *prg_rom = NULL;
 static uint8_t *prg_ram = NULL;
 static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom, very few cartridge have chr-ram and rom so we ignore those cases
@@ -42,7 +43,7 @@ uint8_t cartridge_cpu_read(uint16_t position)
    return data;
 }
 
-uint8_t cartridge_ppu_read(uint16_t position, uint8_t ppu_vram[])
+uint8_t cartridge_ppu_read(uint16_t position)
 {
    uint16_t mapped_addr = 0;
    cartridge_access_mode_t mode = mapper.ppu_read(&header, position, &mapped_addr);
@@ -65,7 +66,7 @@ uint8_t cartridge_ppu_read(uint16_t position, uint8_t ppu_vram[])
    return data;
 }
 
-void cartridge_ppu_write(uint16_t position, uint8_t data, uint8_t ppu_vram[])
+void cartridge_ppu_write(uint16_t position, uint8_t data)
 {
    uint16_t mapped_addr = 0;
    cartridge_access_mode_t mode = mapper.ppu_write(&header, position, &mapped_addr);

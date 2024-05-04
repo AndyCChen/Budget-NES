@@ -7,6 +7,7 @@
 #include "../includes/log.h"
 #include "../includes/bus.h"
 #include "../includes/util.h"
+#include "../includes/ppu.h"
 
 #define NMI_VECTOR       0xFFFA // address of non-maskable interrupt vector
 #define RESET_VECTOR     0xFFFC // address of reset vector
@@ -220,6 +221,7 @@ static uint8_t NOP(void){
          cpu_bus_read(instruction_operand);
          break;
       default:
+         break;
    }
 
    return 0;
@@ -2730,6 +2732,9 @@ void cpu_emulate_instruction(void)
 void cpu_tick(void)
 {
    cpu.cycle_count += 1;
+   //ppu_cycle();
+   //ppu_cycle();
+   //ppu_cycle();
 }
 
 /**

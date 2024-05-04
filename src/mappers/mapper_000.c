@@ -21,7 +21,7 @@ cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t positi
 
    if ( position >= CPU_CARTRIDGE_PRG_ROM_START )
    {
-      *mapped_addr = (header->prg_rom_size > 1) ? position & 0x7FFF : position & 0x3FFF ; // rom size for mapper 0 is 16kb or 32kb
+      *mapped_addr = (header->prg_rom_size > 1) ? position & 0x7FFF : position & 0x3FFF ; // rom size for mapper 0 is 32kb or 16kb
       mode = ACCESS_PRG_ROM;
    }
    else if ( position >= CPU_CARTRIDGE_PRG_RAM_START && position <= CPU_CARTRIDGE_PRG_RAM_END )
