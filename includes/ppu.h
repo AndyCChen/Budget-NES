@@ -22,4 +22,22 @@ uint8_t ppu_port_read(uint16_t position);
 */
 void ppu_cycle(void);
 
+// render pipeline events
+
+void rest_cycle(void);
+void fetch_nametable(void);
+void fetch_attribute(void);
+void fetch_pattern_table_lo(void);
+void fetch_pattern_table_hi(void);
+void increment_v_horizontal(void);
+void increment_v_vertical(void);
+void increment_v_both(void);     // wrapper to call horizonal and vertical increment in one event
+void transfer_t_horizontal(void);
+void transfer_t_vertical(void);
+
+void fetch_sprite_lo(void);
+void fetch_sprite_hi(void);
+void secondary_oam_clear(void);
+void evaluate_sprite(void);
+
 #endif
