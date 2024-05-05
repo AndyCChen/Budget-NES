@@ -86,6 +86,7 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
 cartridge_access_mode_t mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
 {
    cartridge_access_mode_t mode;
+   (void) header;
 
    if ( position >= CPU_CARTRIDGE_PRG_RAM_START && position <= CPU_CARTRIDGE_PRG_RAM_END )
    {

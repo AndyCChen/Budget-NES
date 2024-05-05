@@ -78,7 +78,6 @@ target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 #using library
 include_directories(cimgui/generator/output/)
 add_executable(nes
-   glad_loader/src/glad.c
    main.c
    src/bus.c
    src/cartridge.c
@@ -115,4 +114,9 @@ else(NOT CGLM_LIB)
    message(STATUS "CGLM library at: " ${CGLM_LIB})
 endif(NOT CGLM_LIB)
 
-target_link_libraries(nes ${SDL_MAIN} cimgui_sdl ${CGLM_LIB})
+add_library(glad_loader SHARED glad_loader/src/glad.c)
+target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
+
+target_link_libraries(nes ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader)
+
+target_compile_options(nes PRIVATE -Wall -Wextra -Wpedantic)

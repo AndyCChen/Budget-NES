@@ -1104,7 +1104,7 @@ static uint8_t PLP(void)
 */
 static uint8_t ASL(void)
 {
-   uint8_t shifted_value, carry_bit;
+   uint8_t shifted_value = 0, carry_bit = 0;
 
    if (current_instruction->mode == ACC)
    {
@@ -1158,7 +1158,7 @@ static uint8_t ASL(void)
 */
 static uint8_t LSR(void)
 {
-   uint8_t shifted_value, carry_bit;
+   uint8_t shifted_value = 0, carry_bit = 0;
 
    if (current_instruction->mode == ACC)
    {
