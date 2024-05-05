@@ -89,6 +89,7 @@ bool cartridge_load(const char* const filepath)
    FILE *file = fopen(filepath, "rb");
    if (!file)
    {
+      fclose(file);
       printf("Cannot open file: %s\n", filepath);
       return false;
    }
@@ -98,6 +99,7 @@ bool cartridge_load(const char* const filepath)
 
    if (bytes_read != iNES_HEADER_SIZE)
    {
+      fclose(file);
       printf("Failed to read iNES header!\n");
       return false;
    }
@@ -106,16 +108,19 @@ bool cartridge_load(const char* const filepath)
    {
       // implement iNES 2.0 in future, for now return false and exit
       printf("iNES 2.0 not supported!\n");
+      fclose(file);
       return false;
    }
 
    if ( !load_iNES(iNES_header, &header) )
    {
+      fclose(file);
       return false;
    }
 
    if ( !load_mapper(header.mapper_id, &mapper) )
    {
+      fclose(file);
       printf("Mapper does not exist or is not supported!\n");
       return false;
    }
@@ -149,6 +154,7 @@ bool cartridge_load(const char* const filepath)
    prg_rom = calloc( prg_rom_size, sizeof(uint8_t) );
    if (prg_rom == NULL)
    {
+      fclose(file);
       printf("Failed to allocate memory for PRG-rom!\n");
       return false;
    }
@@ -156,6 +162,7 @@ bool cartridge_load(const char* const filepath)
    prg_ram = calloc( prg_ram_size, sizeof(uint8_t) );
    if (prg_ram == NULL)
    {
+      fclose(file);
       printf("Failed to allocate memory for PRG-ram!\n");
       return false;
    }
@@ -163,6 +170,7 @@ bool cartridge_load(const char* const filepath)
    chr_memory = calloc( chr_mem_size, sizeof(uint8_t) );
    if (chr_memory == NULL)
    {
+      fclose(file);
       printf("Failed to allocated memory for CHR-rom!\n");
       return false;
    }
@@ -171,6 +179,7 @@ bool cartridge_load(const char* const filepath)
 
    if ( header.trainer != 0 )
    {
+      fclose(file);
       // ignore trainer data in nes file
       fseek(file, TRAINER_SIZE, SEEK_CUR);
    }
@@ -178,6 +187,7 @@ bool cartridge_load(const char* const filepath)
    bytes_read = fread(prg_rom, 1, prg_rom_size, file);
    if (bytes_read != prg_rom_size)
    {
+      fclose(file);
       printf("Program rom reading error!\n");
       return false;
    }
@@ -188,6 +198,7 @@ bool cartridge_load(const char* const filepath)
       bytes_read = fread(chr_memory, 1, chr_mem_size, file);
       if (bytes_read != chr_mem_size)
       {
+         fclose(file);
          printf("CHR-ram/rom reading error!\n");
          return false;
       }

@@ -182,14 +182,14 @@ void display_render(void)
 
    int max = 256*240;
    //glDrawArrays(GL_TRIANGLES, 0, 6);
-   for (size_t row = 0; row < 240; ++row)
+   /* for (size_t row = 0; row < 240; ++row)
    {
       for (size_t col = 0; col < 256; ++col)
       {
-         vec4 newColor = {fabsf( (float) sin( (SDL_GetTicks64() / 1000.0f) / 3.0f) ), 0.55f, 0.60f, 1.00f};
+         vec3 newColor = {fabsf( (float) sin( (SDL_GetTicks64() / 1000.0f) / 3.0f) ), 0.55f, 0.60f};
          set_pixel_color(row, col, newColor);
       }
-   }
+   } */
 
    // send the updated color values buffer for pixels all at once
    glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
@@ -468,12 +468,12 @@ static void set_pixel_pos(float pixel_w, float pixel_h)
  * @param row of the pixel
  * @param col of the pixel
 */
-void set_pixel_color(uint32_t row, uint32_t col, vec4 color)
+void set_pixel_color(uint32_t row, uint32_t col, vec3* color)
 {
    uint32_t index = row * NES_PIXELS_W + col;
 
-   pixel_colors[index][0] = color[0];
-   pixel_colors[index][1] = color[1];
-   pixel_colors[index][2] = color[2];
-   pixel_colors[index][3] = color[3];
+   pixel_colors[index][0] = *color[0];
+   pixel_colors[index][1] = *color[1];
+   pixel_colors[index][2] = *color[2];
+   pixel_colors[index][3] = 1.0f;
 }

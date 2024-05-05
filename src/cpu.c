@@ -2610,6 +2610,8 @@ static uint8_t SEI(void)
 */
 void cpu_IRQ(void)
 {
+   if (cpu.status_flags & 4) return;
+
    stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
    stack_push( cpu.pc & 0x00FF );
 
@@ -2622,6 +2624,25 @@ void cpu_IRQ(void)
    uint8_t hi = cpu_bus_read(INTERRUPT_VECTOR + 1);
 
    cpu.pc = (hi << 8) | lo;
+}
+
+void cpu_NMI(void)
+{
+   
+
+   stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
+   stack_push( cpu.pc & 0x00FF );
+
+   clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed, it should be cleared anyways
+   stack_push(cpu.status_flags);
+
+   set_bit(cpu.status_flags, 2);  // set interrupt flag to ignore further IRQs
+
+   uint8_t lo = cpu_bus_read(NMI_VECTOR);
+   uint8_t hi = cpu_bus_read(NMI_VECTOR + 1);
+
+   cpu.pc = (hi << 8) | lo;
+  
 }
 
 /**
@@ -2708,15 +2729,31 @@ static uint8_t stack_pop(void)
 */
 void cpu_emulate_instruction(void)
 {
-   static uint32_t total_cycles = 7;
+   //static uint32_t total_cycles = 0;
    nestest_log("%04X  ", cpu.pc); // log current pc value before fetching
 
    uint8_t opcode = cpu_fetch();
    cpu_decode(opcode);
-   uint8_t cycles = cpu_execute();
+   cpu_execute();
 
-   nestest_log(" CYC:%d\n", total_cycles);
-   total_cycles += cycles;
+   static bool b = true;
+   if ( get_nmi_status() )
+   {
+      if (b == true)
+      {printf("vblank  start\n");
+         cpu_NMI();
+         b = false;
+      }
+      
+   }
+   else
+   {
+      printf("vblank end\n");
+      b = true;
+   }
+
+   nestest_log(" CYC:%s\n", "5");
+   //total_cycles += cycles;
    /* if (total_cycles != cpu.cycle_count)
    {
       printf("Incorrect Cycle: %d != %d\n", total_cycles, cpu.cycle_count);
@@ -2732,9 +2769,9 @@ void cpu_emulate_instruction(void)
 void cpu_tick(void)
 {
    cpu.cycle_count += 1;
-   //ppu_cycle();
-   //ppu_cycle();
-   //ppu_cycle();
+   ppu_cycle();
+   ppu_cycle();
+   ppu_cycle();
 }
 
 /**
@@ -2744,7 +2781,7 @@ void cpu_reset(void)
 {
    cpu.sp = 0xFD;
    cpu.status_flags = cpu.status_flags | 0x4;
-   cpu.pc = 0xC000;
+   cpu.pc = cpu_bus_read(RESET_VECTOR);
 }
 
 /**
@@ -2758,7 +2795,9 @@ void cpu_init(void)
    cpu.Y = 0;
    cpu.sp = 0xFD;
    cpu.status_flags = 0x24;
-   cpu.pc = 0xC000;
+   uint8_t lo = cpu_bus_read_no_tick(RESET_VECTOR);
+   uint8_t hi =  cpu_bus_read_no_tick(RESET_VECTOR + 1);
+   cpu.pc = (hi << 8) | lo;
 }
 
 /**

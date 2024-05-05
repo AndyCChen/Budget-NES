@@ -2,6 +2,18 @@
 #define PPU_H
 
 #include <stdint.h>
+#include <stdbool.h>
+
+/**
+ * Loads .pal file into system colors for ppu.
+ * @param path path to the .pal file
+*/
+bool ppu_load_palettes(const char* path);
+
+/**
+ * Check if nmi has occured
+*/
+bool get_nmi_status(void);
 
 /**
  * Lets cpu write data throught the ppu ports

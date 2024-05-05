@@ -6,11 +6,12 @@
 #include "SDL.h"
 
 #include "includes/cpu.h"
+#include "includes/ppu.h"
 #include "includes/cartridge.h"
 #include "includes/log.h"
 #include "includes/display.h"
 
-bool nestest_log_flag = true;
+bool nestest_log_flag = false;
 
 int main(int argc, char *argv[])
 {
@@ -21,28 +22,32 @@ int main(int argc, char *argv[])
    {
       return EXIT_FAILURE;
    }
-
-   if ( !cartridge_load( argv[1] ) ) 
+   
+   if ( !cartridge_load( argv[1] ) || !ppu_load_palettes("./ntscpalette.pal")) 
    {
       return EXIT_FAILURE;
    }
+
+   cpu_init();
+   nestest_log_open();
 
    bool done = false;
    while (!done)
    {
       display_process_event(&done);
+      
+      //for (int i = 0; i < 20; ++i)
+      {
+         cpu_emulate_instruction();
+      }
 
       display_render();
    }
 
-   nestest_log_open();
-
-   cpu_init();
-
-   for(int i = 0; i < 8991; ++i)
-   {
-      cpu_emulate_instruction();
-   }
+   //for(int i = 0; i < 8991; ++i)
+   //{
+      
+   //}
  
    nestest_log_close();
    
