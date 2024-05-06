@@ -34,20 +34,9 @@ int main(int argc, char *argv[])
    bool done = false;
    while (!done)
    {
-      display_process_event(&done);
-      
-      //for (int i = 0; i < 20; ++i)
-      {
-         cpu_emulate_instruction();
-      }
-
-      display_render();
+      display_process_event(&done);   
+      display_render(); 
    }
-
-   //for(int i = 0; i < 8991; ++i)
-   //{
-      
-   //}
  
    nestest_log_close();
    

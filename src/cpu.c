@@ -417,7 +417,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          }
          else
          {
-            nestest_log("%02X %02X %02X %4s $%04X = %02X %17s", current_opcode, lo, hi, current_instruction->mnemonic, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+            nestest_log("%02X %02X %02X %4s $%04X %22s", current_opcode, lo, hi, current_instruction->mnemonic, instruction_operand, "");
          }
          
          break;
@@ -459,7 +459,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.X) );
          }
 
-         nestest_log("%02X %02X %02X %4s $%04X,X @ %04X = %02X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X,X @ %04X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
          break;
       }
       case YAB:
@@ -498,7 +498,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
          }
 
-         nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X = %02X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+         nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
          break;
       }
       case ABI:
@@ -522,7 +522,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
       {
          instruction_operand = cpu_fetch();
 
-         nestest_log("%02X %02X %3s%4s $%02X = %02X %19s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X %19s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, "");
          break;
       }
       case XZP:
@@ -532,7 +532,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s $%02X,X @ %02X = %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X,X @ %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, "");
          break;
       }
       case YZP:
@@ -542,7 +542,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X = %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, "");
          break;
       }
       case XZI:
@@ -556,7 +556,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         nestest_log("%02X %02X %3s%4s ($%02X,X) @ %02X = %04X = %02X %3s", current_opcode, zpg_base_address, "", current_instruction->mnemonic, zpg_base_address, zpg_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand), "");
+         nestest_log("%02X %02X %3s%4s ($%02X,X) @ %02X = %04X %3s", current_opcode, zpg_base_address, "", current_instruction->mnemonic, zpg_base_address, zpg_address, instruction_operand, "");
          break;
       }
       case YZI:
@@ -597,7 +597,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
          }
 
-         nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X = %02X  ", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, base_address, instruction_operand, cpu_bus_read_no_tick(instruction_operand));
+         nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X  ", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, base_address, instruction_operand);
          break;
       }
       case REL:
@@ -2628,8 +2628,6 @@ void cpu_IRQ(void)
 
 void cpu_NMI(void)
 {
-   
-
    stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
    stack_push( cpu.pc & 0x00FF );
 
@@ -2736,23 +2734,23 @@ void cpu_emulate_instruction(void)
    cpu_decode(opcode);
    cpu_execute();
 
-   static bool b = true;
+   static bool is_processing_nmi = false;
    if ( get_nmi_status() )
    {
-      if (b == true)
-      {printf("vblank  start\n");
+      if (is_processing_nmi == false)
+      {
          cpu_NMI();
-         b = false;
+         is_processing_nmi = true;
+         
       }
       
    }
    else
    {
-      printf("vblank end\n");
-      b = true;
+      is_processing_nmi = false;
    }
 
-   nestest_log(" CYC:%s\n", "5");
+   nestest_log("%s\n", "");
    //total_cycles += cycles;
    /* if (total_cycles != cpu.cycle_count)
    {
@@ -2768,7 +2766,7 @@ void cpu_emulate_instruction(void)
 */
 void cpu_tick(void)
 {
-   cpu.cycle_count += 1;
+   //cpu.cycle_count += 1;
    ppu_cycle();
    ppu_cycle();
    ppu_cycle();
@@ -2795,8 +2793,8 @@ void cpu_init(void)
    cpu.Y = 0;
    cpu.sp = 0xFD;
    cpu.status_flags = 0x24;
-   uint8_t lo = cpu_bus_read_no_tick(RESET_VECTOR);
-   uint8_t hi =  cpu_bus_read_no_tick(RESET_VECTOR + 1);
+   uint8_t lo = cpu_bus_read(RESET_VECTOR);
+   uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
 }
 

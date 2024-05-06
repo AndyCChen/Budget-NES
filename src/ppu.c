@@ -80,7 +80,7 @@ void ppu_cycle(void)
    if ( (cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336) )
    {
       uint8_t position = 15 - x_register; // position of the bit to select
-   
+
       /**
        * Output pixel bit pattern
        * 43210
@@ -90,13 +90,13 @@ void ppu_cycle(void)
          +----- Background/Sprite select
       */
 
-      output_pixel = ( (1 << position) & tile_shift_register_lo ) >> position;                // set bit 0
-      output_pixel |= ( (1 << position) & tile_shift_register_hi ) >> (position - 1);         // set bit 1
+      output_pixel = (tile_shift_register_lo >> position) & 0x1;              // set bit 0
+      output_pixel |= ( (tile_shift_register_hi >> position) & 0x1 ) << 1;    // set bit 1
 
       position = 7 - x_register;
 
-      output_pixel |= (( (1 << position) & attribute_shift_register_lo ) >> (position)) << 2; // set bit 2
-      output_pixel |= (( (1 << position) & attribute_shift_register_hi ) >> (position)) << 3; // set bit 3
+      output_pixel |= ( (attribute_shift_register_lo >> position) & 0x1 ) << 2; // set bit 2
+      output_pixel |= ( (attribute_shift_register_hi >> position) & 0x1 ) << 3; // set bit 3
 
       // shift registers left by 1
 
@@ -120,19 +120,25 @@ void ppu_cycle(void)
       {
          //set_pixel_color()
          uint8_t palette_index = palette_ram[ get_palette_index(output_pixel) ] & 0x3F;
-         set_pixel_color( scanline, cycle, &system_palette[palette_index] );
+         set_pixel_color( scanline, cycle - 1, system_palette[palette_index] );
       }
    }
    else if (scanline >= 240 && scanline <= 260) // vertical blank scanlines
    {
       if (scanline == 240 && cycle == 0)
       {
-         nmi_has_occured = true;
+         if (ppu_control & 0x80)
+         {
+            nmi_has_occured = true;
+         }
       }
 
       if (scanline == 260 && cycle == 340)
       {
-         nmi_has_occured = false;
+         if (ppu_control & 0x80)
+         {
+            nmi_has_occured = false;
+         }
       }
 
       if (scanline == 241 && cycle == 1)
@@ -230,7 +236,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
          break;
       }
       case OAMDATA:
-         oam_data = data;
+         oam_data = data;         
          oam_ram[oam_address] = oam_data;
          oam_address += 1;
          break;
@@ -244,7 +250,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
          {
             cartridge_ppu_write(v_register & 0x3FFF, data);
          }
-         
+
          v_register = ( v_register + ((ppu_control & 4) ? 32 : 1) ) & 0x7FFF; // increment vram address by 1 if bit 2 of control register is 0, else increment by 32
          break;
    }
@@ -339,6 +345,7 @@ void increment_v_horizontal(void)
    // load 1 bit latches with a bit selected by coarse x and y
    uint8_t x_bit = v_register & 0x1;
    uint8_t y_bit = (v_register >> 5) & 0x1;
+   
 
    uint8_t position = x_bit * 2 + y_bit * 4;
    attribute_1_bit_latch_x = ( attribute_byte & (1 << position) ) >> position;

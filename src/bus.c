@@ -29,7 +29,7 @@ uint8_t cpu_bus_read(uint16_t position)
 
 // write single byte to bus and clocks cpu by 1 tick
 void cpu_bus_write(uint16_t position, uint8_t data)
-{
+{ 
    cpu_tick();
    // accessing 2 kb cpu ram address space
    if ( position <= CPU_RAM_END )

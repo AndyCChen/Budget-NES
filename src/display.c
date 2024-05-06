@@ -6,6 +6,7 @@
 #include "SDL_opengl.h"
 #include "cglm.h"
 #include "display.h"
+#include "cpu.h"
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
@@ -74,7 +75,7 @@ bool display_init(void)
    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
    SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
-   window = SDL_CreateWindow("cimgui demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W, DISPLAY_H, window_flags);
+   window = SDL_CreateWindow("Budget NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W, DISPLAY_H, window_flags);
 
    if (window == NULL)
    {
@@ -166,8 +167,8 @@ void display_render(void)
    glClear(GL_COLOR_BUFFER_BIT);
 
    display_create_gui();
-
-   //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+   for (int i = 0; i < 30; ++i) cpu_emulate_instruction();
+   
 
    mat4 view = GLM_MAT4_IDENTITY_INIT;
    vec3 translate = {0.0f, 0.0f, 0.0f};
@@ -339,15 +340,6 @@ static void graphics_create_pixels(void)
    glVertexAttribDivisor(3, 1);
    glVertexAttribDivisor(4, 1);
 
-   float dec = 1.0f / (256*240);
-   for (size_t i = 0; i < NES_PIXELS_H * NES_PIXELS_W; ++i)
-   {
-      pixel_colors[i][0] = 1.0f - (i * dec);
-      pixel_colors[i][1] = 0.5f;
-      pixel_colors[i][2] = 1.0f - (i * dec);
-      pixel_colors[i][3] = 1.0f;
-   }
-
    // send instanced color data for pixels
    glGenBuffers(1, &instanced_color_VBO);
    glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
@@ -468,12 +460,12 @@ static void set_pixel_pos(float pixel_w, float pixel_h)
  * @param row of the pixel
  * @param col of the pixel
 */
-void set_pixel_color(uint32_t row, uint32_t col, vec3* color)
+void set_pixel_color(uint32_t row, uint32_t col, vec3 color)
 {
    uint32_t index = row * NES_PIXELS_W + col;
 
-   pixel_colors[index][0] = *color[0];
-   pixel_colors[index][1] = *color[1];
-   pixel_colors[index][2] = *color[2];
+   pixel_colors[index][0] = color[0];
+   pixel_colors[index][1] = color[1];
+   pixel_colors[index][2] = color[2];
    pixel_colors[index][3] = 1.0f;
 }

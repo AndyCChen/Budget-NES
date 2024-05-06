@@ -6,7 +6,7 @@
 
 #define PPU_CARTRIDGE_PATTERN_TABLE_END 0x1FFF
 
-#define NAMETABLE_0_END   0x23BF
+#define NAMETABLE_0_END   0x23FF
 #define NAMETABLE_1_START 0x2400
 #define NAMETABLE_1_END   0x27FF
 #define NAMETABLE_2_START 0x2800
@@ -49,30 +49,25 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
    }
    else
    {
-      position = position & 0x2FFF; // addresses 0x3000 - 0x3FFF are mirrors of 0x2000 - 0x2FFF
+      position = position & 0x2FFF; // addresses 0x3000 - 0x3EFF are mirrors of 0x2000 - 0x2EFF
 
       if ( header->nametable_arrangement )
       {
          // vertical mirroring
-         if ( position >= NAMETABLE_2_START && position <= NAMETABLE_2_END )
-         {
-            position = position & NAMETABLE_0_END;
-         }
-         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
-         {
-            position = position & NAMETABLE_1_END;
-         }
+         position = position & ~(0x0800);
+
+
       }
       else
       {
          // horizontal mirroring
-         if ( position >= NAMETABLE_1_START && position <= NAMETABLE_1_END )
+         if (position >= 0x2000 && position <= 0x27FF)
          {
-            position = position & NAMETABLE_0_END;
+            position = position & ~(0x0400);
          }
-         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
+         else
          {
-            position = position & NAMETABLE_2_END;
+            position = ( position & ~(0x0C00) ) | 0x400;
          }
       }
 
@@ -105,9 +100,8 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
 {
    cartridge_access_mode_t mode;
    position = position & 0x3FFF; // ppu addresses only a 14 bit address space
-
    if ( position <= PPU_CARTRIDGE_PATTERN_TABLE_END )
-   {
+   {  
       if ( header->chr_rom_size == 0 ) // 0 size chr-rom means chr-ram is used instead so writes are allowed
       {
          *mapped_addr = position;
@@ -120,30 +114,23 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
    }
    else
    {
-      position = position & 0x2FFF; // addresses 0x3000 - 0x3FFF are mirrors of 0x2000 - 0x2FFF
+      position = position & 0x2FFF; // addresses 0x3000 - 0x3EFF are mirrors of 0x2000 - 0x2EFF
 
       if ( header->nametable_arrangement )
       {
          // vertical mirroring
-         if ( position >= NAMETABLE_2_START && position <= NAMETABLE_2_END )
-         {
-            position = position & NAMETABLE_0_END;
-         }
-         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
-         {
-            position = position & NAMETABLE_1_END;
-         }
+         position = position & ~(0x0800);
       }
       else
       {
          // horizontal mirroring
-         if ( position >= NAMETABLE_1_START && position <= NAMETABLE_1_END )
+         if (position >= 0x2000 && position <= 0x27FF)
          {
-            position = position & NAMETABLE_0_END;
+            position = position & ~(0x0400);
          }
-         else if ( position >= NAMETABLE_3_START && position <= NAMETABLE_3_END )
+         else
          {
-            position = position & NAMETABLE_2_END;
+            position = ( position & ~(0x0C00) ) | 0x400;
          }
       }
 
