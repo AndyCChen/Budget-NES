@@ -10,8 +10,8 @@
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
-#define DISPLAY_W 1280.0f
-#define DISPLAY_H 720.0f
+#define DISPLAY_W 256.0f * 2
+#define DISPLAY_H 240.0f * 2
 
 static SDL_Window* window = NULL;
 static SDL_GLContext gContext = NULL;
