@@ -2640,7 +2640,6 @@ void cpu_NMI(void)
    uint8_t hi = cpu_bus_read(NMI_VECTOR + 1);
 
    cpu.pc = (hi << 8) | lo;
-  
 }
 
 /**

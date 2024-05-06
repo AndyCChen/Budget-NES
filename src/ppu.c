@@ -114,7 +114,7 @@ void ppu_cycle(void)
    // scanline 0-239 (i.e 240 scanlines) are the visible scanlines to the display
    if (scanline <= 239)
    {
-      scanline_lookup[cycle](); // execute function from lookup table
+      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table
 
       if (cycle >= 1 && cycle <= 256)
       {
@@ -135,10 +135,9 @@ void ppu_cycle(void)
 
       if (scanline == 260 && cycle == 340)
       {
-         if (ppu_control & 0x80)
-         {
-            nmi_has_occured = false;
-         }
+
+         nmi_has_occured = false;
+         
       }
 
       if (scanline == 241 && cycle == 1)
@@ -157,10 +156,10 @@ void ppu_cycle(void)
 
       if (cycle >= 280 && cycle <= 304)
       {
-         transfer_t_vertical();
+         if (ppu_mask & 0x18) transfer_t_vertical();
       }
 
-      scanline_lookup[cycle](); // execute function from lookup table
+      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table
    }
 
    cycle++;
@@ -186,6 +185,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
          break;
       case PPUMASK:
          ppu_mask = data;
+         printf("Mask write %02X\n", data);
          break;
       case OAMADDR:
          oam_address = data;
@@ -245,9 +245,11 @@ void ppu_port_write(uint16_t position, uint8_t data)
          {
             // writing to palette ram
             palette_ram[v_register & 0x1F] = data;
+            //printf("P %04X %02X %s\n", v_register & 0x3FFF, data, nmi_has_occured ? "VBLANK" : "RENDERING");
          }
          else
          {
+            //printf("V %04X %02X %s\n", v_register & 0x3FFF, data, nmi_has_occured ? "VBLANK" : "RENDERING");
             cartridge_ppu_write(v_register & 0x3FFF, data);
          }
 

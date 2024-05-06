@@ -53,10 +53,10 @@ uint8_t cartridge_ppu_read(uint16_t position)
    switch ( mode )
    {
       case ACCESS_CHR_MEM:
-         data = chr_memory[mapped_addr]; if (mapped_addr >= 8192) printf("out of bounds\n");
+         data = chr_memory[mapped_addr];
          break;
       case ACCESS_VRAM:
-         data = ppu_vram[mapped_addr];if (mapped_addr >= 2048) printf("out of bounds\n"); // returned mapped address for vram 
+         data = ppu_vram[mapped_addr]; // returned mapped address for vram 
          break;
       default: // default case will never happen due to bit masking but who knows
       
@@ -72,17 +72,17 @@ void cartridge_ppu_write(uint16_t position, uint8_t data)
 {  
    uint16_t mapped_addr = 0;
    cartridge_access_mode_t mode = mapper.ppu_write(&header, position, &mapped_addr);
-   printf("%04X %04X\n", position, data);
+   
    switch ( mode )
    {
       case ACCESS_CHR_MEM:
-         chr_memory[mapped_addr] = data;  if (mapped_addr >= 8192) printf("out of bounds\n"); 
+         chr_memory[mapped_addr] = data;
          break;
       case ACCESS_VRAM:
-         ppu_vram[mapped_addr] = data; if (mapped_addr >= 2048) printf("out of bounds\n"); 
+         ppu_vram[mapped_addr] = data;
          break;
       default: // default should case will never happen unless chr-rom is written to, in which case no write will occur 
-      
+         
          break;
    }
 }

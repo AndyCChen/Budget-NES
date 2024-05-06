@@ -23,14 +23,35 @@ static uint8_t cpu_ram[CPU_RAM_SIZE];
 // read single byte from bus and clocks cpu by 1 tick
 uint8_t cpu_bus_read(uint16_t position)
 {
-   cpu_tick();
-   return cpu_bus_read_no_tick(position);
+   // addressing cartridge space
+   if ( position >= CPU_CARTRIDGE_START )
+   {
+      cpu_tick();
+      return cartridge_cpu_read(position);
+   }  
+   // accessing 2 kb cpu ram address space
+   else if ( position <= CPU_RAM_END )
+   {
+      cpu_tick();
+      return cpu_ram[position & 0x7FF];
+   }
+   // accessing ppu registers
+   else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
+   {
+      cpu_tick();
+      return ppu_port_read( 0x2000 | (position & 0x7) );
+   }
+   else
+   {
+      cpu_tick();
+   }
+   
+   return 0xFF;
 }
 
 // write single byte to bus and clocks cpu by 1 tick
 void cpu_bus_write(uint16_t position, uint8_t data)
 { 
-   cpu_tick();
    // accessing 2 kb cpu ram address space
    if ( position <= CPU_RAM_END )
    {
@@ -41,6 +62,7 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    {
       ppu_port_write( 0x2000 | (position & 0x7), data );
    }
+   cpu_tick();
 }
 
 /**
