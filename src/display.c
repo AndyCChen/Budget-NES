@@ -10,19 +10,19 @@
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
-#define DISPLAY_W 256.0f * 2
-#define DISPLAY_H 240.0f * 2
+#define DISPLAY_W 256.0f * 3
+#define DISPLAY_H 240.0f * 3
 
 static SDL_Window* window = NULL;
 static SDL_GLContext gContext = NULL;
 static ImGuiIO* io = NULL;
 
-static ImVec4 clear_color = {0.45f, 0.55f, 0.60f, 1.00f};
+static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
 // gui components
 // ---------------------------------------------------------------
 
-static void display_create_gui(void);
+static void display_render_gui(void);
 static void display_gui_demo(void);
 static void display_gui_viewport(void);
 static void set_pixel_pos(float pixel_w, float pixel_h);
@@ -74,7 +74,7 @@ bool display_init(void)
    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-   SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+   SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN);
    window = SDL_CreateWindow("Budget NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W, DISPLAY_H, window_flags);
 
    if (window == NULL)
@@ -157,49 +157,34 @@ void display_process_event(bool* done)
    }
 }
 
+void display_clear(void)
+{
+   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
+   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+   glClear(GL_COLOR_BUFFER_BIT);
+}
+
 /**
  * render imgui components
 */
 void display_render(void)
 {
-   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
-   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-   glClear(GL_COLOR_BUFFER_BIT);
+   display_render_gui();
 
-   display_create_gui();
-   for (int i = 0; i < 30; ++i) cpu_emulate_instruction();
    
-
-   mat4 view = GLM_MAT4_IDENTITY_INIT;
-   vec3 translate = {0.0f, 0.0f, 0.0f};
-   glm_translate(view, translate);
-   GLuint viewLoc = glGetUniformLocation(shader_program, "view");
-   glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
-
-   mat4 ortho_projection = GLM_MAT4_IDENTITY_INIT;
-   glm_ortho(0.0f, DISPLAY_W, DISPLAY_H, 0.0f, -1.0f, 1.0f, ortho_projection);
-   GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
-   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
-
-   int max = 256*240;
-   //glDrawArrays(GL_TRIANGLES, 0, 6);
-   /* for (size_t row = 0; row < 240; ++row)
-   {
-      for (size_t col = 0; col < 256; ++col)
-      {
-         vec3 newColor = {fabsf( (float) sin( (SDL_GetTicks64() / 1000.0f) / 3.0f) ), 0.55f, 0.60f};
-         set_pixel_color(row, col, newColor);
-      }
-   } */
 
    // send the updated color values buffer for pixels all at once
    glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
-   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * max, &pixel_colors);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &pixel_colors);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
    glBindVertexArray(pixel_VAO);
-   glDrawArraysInstanced(GL_TRIANGLES, 0, 6, max);
+   //glDrawArraysInstanced(GL_TRIANGLES, 0, 6, NES_PIXELS_W * NES_PIXELS_H);
+   glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
+}
 
+void display_update(void)
+{
    igRender();
    ImGui_ImplOpenGL3_RenderDrawData( igGetDrawData() );
 
@@ -218,19 +203,19 @@ void display_render(void)
 /**
  * create imgui components
 */
-static void display_create_gui(void)
+static void display_render_gui(void)
 {
    ImGui_ImplOpenGL3_NewFrame();
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
    display_gui_demo();
-   display_gui_viewport();
+   //display_gui_viewport();
 }
 
 static void display_gui_demo(void)
 {
-   static bool show_demo_window = true;
+   static bool show_demo_window = false;
    static bool show_another_window = false;
 
    if ( show_demo_window )
@@ -298,25 +283,30 @@ static void graphics_create_pixels(void)
    set_pixel_pos(pixel_w, pixel_h);
 
    float pixel_vertices[] = {
-      // triangle 1
-      0.0f,  0.0f, 0.0f, // top left
-      0.0f,  pixel_h, 0.0f, // bottom left
-      pixel_w,  pixel_h, 0.0f, // bottom right
-      
-      // triangle 2
-      0.0f,  0.0f, 0.0f, // top left
-      pixel_w, 0.0f, 0.0f, // top right
-      pixel_w,  pixel_h, 0.0f, // bottom right
+      0.0f,    0.0f,    0.0f, // top left
+      0.0f,    pixel_h, 0.0f, // bottom left
+      pixel_w, pixel_h, 0.0f, // bottom right
+      pixel_w, 0.0f,    0.0f, // top right
+   };
+
+   GLubyte indices[] = {
+      0, 1, 2,
+      2, 3, 0,
    };
 
    // send vertex data for pixels
-   GLuint pixel_VBO;
+   GLuint pixel_VBO, pixel_IBO;
    glGenVertexArrays(1, &pixel_VAO);
    glGenBuffers(1, &pixel_VBO);
+   glGenBuffers(1, &pixel_IBO);
 
    glBindVertexArray(pixel_VAO);
    glBindBuffer(GL_ARRAY_BUFFER, pixel_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
+
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pixel_IBO);
+   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
    glEnableVertexAttribArray(0);
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
 
@@ -326,6 +316,7 @@ static void graphics_create_pixels(void)
 
    glBindBuffer(GL_ARRAY_BUFFER, instance_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * NES_PIXELS_W * NES_PIXELS_H, pixel_pos, GL_STATIC_DRAW);
+   
    glEnableVertexAttribArray(1);
    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
    glEnableVertexAttribArray(2);
@@ -343,7 +334,7 @@ static void graphics_create_pixels(void)
    // send instanced color data for pixels
    glGenBuffers(1, &instanced_color_VBO);
    glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, pixel_colors, GL_STATIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, pixel_colors, GL_DYNAMIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
    
@@ -401,6 +392,18 @@ static bool graphics_create_shaders(void)
    }
 
    glUseProgram(shader_program);
+
+   mat4 view = GLM_MAT4_IDENTITY_INIT;
+   vec3 translate = {0.0f, 0.0f, 0.0f};
+   glm_translate(view, translate);
+   GLuint viewLoc = glGetUniformLocation(shader_program, "view");
+   glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
+
+   mat4 ortho_projection = GLM_MAT4_IDENTITY_INIT;
+   glm_ortho(0.0f, DISPLAY_W, DISPLAY_H, 0.0f, -1.0f, 1.0f, ortho_projection);
+   GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
+   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
+
    return true;
 }
 
