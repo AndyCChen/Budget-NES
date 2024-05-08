@@ -229,7 +229,7 @@ static void display_render_gui(void)
 
          ImVec2 p_min; 
          igGetCursorPos(&p_min);
-         //glViewport(0, 0, (int) size.x, (int) io->DisplaySize.y);
+         glViewport(0, 0, (int) size.x, (int) size.y);
          resize_framebuffer((int) size.x, (int) size.y);
          //ImVec2 p_max = {p_min.x + size.x, p_min.y + size.y};
          printf("%f %f\n", size.x, size.y);
@@ -237,7 +237,7 @@ static void display_render_gui(void)
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
          ImVec4 border = {0, 0, 0, 0};
-         igImage((ImTextureID) viewport_textureID, size, uv_min, uv_max, col, border);
+         igImage((ImTextureID) (GLuint) viewport_textureID, size, uv_min, uv_max, col, border);
 
       igEndChild();
 
