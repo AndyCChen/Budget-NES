@@ -25,7 +25,8 @@ static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
 static void display_render_gui(void);
 static void display_gui_demo(void);
-static void display_gui_viewport(void);
+static void display_gui_main_dockspace(void);
+static void display_gui_main_viewport(void);
 static void set_pixel_pos(float pixel_w, float pixel_h);
 
 // opengl graphics
@@ -180,7 +181,6 @@ void display_render(void)
 {
    display_render_gui();
    
-
    glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
    
    // send the updated color values buffer for pixels all at once
@@ -219,33 +219,9 @@ static void display_render_gui(void)
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   display_gui_viewport();
-   //display_gui_demo();
-   igBegin("Scene", NULL, 0);
-      ImVec2 zero  = { 0, 0};
-      igBeginChild_Str("game", zero, ImGuiChildFlags_None, ImGuiWindowFlags_None);
-         ImVec2 size;
-         igGetWindowSize(&size);
-
-         ImVec2 p_min; 
-         igGetCursorPos(&p_min);
-         glViewport(0, 0, (int) size.x, (int) size.y);
-         resize_framebuffer((int) size.x, (int) size.y);
-         //ImVec2 p_max = {p_min.x + size.x, p_min.y + size.y};
-         printf("%f %f\n", size.x, size.y);
-         ImVec2 uv_min = {0, 1};
-         ImVec2 uv_max = {1, 0};
-         ImVec4 col = {1, 1, 1, 1};
-         ImVec4 border = {0, 0, 0, 0};
-         igImage((ImTextureID) (GLuint) viewport_textureID, size, uv_min, uv_max, col, border);
-
-      igEndChild();
-
-
-      
-
-   igEnd();
-   
+   //display_gui_main_dockspace();
+   //display_gui_main_viewport();
+   display_gui_demo();
 }
 
 static void display_gui_demo(void)
@@ -298,72 +274,112 @@ static void display_gui_demo(void)
 /**
  * create the gui for the main display viewport
 */
-static void display_gui_viewport(void)
+static void display_gui_main_dockspace(void)
 {
-   ImGuiDockNodeFlags  dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-   ImGuiWindowFlags window_flags =  ImGuiWindowFlags_MenuBar  | ImGuiWindowFlags_NoMove;
+   ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+   ImGuiWindowFlags window_flags =  ImGuiWindowFlags_MenuBar  | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar;
                     window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
                     window_flags |=  ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
 
-   ImVec2 zer_vec = {0.0f, 0.0f};
+   ImVec2 zero_vec = {0.0f, 0.0f};
 
-   const ImGuiViewport* viewport = igGetWindowViewport();
-   igSetNextWindowPos(viewport->WorkPos, 0, zer_vec);
+   const ImGuiViewport* viewport = igGetMainViewport();
+   igSetNextWindowPos(viewport->WorkPos, 0, zero_vec);
    igSetNextWindowSize(viewport->WorkSize, 0);
    igSetNextWindowViewport(viewport->ID);
+
    igPushStyleVar_Float(ImGuiStyleVar_WindowRounding, 0.0f);
    igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize, 0.0f);
+   igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zero_vec);
 
-   igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zer_vec);
    igBegin("Dock Space", (bool*) true, window_flags);
-   igPopStyleVar(3);
+      igPopStyleVar(3);
 
-   ImGuiID dockspace_id = igGetID_Str("MyDockSpace");
-   igDockSpace(dockspace_id, zer_vec, dockspace_flags, NULL);
+      ImGuiID dockspace_id = igGetID_Str("Main Dockspace");
+      igDockSpace(dockspace_id, zero_vec, dockspace_flags, NULL);
 
-   if (igBeginMenuBar())
-   {
-      if (igBeginMenu("File", true))
+      if (igBeginMenuBar())
       {
-         if ( igMenuItem_Bool("Load Rom", "Ctrl-L", false, true) )
+         if (igBeginMenu("File", true))
          {
-            // todo
+            if ( igMenuItem_Bool("Load Rom", "Ctrl-L", false, true) )
+            {
+               // todo
+            }
+
+            if ( igMenuItem_Bool("Unload Rom", "Ctrl-U", false, true) )
+            {
+               // todo
+            }
+
+            if ( igMenuItem_Bool("Exit", "Esc", false, true) )
+            {
+               SDL_Event event;
+               event.type = (SDL_EventType) SDL_QUIT;
+               SDL_PushEvent(&event);
+            }
+
+            igEndMenu();
          }
 
-         if ( igMenuItem_Bool("Unload Rom", "Ctrl-U", false, true) )
+         if (igBeginMenu("Tools", true))
          {
-            // todo
+            igMenuItem_Bool("Instruction log", "", false, true);
+            igEndMenu();
          }
-
-         if ( igMenuItem_Bool("Exit", "Esc", false, true) )
-         {
-            SDL_Event event;
-            event.type = (SDL_EventType) SDL_QUIT;
-            SDL_PushEvent(&event);
-         }  
-         
-         igEndMenu();
+      
+         igEndMenuBar();
       }
-
-      if (igBeginMenu("Tools", true))
-      {
-         igMenuItem_Bool("Instruction log", "", false, true);
-
-         igEndMenu();
-      }
-
-      /* ImVec2 window_size;
-      ImVec2 text_size;
-      char* title = "Budget NES";
-      igGetWindowSize(&window_size);
-      igCalcTextSize(&text_size, title, NULL, false, -1.0f);
-      igSetCursorPosX( (window_size.x - text_size.x) * 0.5f );
-      igText(title); */
-   
-      igEndMenuBar();
-   }
-   
    igEnd();
+}
+
+static void display_gui_main_viewport(void)
+{
+   /* const ImGuiViewport* viewport = igGetMainViewport();
+   static bool isCreated = false;
+   ImGuiID dock_spaceID = igDockSpaceOverViewport(viewport, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
+   if (!isCreated)
+   {
+      isCreated = true;
+      
+      //igDockBuilderRemoveNode(dock_spaceID);
+      ImGuiID dockID_left = igDockBuilderSplitNode(dock_spaceID, ImGuiDir_Down, 0.2f, NULL, &dock_spaceID);
+
+      igDockBuilderRemoveNode(dock_spaceID);
+      igDockBuilderAddNode(dock_spaceID, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
+      igDockBuilderSetNodeSize(dock_spaceID, viewport->Size);
+
+      igDockBuilderDockWindow("NES", dockID_left);
+      igDockBuilderFinish(dock_spaceID);
+   } */
+
+
+
+
+   ImVec2 zero_vec = {0, 0};
+   igPushStyleVar_Float(ImGuiStyleVar_WindowRounding, 0.0f);
+   igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize, 0.0f);
+   //igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zero_vec);  
+
+   igBegin("NES", NULL, ImGuiWindowFlags_None);
+      igPopStyleVar(2);
+      igBeginChild_Str("Child NES Viewport", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+         ImVec2 size;
+         igGetWindowSize(&size);
+
+         glViewport(0, 0, (int) size.x, (int) size.y);
+         resize_framebuffer((int) size.x, (int) size.y);
+         //ImVec2 p_max = {p_min.x + size.x, p_min.y + size.y};
+         //printf("%f %f\n", size2.x, size2.y);
+         ImVec2 uv_min = {0, 1};
+         ImVec2 uv_max = {1, 0};
+         ImVec4 col = {1, 1, 1, 1};
+         ImVec4 border = {0, 0, 0, 0};
+         igImage( (void*) (uintptr_t) viewport_textureID, size, uv_min, uv_max, col, border); 
+      igEndChild();
+   igEnd();
+
+   
 }
 
 static void graphics_create_pixels(void)
