@@ -18,12 +18,7 @@ int main(int argc, char *argv[])
    (void) argc;
    (void) argv;
 
-   if ( !display_init() )
-   {
-      return EXIT_FAILURE;
-   }
-   
-   if ( !cartridge_load( argv[1] ) || !ppu_load_palettes("./ntscpalette.pal")) 
+   if ( !display_init() || !cartridge_load( argv[1] ) || !ppu_load_palettes("./ntscpalette.pal") )
    {
       return EXIT_FAILURE;
    }
@@ -34,8 +29,16 @@ int main(int argc, char *argv[])
    bool done = false;
    while (!done)
    {
+      display_clear();
       display_process_event(&done);   
+
+      for (int i = 0; i < 60; ++i) 
+      {
+         cpu_emulate_instruction();
+      }
+
       display_render(); 
+      display_update();
    }
  
    nestest_log_close();

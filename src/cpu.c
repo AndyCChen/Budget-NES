@@ -40,7 +40,7 @@ typedef enum address_modes_t
 
 typedef struct cpu_6502_t
 {
-   uint32_t cycle_count;
+   size_t cycle_count;
 
    uint8_t ac;  // accumulator
    uint8_t X;   // x index register
@@ -2727,29 +2727,36 @@ static uint8_t stack_pop(void)
 void cpu_emulate_instruction(void)
 {
    //static uint32_t total_cycles = 0;
-   nestest_log("%04X  ", cpu.pc); // log current pc value before fetching
+   
+   //while (cpu.cycle_count <= 29780)
+   //{
+      nestest_log("%04X  ", cpu.pc); // log current pc value before fetching
 
-   uint8_t opcode = cpu_fetch();
-   cpu_decode(opcode);
-   cpu_execute();
+      uint8_t opcode = cpu_fetch();
+      cpu_decode(opcode);
+      cpu_execute();
 
-   static bool is_processing_nmi = false;
-   if ( get_nmi_status() )
-   {
-      if (is_processing_nmi == false)
+      static bool is_processing_nmi = false;
+      if ( get_nmi_status() )
       {
-         cpu_NMI();
-         is_processing_nmi = true;
+         if (is_processing_nmi == false)
+         {
+            cpu_NMI();
+            is_processing_nmi = true;
+            
+         }
          
       }
-      
-   }
-   else
-   {
-      is_processing_nmi = false;
-   }
+      else
+      {
+         is_processing_nmi = false;
+      }
 
-   nestest_log("%s\n", "");
+      nestest_log("%s\n", "");
+   //}
+
+   //cpu.cycle_count = 0;
+
    //total_cycles += cycles;
    /* if (total_cycles != cpu.cycle_count)
    {
@@ -2776,9 +2783,12 @@ void cpu_tick(void)
 */
 void cpu_reset(void)
 {
+   cpu.cycle_count = 0;
    cpu.sp = 0xFD;
    cpu.status_flags = cpu.status_flags | 0x4;
-   cpu.pc = cpu_bus_read(RESET_VECTOR);
+   uint8_t lo = cpu_bus_read(RESET_VECTOR);
+   uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
+   cpu.pc = (hi << 8) | lo;
 }
 
 /**
@@ -2786,7 +2796,7 @@ void cpu_reset(void)
 */
 void cpu_init(void)
 {
-   cpu.cycle_count = 7;
+   cpu.cycle_count = 0;
    cpu.ac = 0;
    cpu.X = 0;
    cpu.Y = 0;

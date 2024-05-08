@@ -5,6 +5,7 @@
 #include "SDL.h"
 #include "SDL_opengl.h"
 #include "cglm.h"
+
 #include "display.h"
 #include "cpu.h"
 
@@ -30,6 +31,9 @@ static void set_pixel_pos(float pixel_w, float pixel_h);
 // opengl graphics
 // ---------------------------------------------------------------
 
+static GLuint viewport_FBO;
+static GLuint viewport_textureID;
+static GLuint viewport_RBO;
 static GLuint pixel_VAO;
 static GLuint instanced_color_VBO;
 static GLuint shader_program;
@@ -40,6 +44,8 @@ static vec4 pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 static void graphics_create_pixels(void);
 static bool graphics_create_shaders(void);
+static bool create_frameBuffers(void);
+static void resize_framebuffer(int width, int height);
 
 /**
  * setup sdl, create window, and opengl context
@@ -117,7 +123,10 @@ bool display_init(void)
    ImGui_ImplOpenGL3_Init(glsl_version);
 
    graphics_create_pixels();
-   if ( !graphics_create_shaders() ) return false;
+   if ( !graphics_create_shaders() || !create_frameBuffers() )
+   {
+      return false;
+   }
 
    return true;
 }
@@ -170,17 +179,18 @@ void display_clear(void)
 void display_render(void)
 {
    display_render_gui();
-
    
 
+   glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
+   
    // send the updated color values buffer for pixels all at once
    glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &pixel_colors);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
    glBindVertexArray(pixel_VAO);
-   //glDrawArraysInstanced(GL_TRIANGLES, 0, 6, NES_PIXELS_W * NES_PIXELS_H);
    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
+   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void display_update(void)
@@ -209,8 +219,33 @@ static void display_render_gui(void)
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   display_gui_demo();
-   //display_gui_viewport();
+   display_gui_viewport();
+   //display_gui_demo();
+   igBegin("Scene", NULL, 0);
+      ImVec2 zero  = { 0, 0};
+      igBeginChild_Str("game", zero, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+         ImVec2 size;
+         igGetWindowSize(&size);
+
+         ImVec2 p_min; 
+         igGetCursorPos(&p_min);
+         //glViewport(0, 0, (int) size.x, (int) io->DisplaySize.y);
+         resize_framebuffer((int) size.x, (int) size.y);
+         //ImVec2 p_max = {p_min.x + size.x, p_min.y + size.y};
+         printf("%f %f\n", size.x, size.y);
+         ImVec2 uv_min = {0, 1};
+         ImVec2 uv_max = {1, 0};
+         ImVec4 col = {1, 1, 1, 1};
+         ImVec4 border = {0, 0, 0, 0};
+         igImage((ImTextureID) viewport_textureID, size, uv_min, uv_max, col, border);
+
+      igEndChild();
+
+
+      
+
+   igEnd();
+   
 }
 
 static void display_gui_demo(void)
@@ -265,15 +300,70 @@ static void display_gui_demo(void)
 */
 static void display_gui_viewport(void)
 {
-   static bool show_main_viewport = true;
+   ImGuiDockNodeFlags  dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+   ImGuiWindowFlags window_flags =  ImGuiWindowFlags_MenuBar  | ImGuiWindowFlags_NoMove;
+                    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+                    window_flags |=  ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
 
-   if (show_main_viewport)
+   ImVec2 zer_vec = {0.0f, 0.0f};
+
+   const ImGuiViewport* viewport = igGetWindowViewport();
+   igSetNextWindowPos(viewport->WorkPos, 0, zer_vec);
+   igSetNextWindowSize(viewport->WorkSize, 0);
+   igSetNextWindowViewport(viewport->ID);
+   igPushStyleVar_Float(ImGuiStyleVar_WindowRounding, 0.0f);
+   igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+   igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zer_vec);
+   igBegin("Dock Space", (bool*) true, window_flags);
+   igPopStyleVar(3);
+
+   ImGuiID dockspace_id = igGetID_Str("MyDockSpace");
+   igDockSpace(dockspace_id, zer_vec, dockspace_flags, NULL);
+
+   if (igBeginMenuBar())
    {
-      igBegin("Viewport", &show_main_viewport, 0);
-      igText("This is the main viewport");
+      if (igBeginMenu("File", true))
+      {
+         if ( igMenuItem_Bool("Load Rom", "Ctrl-L", false, true) )
+         {
+            // todo
+         }
 
-      igEnd();
+         if ( igMenuItem_Bool("Unload Rom", "Ctrl-U", false, true) )
+         {
+            // todo
+         }
+
+         if ( igMenuItem_Bool("Exit", "Esc", false, true) )
+         {
+            SDL_Event event;
+            event.type = (SDL_EventType) SDL_QUIT;
+            SDL_PushEvent(&event);
+         }  
+         
+         igEndMenu();
+      }
+
+      if (igBeginMenu("Tools", true))
+      {
+         igMenuItem_Bool("Instruction log", "", false, true);
+
+         igEndMenu();
+      }
+
+      /* ImVec2 window_size;
+      ImVec2 text_size;
+      char* title = "Budget NES";
+      igGetWindowSize(&window_size);
+      igCalcTextSize(&text_size, title, NULL, false, -1.0f);
+      igSetCursorPosX( (window_size.x - text_size.x) * 0.5f );
+      igText(title); */
+   
+      igEndMenuBar();
    }
+   
+   igEnd();
 }
 
 static void graphics_create_pixels(void)
@@ -339,6 +429,60 @@ static void graphics_create_pixels(void)
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
    
    glVertexAttribDivisor(5, 1);
+
+   glBindVertexArray(0);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+   
+}
+
+static bool create_frameBuffers(void)
+{
+   glGenFramebuffers(1, &viewport_FBO);
+   glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
+
+   int width, height;
+   SDL_GetWindowSize(window, &width, &height);
+
+   glGenTextures(1, &viewport_textureID);
+   glBindTexture(GL_TEXTURE_2D, viewport_textureID);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA , width, height, 0, GL_RGBA , GL_UNSIGNED_BYTE, NULL);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+   glBindTexture(GL_TEXTURE_2D, 0);
+
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, viewport_textureID, 0);
+
+   glGenRenderbuffers(1, &viewport_RBO);
+   glBindRenderbuffer(GL_RENDERBUFFER, viewport_RBO);
+   glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+   glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, viewport_RBO);
+
+   
+   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+   {
+      printf("Framebuffer creation failed!\n");
+      return false;
+   }
+   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+   
+
+   return true;
+}
+
+static void resize_framebuffer(int width, int height)
+{
+   glBindTexture(GL_TEXTURE_2D, viewport_textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, viewport_textureID, 0);
+
+	glBindRenderbuffer(GL_RENDERBUFFER, viewport_RBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, viewport_RBO);
 }
 
 static bool graphics_create_shaders(void)
