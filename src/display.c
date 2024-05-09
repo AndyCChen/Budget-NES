@@ -25,7 +25,6 @@ static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
 static void display_render_gui(void);
 static void display_gui_demo(void);
-static void display_gui_main_dockspace(void);
 static void display_gui_main_viewport(void);
 static void set_pixel_pos(float pixel_w, float pixel_h);
 
@@ -190,6 +189,7 @@ void display_render(void)
 
    glBindVertexArray(pixel_VAO);
    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
+
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -219,8 +219,7 @@ static void display_render_gui(void)
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   //display_gui_main_dockspace();
-   //display_gui_main_viewport();
+   display_gui_main_viewport();
    display_gui_demo();
 }
 
@@ -271,32 +270,21 @@ static void display_gui_demo(void)
    }
 }
 
-/**
- * create the gui for the main display viewport
-*/
-static void display_gui_main_dockspace(void)
+static void display_gui_main_viewport(void)
 {
-   ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-   ImGuiWindowFlags window_flags =  ImGuiWindowFlags_MenuBar  | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar;
-                    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
-                    window_flags |=  ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;
+   ImVec2 zero_vec = {0, 0}; 
 
-   ImVec2 zero_vec = {0.0f, 0.0f};
-
-   const ImGuiViewport* viewport = igGetMainViewport();
+   ImGuiViewport* viewport = igGetMainViewport();
    igSetNextWindowPos(viewport->WorkPos, 0, zero_vec);
    igSetNextWindowSize(viewport->WorkSize, 0);
    igSetNextWindowViewport(viewport->ID);
-
+   
    igPushStyleVar_Float(ImGuiStyleVar_WindowRounding, 0.0f);
    igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize, 0.0f);
-   igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zero_vec);
+   igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zero_vec);  
 
-   igBegin("Dock Space", (bool*) true, window_flags);
+   igBegin("NES", NULL, ImGuiWindowFlags_None | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking);
       igPopStyleVar(3);
-
-      ImGuiID dockspace_id = igGetID_Str("Main Dockspace");
-      igDockSpace(dockspace_id, zero_vec, dockspace_flags, NULL);
 
       if (igBeginMenuBar())
       {
@@ -327,42 +315,19 @@ static void display_gui_main_dockspace(void)
             igMenuItem_Bool("Instruction log", "", false, true);
             igEndMenu();
          }
+
+         if (igBeginMenu("Window", true))
+         {
+            igMenuItem_Bool("Fullscreen", "", false, true);
+            igMenuItem_Bool("2x", "", false, true);
+            igMenuItem_Bool("3x", "", false, true);
+
+            igEndMenu();
+         }
       
          igEndMenuBar();
       }
-   igEnd();
-}
 
-static void display_gui_main_viewport(void)
-{
-   /* const ImGuiViewport* viewport = igGetMainViewport();
-   static bool isCreated = false;
-   ImGuiID dock_spaceID = igDockSpaceOverViewport(viewport, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
-   if (!isCreated)
-   {
-      isCreated = true;
-      
-      //igDockBuilderRemoveNode(dock_spaceID);
-      ImGuiID dockID_left = igDockBuilderSplitNode(dock_spaceID, ImGuiDir_Down, 0.2f, NULL, &dock_spaceID);
-
-      igDockBuilderRemoveNode(dock_spaceID);
-      igDockBuilderAddNode(dock_spaceID, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
-      igDockBuilderSetNodeSize(dock_spaceID, viewport->Size);
-
-      igDockBuilderDockWindow("NES", dockID_left);
-      igDockBuilderFinish(dock_spaceID);
-   } */
-
-
-
-
-   ImVec2 zero_vec = {0, 0};
-   igPushStyleVar_Float(ImGuiStyleVar_WindowRounding, 0.0f);
-   igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize, 0.0f);
-   //igPushStyleVar_Vec2(ImGuiStyleVar_WindowPadding, zero_vec);  
-
-   igBegin("NES", NULL, ImGuiWindowFlags_None);
-      igPopStyleVar(2);
       igBeginChild_Str("Child NES Viewport", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_None);
          ImVec2 size;
          igGetWindowSize(&size);
@@ -378,8 +343,6 @@ static void display_gui_main_viewport(void)
          igImage( (void*) (uintptr_t) viewport_textureID, size, uv_min, uv_max, col, border); 
       igEndChild();
    igEnd();
-
-   
 }
 
 static void graphics_create_pixels(void)
@@ -449,7 +412,6 @@ static void graphics_create_pixels(void)
    glBindVertexArray(0);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-   
 }
 
 static bool create_frameBuffers(void)
@@ -484,7 +446,6 @@ static bool create_frameBuffers(void)
    }
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
    
-
    return true;
 }
 
