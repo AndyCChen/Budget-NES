@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
       display_clear();
       display_process_event(&done);   
 
-      for (int i = 0; i < 60; ++i) 
+      for (int i = 0; i < 20; ++i) 
       {
          cpu_emulate_instruction();
       }

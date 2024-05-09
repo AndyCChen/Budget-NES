@@ -65,7 +65,7 @@ static uint8_t secondary_oam_ram[32];
 
 // track current scanline and cycles
 
-static uint16_t scanline = 261;
+static uint16_t scanline = 0;
 static uint16_t cycle = 0;
 
 // 64 rgb colors for system_palette
@@ -114,7 +114,7 @@ void ppu_cycle(void)
    // scanline 0-239 (i.e 240 scanlines) are the visible scanlines to the display
    if (scanline <= 239)
    {
-      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table
+      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table if rendering enabled
 
       if (cycle >= 1 && cycle <= 256)
       {
@@ -151,15 +151,16 @@ void ppu_cycle(void)
    {
       if (cycle == 1)
       {
+         odd_even_flag = !odd_even_flag;
          ppu_status &= ~0x80; // clear VBlank flag on cycle 1 of scanline 261
       }
 
       if (cycle >= 280 && cycle <= 304)
       {
-         if (ppu_mask & 0x18) transfer_t_vertical();
+         if (ppu_mask & 0x18) transfer_t_vertical(); // transfer if rendering enabled
       }
 
-      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table
+      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table if rendering enabled
    }
 
    cycle++;
@@ -185,7 +186,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
          break;
       case PPUMASK:
          ppu_mask = data;
-         printf("Mask write %02X\n", data);
+         //printf("Mask write %02X\n", data);
          break;
       case OAMADDR:
          oam_address = data;

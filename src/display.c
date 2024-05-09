@@ -5,6 +5,7 @@
 #include "SDL.h"
 #include "SDL_opengl.h"
 #include "cglm.h"
+#include <stdint.h>
 
 #include "display.h"
 #include "cpu.h"
@@ -26,7 +27,8 @@ static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 static void display_render_gui(void);
 static void display_gui_demo(void);
 static void display_gui_main_viewport(void);
-static void set_pixel_pos(float pixel_w, float pixel_h);
+static void pixel_set_position(float pixel_w, float pixel_h);
+/* static void pixel_resize(float w, float h); */
 
 // opengl graphics
 // ---------------------------------------------------------------
@@ -34,7 +36,7 @@ static void set_pixel_pos(float pixel_w, float pixel_h);
 static GLuint viewport_FBO;
 static GLuint viewport_textureID;
 static GLuint viewport_RBO;
-static GLuint pixel_VAO;
+static GLuint pixel_VAO, pixel_VBO, pixel_IBO;
 static GLuint instanced_color_VBO;
 static GLuint shader_program;
 
@@ -46,6 +48,22 @@ static void graphics_create_pixels(void);
 static bool graphics_create_shaders(void);
 static bool create_frameBuffers(void);
 static void resize_framebuffer(int width, int height);
+
+typedef struct Display_Config_t 
+{
+   /**
+    * bit 0: fullscreen
+    * bit 1: screen size 1x
+    * bit 2: screen size 2x
+    * bit 3: screen size 3x
+   */
+   uint8_t display_size;
+} Display_Config_t;
+
+static Display_Config_t g_config = 
+{
+   .display_size = 4,
+}; 
 
 /**
  * setup sdl, create window, and opengl context
@@ -220,7 +238,7 @@ static void display_render_gui(void)
    igNewFrame();
 
    display_gui_main_viewport();
-   display_gui_demo();
+   //display_gui_demo();
 }
 
 static void display_gui_demo(void)
@@ -318,9 +336,54 @@ static void display_gui_main_viewport(void)
 
          if (igBeginMenu("Window", true))
          {
-            igMenuItem_Bool("Fullscreen", "", false, true);
-            igMenuItem_Bool("2x", "", false, true);
-            igMenuItem_Bool("3x", "", false, true);
+            // use bit masking to toggle display size settings
+            if ( igMenuItem_Bool("Fullscreen", "", g_config.display_size & 1, true) )
+            {
+               SDL_DisplayMode display_mode;
+               if ( SDL_GetDesktopDisplayMode(0, &display_mode) != 0 )
+               {
+                  printf("Error in get desktop display mode: %s\n", SDL_GetError());
+               }
+
+               SDL_SetWindowDisplayMode(window, &display_mode);
+               SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+               
+               printf("%d %d\n", display_mode.w, display_mode.h);
+               g_config.display_size = (uint8_t) ~0xFE;
+            }
+
+            if ( igMenuItem_Bool("1x", "", g_config.display_size & 2, true) )
+            {
+               float w = DISPLAY_W - (NES_PIXELS_W);
+               float h = DISPLAY_H - (NES_PIXELS_H);
+
+               SDL_SetWindowFullscreen(window, 0);
+               SDL_SetWindowSize( window, w, h );
+               SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+               g_config.display_size = (uint8_t) ~0xFD;
+            }
+
+            if ( igMenuItem_Bool("2x", "", g_config.display_size & 4, true) )
+            {
+               float w = DISPLAY_W;
+               float h = DISPLAY_H;
+
+               SDL_SetWindowFullscreen(window, 0);
+               SDL_SetWindowSize( window, w, h );
+               SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+               g_config.display_size = (uint8_t) ~0xFB;
+            }
+
+            if ( igMenuItem_Bool("3x", "", g_config.display_size & 8, true) )
+            {
+               float w = DISPLAY_W + (NES_PIXELS_W);
+               float h = DISPLAY_H + (NES_PIXELS_H);
+
+               SDL_SetWindowFullscreen(window, 0);
+               SDL_SetWindowSize( window, w, h );
+               SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+               g_config.display_size = (uint8_t) ~0xF7;
+            }
 
             igEndMenu();
          }
@@ -331,11 +394,8 @@ static void display_gui_main_viewport(void)
       igBeginChild_Str("Child NES Viewport", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_None);
          ImVec2 size;
          igGetWindowSize(&size);
-
          glViewport(0, 0, (int) size.x, (int) size.y);
          resize_framebuffer((int) size.x, (int) size.y);
-         //ImVec2 p_max = {p_min.x + size.x, p_min.y + size.y};
-         //printf("%f %f\n", size2.x, size2.y);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
@@ -349,7 +409,7 @@ static void graphics_create_pixels(void)
 {
    float pixel_w = DISPLAY_W / NES_PIXELS_W;
    float pixel_h = DISPLAY_H / NES_PIXELS_H;
-   set_pixel_pos(pixel_w, pixel_h);
+   pixel_set_position(pixel_w, pixel_h);
 
    float pixel_vertices[] = {
       0.0f,    0.0f,    0.0f, // top left
@@ -364,7 +424,6 @@ static void graphics_create_pixels(void)
    };
 
    // send vertex data for pixels
-   GLuint pixel_VBO, pixel_IBO;
    glGenVertexArrays(1, &pixel_VAO);
    glGenBuffers(1, &pixel_VBO);
    glGenBuffers(1, &pixel_IBO);
@@ -562,10 +621,10 @@ static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
 
 /**
  * Sets the position of each pixel of the nes display
- * @param pixel_w width of the pixel
- * @param pixel_h height of the pixel
+ * @param w width of the pixel
+ * @param h height of the pixel
 */
-static void set_pixel_pos(float pixel_w, float pixel_h)
+static void pixel_set_position(float pixel_w, float pixel_h)
 {
    for (size_t row = 0; row < NES_PIXELS_H; ++row)
    {
@@ -593,3 +652,21 @@ void set_pixel_color(uint32_t row, uint32_t col, vec3 color)
    pixel_colors[index][2] = color[2];
    pixel_colors[index][3] = 1.0f;
 }
+
+/* static void pixel_resize(float w, float h)
+{
+   float pixel_w = w / NES_PIXELS_W;
+   float pixel_h = h / NES_PIXELS_H;
+   pixel_set_position(pixel_w, pixel_h);
+
+   float pixel_vertices[] = {
+      0.0f,    0.0f,    0.0f, // top left
+      0.0f,    pixel_h, 0.0f, // bottom left
+      pixel_w, pixel_h, 0.0f, // bottom right
+      pixel_w, 0.0f,    0.0f, // top right
+   };
+
+   glBindBuffer(GL_ARRAY_BUFFER, pixel_VBO);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pixel_vertices), &pixel_vertices);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+} */
