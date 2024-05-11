@@ -30,10 +30,10 @@ uint8_t cartridge_cpu_read(uint16_t position)
    switch ( mode )
    {
       case ACCESS_PRG_ROM:
-         data = prg_rom[mapped_addr]; if (mapped_addr >= 16384) printf("out of bounds\n");
+         data = prg_rom[mapped_addr]; //if (mapped_addr >= 16384) printf("out of bounds\n");
          break;
       case ACCESS_PRG_RAM:
-         data = prg_ram[mapped_addr]; if (mapped_addr >= 8192) printf("out of bounds\n");
+         data = prg_ram[mapped_addr]; //if (mapped_addr >= 8192) printf("out of bounds\n");
          break;
       case NO_CARTRIDGE_DEVICE: // when addressed location has no attached device, return value from previous read in static data
          default: // default case should never happen here
@@ -59,7 +59,6 @@ uint8_t cartridge_ppu_read(uint16_t position)
          data = ppu_vram[mapped_addr]; // returned mapped address for vram 
          break;
       default: // default case will never happen due to bit masking but who knows
-      
          printf("PPU read error!\n");
          exit(EXIT_FAILURE);
          break;
@@ -82,7 +81,7 @@ void cartridge_ppu_write(uint16_t position, uint8_t data)
          ppu_vram[mapped_addr] = data;
          break;
       default: // default should case will never happen unless chr-rom is written to, in which case no write will occur 
-         
+         printf("Writing to chr-rom\n");
          break;
    }
 }
@@ -206,6 +205,8 @@ bool cartridge_load(const char* const filepath)
          return false;
       }
    }
+
+   printf("prg-rom size: %zu chr-rom/ram size: %zu prg-ram size: %zu %d\n", prg_rom_size, chr_mem_size, prg_ram_size, header.prg_rom_size);
 
    fclose(file);
    return true;
