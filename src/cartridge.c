@@ -30,18 +30,32 @@ uint8_t cartridge_cpu_read(uint16_t position)
    switch ( mode )
    {
       case ACCESS_PRG_ROM:
-         data = prg_rom[mapped_addr]; //if (mapped_addr >= 16384) printf("out of bounds\n");
+         data = prg_rom[mapped_addr];
          break;
       case ACCESS_PRG_RAM:
-         data = prg_ram[mapped_addr]; //if (mapped_addr >= 8192) printf("out of bounds\n");
+         data = prg_ram[mapped_addr];
          break;
       case NO_CARTRIDGE_DEVICE: // when addressed location has no attached device, return value from previous read in static data
-         default: // default case should never happen here
-         printf("no device\n");
-         break;
+      default: // default case should never happen here
+      printf("no device\n");
    }
 
    return data;
+}
+
+void cartridge_cpu_write(uint16_t position, uint8_t data)
+{
+   uint16_t mapped_addr = 0;
+   cartridge_access_mode_t mode = mapper.cpu_write(&header, position, &mapped_addr);
+
+   switch ( mode )
+   {
+      case ACCESS_PRG_RAM:
+         prg_ram[mapped_addr] = data;
+         break;
+      default:
+         printf("Attempting to write to cartridge that is not program ram!\n");
+   }
 }
 
 uint8_t cartridge_ppu_read(uint16_t position)

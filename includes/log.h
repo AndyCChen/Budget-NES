@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-extern FILE *nestest_log_file; // pointer to nes test output log file
+extern FILE *log_file; // pointer to nes test output log file
 extern bool nestest_log_flag;  // true: ouput logs into nestest log file, false: do not log anything
 
 // writes to a log file if nestest_log_flag is true
@@ -12,12 +12,15 @@ extern bool nestest_log_flag;  // true: ouput logs into nestest log file, false:
 #define nestest_log(format, ...)                                    \
    do                                                               \
    {                                                                \
-      if (nestest_log_flag) nestest_log_write(format, __VA_ARGS__); \
+      log_write(format, __VA_ARGS__);         \
    } while (0);                                                     \
    
 
-bool nestest_log_open();
-void nestest_log_write(const char* const format, ...);
-void nestest_log_close();
+bool log_open(void);
+void log_write(const char* const format, ...);
+void log_clear(void);
+char* log_get(void);
+void log_close(void);
+void log_file_output(void);
 
 #endif

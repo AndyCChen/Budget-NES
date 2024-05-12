@@ -38,28 +38,6 @@ typedef enum address_modes_t
    REL  // relative
 } address_modes_t;
 
-typedef struct cpu_6502_t
-{
-   size_t cycle_count;
-
-   uint8_t ac;  // accumulator
-   uint8_t X;   // x index register
-   uint8_t Y;   // y index register
-   uint8_t sp;  // top down stack pointer at locations 0x0100 - 0x01FF
-   uint16_t pc; // program counter
-
-   // cpu status flags
-   // 7th bit - negative
-   // 6th bit - overflow
-   // 5th bit - reserved flag 
-   // 4th bit - break
-   // 3rd bit - decimal
-   // 2nd bit - interrupt
-   // 1st bit - zero
-   // 0th bit - carry
-   uint8_t status_flags;
-} cpu_6502_t;
-
 typedef struct instruction_t
 {
    char* mnemonic;                    // 3 character mnemonic of the a instruction
@@ -388,19 +366,19 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
       case IMP:
       {
          cpu_bus_read(cpu.pc); // dummy read next byte
-         nestest_log("%02X %6s%4s %28s", current_opcode, "", current_instruction->mnemonic, "");
+         log_write("%s", current_instruction->mnemonic);
          break;
       }
       case ACC:
       { 
          cpu_bus_read(cpu.pc); // dummy read next byte
-         nestest_log("%02X %6s%4s A %26s", current_opcode, "", current_instruction->mnemonic, "");
+         nestest_log("%s A", current_instruction->mnemonic);
          break;
       }
       case IMM:
       {
          instruction_operand = cpu_fetch();
-         nestest_log("%02X %02X %3s%4s #$%02X %23s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, "");
+         nestest_log("%s #$%02X", current_instruction->mnemonic, instruction_operand);
          break;
       }
       case ABS:
@@ -410,15 +388,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         // output the logs of JMP and JSR instruction without reading value at absolute address
-         if (current_opcode == 0x4C || current_opcode == 0x20)
-         {
-            nestest_log("%02X %02X %02X %4s $%04X %22s", current_opcode, lo, hi, current_instruction->mnemonic, instruction_operand, "");
-         }
-         else
-         {
-            nestest_log("%02X %02X %02X %4s $%04X %22s", current_opcode, lo, hi, current_instruction->mnemonic, instruction_operand, "");
-         }
+         nestest_log("%s $%04X", current_instruction->mnemonic, instruction_operand);
          
          break;
       }
@@ -459,7 +429,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.X) );
          }
 
-         nestest_log("%02X %02X %02X %4s $%04X,X @ %04X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
+         nestest_log("%s $%04X,X", current_instruction->mnemonic, abs_address);
          break;
       }
       case YAB:
@@ -498,7 +468,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
          }
 
-         nestest_log("%02X %02X %02X %4s $%04X,Y @ %04X %8s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
+         nestest_log("%s $%04X,Y", current_instruction->mnemonic, abs_address);
          break;
       }
       case ABI:
@@ -515,14 +485,14 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 
          instruction_operand = ( indirect_address_hi << 8 ) | indirect_address_lo;
 
-         nestest_log("%02X %02X %02X %4s ($%04X) = %04X %13s", current_opcode, lo, hi, current_instruction->mnemonic, abs_address, instruction_operand, "");
+         nestest_log("%s ($%04X)", current_instruction->mnemonic, abs_address);
          break;
       }
       case ZPG:
       {
          instruction_operand = cpu_fetch();
 
-         nestest_log("%02X %02X %3s%4s $%02X %19s", current_opcode, instruction_operand, "", current_instruction->mnemonic, instruction_operand, "");
+         nestest_log("%s $%02X", current_instruction->mnemonic, instruction_operand);
          break;
       }
       case XZP:
@@ -530,9 +500,9 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint8_t zpg_address = cpu_fetch();
 
          cpu_bus_read(zpg_address); // dummy read while adding index
-         instruction_operand =  ( zpg_address + cpu.X ) & 0x00FF;
+         instruction_operand = ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s $%02X,X @ %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, "");
+         nestest_log("%s $%02X,X", current_instruction->mnemonic, zpg_address);
          break;
       }
       case YZP:
@@ -542,7 +512,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%02X %02X %3s%4s $%02X,Y @ %02X %12s", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, instruction_operand, "");
+         nestest_log("%s $%02X,Y", current_instruction->mnemonic, zpg_address);
          break;
       }
       case XZI:
@@ -556,7 +526,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         nestest_log("%02X %02X %3s%4s ($%02X,X) @ %02X = %04X %3s", current_opcode, zpg_base_address, "", current_instruction->mnemonic, zpg_base_address, zpg_address, instruction_operand, "");
+         nestest_log("%s%s ($%02X,X) @ %02X = %04X %3s", current_instruction->mnemonic, zpg_base_address);
          break;
       }
       case YZI:
@@ -597,7 +567,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
          }
 
-         nestest_log("%02X %02X %3s%4s ($%02X),Y = %04X @ %04X  ", current_opcode, zpg_address, "", current_instruction->mnemonic, zpg_address, base_address, instruction_operand);
+         nestest_log("%s ($%02X),Y", current_instruction->mnemonic, zpg_address);
          break;
       }
       case REL:
@@ -621,12 +591,10 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             instruction_operand = cpu.pc + offset_byte;
          }
 
-         nestest_log("%02X %02X %3s%4s $%04X %22s", current_opcode, offset_byte, "", current_instruction->mnemonic, instruction_operand, "");
+         nestest_log("%s $%04X", current_instruction->mnemonic, instruction_operand);
          break;
       }
    }
-
-   nestest_log("A:%02X X:%02X Y:%02X P:%02X SP:%02X", cpu.ac, cpu.X, cpu.Y, cpu.status_flags, cpu.sp);
 }
 
 // load instructions
@@ -2728,8 +2696,6 @@ void cpu_emulate_instruction(void)
 {
    //static uint32_t total_cycles = 0;
    
-   //while (cpu.cycle_count <= 29780)
-   //{
       nestest_log("%04X  ", cpu.pc); // log current pc value before fetching
 
       uint8_t opcode = cpu_fetch();
@@ -2753,7 +2719,7 @@ void cpu_emulate_instruction(void)
       }
 
       nestest_log("%s\n", "");
-   //}
+      log_clear();
 
    //cpu.cycle_count = 0;
 
@@ -2866,4 +2832,12 @@ static bool check_opcode_access_mode(uint8_t opcode)
    }
 
    return is_a_write_instruction;
+}
+
+/**
+ * Returns pointer to cpu struct
+*/
+cpu_6502_t* get_cpu(void)
+{
+   return &cpu;
 }

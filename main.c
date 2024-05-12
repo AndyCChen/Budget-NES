@@ -11,7 +11,7 @@
 #include "includes/log.h"
 #include "includes/display.h"
 
-bool nestest_log_flag = false;
+bool nestest_log_flag = true;
 
 int main(int argc, char *argv[])
 {
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
    }
 
    cpu_init();
-   nestest_log_open();
+   log_open();
 
    bool done = false;
    while (!done)
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
       display_update();
    }
  
-   nestest_log_close();
+   log_close();
    
    cartridge_free_memory();
    display_shutdown();

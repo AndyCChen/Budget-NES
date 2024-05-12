@@ -5,6 +5,5 @@
 build
 bin
 imgui.ini
-compare.py
 .DS_Store
 roms

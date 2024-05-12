@@ -7,8 +7,9 @@
 #include "cglm.h"
 #include <stdint.h>
 
-#include "display.h"
-#include "cpu.h"
+#include "../includes/display.h"
+#include "../includes/cpu.h"
+#include "../includes/log.h"
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
@@ -24,11 +25,10 @@ static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 // gui components
 // ---------------------------------------------------------------
 
-static void display_render_gui(void);
-static void display_gui_demo(void);
-static void display_gui_main_viewport(void);
-static void pixel_set_position(float pixel_w, float pixel_h);
-/* static void pixel_resize(float w, float h); */
+static void gui_demo(void);
+static void gui_main_viewport(void);
+static void gui_cpu_debug(void);
+static void gui_help_marker(const char* desc);
 
 // opengl graphics
 // ---------------------------------------------------------------
@@ -43,11 +43,12 @@ static GLuint shader_program;
 static mat4 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
 static vec4 pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 
-static void add_shader(GLuint program, const GLchar* shader_code, GLenum type);
-static void graphics_create_pixels(void);
-static bool graphics_create_shaders(void);
-static bool create_frameBuffers(void);
-static void resize_framebuffer(int width, int height);
+static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum type);
+static void display_create_pixels(void);
+static bool display_create_shaders(void);
+static bool display_create_frameBuffers(void);
+static void display_resize_framebuffer(int width, int height);
+static void display_set_pixel_position(float pixel_w, float pixel_h);
 
 typedef struct Display_Config_t 
 {
@@ -58,11 +59,15 @@ typedef struct Display_Config_t
     * bit 3: screen size 3x
    */
    uint8_t display_size;
+   bool cpu_debug; // toggle cpu debug widget
+
 } Display_Config_t;
 
+// global gui state
 static Display_Config_t g_config = 
 {
    .display_size = 4,
+   .cpu_debug = false,
 }; 
 
 /**
@@ -140,8 +145,8 @@ bool display_init(void)
    ImGui_ImplSDL2_InitForOpenGL(window, gContext);
    ImGui_ImplOpenGL3_Init(glsl_version);
 
-   graphics_create_pixels();
-   if ( !graphics_create_shaders() || !create_frameBuffers() )
+   display_create_pixels();
+   if ( !display_create_shaders() || !display_create_frameBuffers() )
    {
       return false;
    }
@@ -192,11 +197,19 @@ void display_clear(void)
 }
 
 /**
- * render imgui components
+ * render graphics
 */
 void display_render(void)
 {
-   display_render_gui();
+   // begin frame
+   ImGui_ImplOpenGL3_NewFrame();
+   ImGui_ImplSDL2_NewFrame();
+   igNewFrame();
+
+   // draw gui components
+   gui_main_viewport();
+   if (g_config.cpu_debug) gui_cpu_debug();
+   gui_demo();
    
    glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
    
@@ -211,6 +224,7 @@ void display_render(void)
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+// update frame
 void display_update(void)
 {
    igRender();
@@ -228,20 +242,7 @@ void display_update(void)
    SDL_GL_SwapWindow(window);
 }
 
-/**
- * create imgui components
-*/
-static void display_render_gui(void)
-{
-   ImGui_ImplOpenGL3_NewFrame();
-   ImGui_ImplSDL2_NewFrame();
-   igNewFrame();
-
-   display_gui_main_viewport();
-   //display_gui_demo();
-}
-
-static void display_gui_demo(void)
+static void gui_demo(void)
 {
    static bool show_demo_window = false;
    static bool show_another_window = false;
@@ -288,7 +289,7 @@ static void display_gui_demo(void)
    }
 }
 
-static void display_gui_main_viewport(void)
+static void gui_main_viewport(void)
 {
    ImVec2 zero_vec = {0, 0}; 
 
@@ -330,7 +331,10 @@ static void display_gui_main_viewport(void)
 
          if (igBeginMenu("Tools", true))
          {
-            igMenuItem_Bool("Instruction log", "", false, true);
+            if ( igMenuItem_Bool("CPU Debug", "", g_config.cpu_debug, true) )
+            {
+               g_config.cpu_debug = !g_config.cpu_debug;
+            }
             igEndMenu();
          }
 
@@ -395,7 +399,7 @@ static void display_gui_main_viewport(void)
          ImVec2 size;
          igGetWindowSize(&size);
          glViewport(0, 0, (int) size.x, (int) size.y);
-         resize_framebuffer((int) size.x, (int) size.y);
+         display_resize_framebuffer((int) size.x, (int) size.y);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
@@ -405,11 +409,62 @@ static void display_gui_main_viewport(void)
    igEnd();
 }
 
-static void graphics_create_pixels(void)
+static void gui_cpu_debug(void)
+{
+   cpu_6502_t* cpu = get_cpu();
+   ImVec4 red = {0.9686274509803922f, 0.1843137254901961f, 0.1843137254901961f, 1.0f};
+
+   igBegin("CPU Debug", &g_config.cpu_debug, ImGuiWindowFlags_None);
+      igTextColored(red, "PC: ");
+      igSameLine(0.0f, -1.0f);
+      igText("%04X", cpu->pc);
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("Program counter");
+
+      igTextColored(red, " A: ");
+      igSameLine(0.0f, -1.0f);
+      igText("  %02X", cpu->ac);
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("Acumulator");
+
+      igTextColored(red, " X: ");
+      igSameLine(0.0f, -1.0f);
+      igText("  %02X", cpu->X);
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("X register");
+
+      igTextColored(red, " Y: ");
+      igSameLine(0.0f, -1.0f);
+      igText("  %02X", cpu->Y);
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("Y register");
+
+      igTextColored(red, "SP: ");
+      igSameLine(0.0f, -1.0f);
+      igText("  %02X", cpu->sp);
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("Stack pointer");
+
+      igTextColored(red, " P: ");
+      igSameLine(0.0f, -1.0f);
+      igText("  %02X", cpu->status_flags);
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("CPU flags");
+
+      igNewLine();
+
+      igText("Instruction Log");
+      igSameLine(0.0f, -1.0f);
+      gui_help_marker("Disassembly of program instructions.");
+      
+   igEnd();
+}
+
+static void display_create_pixels(void)
 {
    float pixel_w = DISPLAY_W / NES_PIXELS_W;
    float pixel_h = DISPLAY_H / NES_PIXELS_H;
-   pixel_set_position(pixel_w, pixel_h);
+   display_set_pixel_position(pixel_w, pixel_h);
 
    float pixel_vertices[] = {
       0.0f,    0.0f,    0.0f, // top left
@@ -473,7 +528,7 @@ static void graphics_create_pixels(void)
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-static bool create_frameBuffers(void)
+static bool display_create_frameBuffers(void)
 {
    glGenFramebuffers(1, &viewport_FBO);
    glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
@@ -508,7 +563,7 @@ static bool create_frameBuffers(void)
    return true;
 }
 
-static void resize_framebuffer(int width, int height)
+static void display_resize_framebuffer(int width, int height)
 {
    glBindTexture(GL_TEXTURE_2D, viewport_textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -521,7 +576,7 @@ static void resize_framebuffer(int width, int height)
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, viewport_RBO);
 }
 
-static bool graphics_create_shaders(void)
+static bool display_create_shaders(void)
 {
    GLchar* vertex_shader_code = "#version 330 core\n"
       "layout (location = 0) in vec3 aPos;\n"
@@ -555,8 +610,8 @@ static bool graphics_create_shaders(void)
       return false;
    }
 
-   add_shader(shader_program, vertex_shader_code, GL_VERTEX_SHADER);
-   add_shader(shader_program, fragment_shader_code, GL_FRAGMENT_SHADER);
+   display_add_shader(shader_program, vertex_shader_code, GL_VERTEX_SHADER);
+   display_add_shader(shader_program, fragment_shader_code, GL_FRAGMENT_SHADER);
 
    glLinkProgram(shader_program);
 
@@ -593,7 +648,7 @@ static bool graphics_create_shaders(void)
  * @param shader_code shader source code string
  * @param type type of shader to create, i.e: GL_VERTEX_SHADER
 */
-static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
+static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum type)
 {
    GLuint shader = glCreateShader(type);
    if (shader == 0) // shader creation error
@@ -624,7 +679,7 @@ static void add_shader(GLuint program, const GLchar* shader_code, GLenum type)
  * @param w width of the pixel
  * @param h height of the pixel
 */
-static void pixel_set_position(float pixel_w, float pixel_h)
+static void display_set_pixel_position(float pixel_w, float pixel_h)
 {
    for (size_t row = 0; row < NES_PIXELS_H; ++row)
    {
@@ -653,20 +708,14 @@ void set_pixel_color(uint32_t row, uint32_t col, vec3 color)
    pixel_colors[index][3] = 1.0f;
 }
 
-/* static void pixel_resize(float w, float h)
+static void gui_help_marker(const char* desc)
 {
-   float pixel_w = w / NES_PIXELS_W;
-   float pixel_h = h / NES_PIXELS_H;
-   pixel_set_position(pixel_w, pixel_h);
-
-   float pixel_vertices[] = {
-      0.0f,    0.0f,    0.0f, // top left
-      0.0f,    pixel_h, 0.0f, // bottom left
-      pixel_w, pixel_h, 0.0f, // bottom right
-      pixel_w, 0.0f,    0.0f, // top right
-   };
-
-   glBindBuffer(GL_ARRAY_BUFFER, pixel_VBO);
-   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pixel_vertices), &pixel_vertices);
-   glBindBuffer(GL_ARRAY_BUFFER, 0);
-} */
+   igTextDisabled("(?)");
+   if (igBeginItemTooltip())
+   {
+      igPushTextWrapPos(igGetFontSize() * 35.0f);
+      igTextUnformatted(desc, NULL);
+      igPopTextWrapPos();
+      igEndTooltip();
+   }
+}

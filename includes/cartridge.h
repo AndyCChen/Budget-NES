@@ -2,6 +2,7 @@
 #define CARTRIDGE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 // enum to signify which device on the cartridge is being accessed
 typedef enum cartridge_access_mode_t
@@ -36,6 +37,13 @@ bool cartridge_load(const char* const romPath);
  * @returns data that is read, will return data from previous read if addressed location has no devices
 */
 uint8_t cartridge_cpu_read(uint16_t position);
+
+/**
+ * lets cpu write data to the cartridge
+ * @param position location to write data to
+ * @param data data to write
+*/
+void cartridge_cpu_write(uint16_t position, uint8_t data);
 
 /**
  * Called by the ppu when reading from cartridge or memory that can be configured by the cartridge mapper.

@@ -23,35 +23,34 @@ static uint8_t cpu_ram[CPU_RAM_SIZE];
 // read single byte from bus and clocks cpu by 1 tick
 uint8_t cpu_bus_read(uint16_t position)
 {
+   static uint8_t data = 0;
+   cpu_tick();
+
    // addressing cartridge space
    if ( position >= CPU_CARTRIDGE_START )
    {
-      cpu_tick();
-      return cartridge_cpu_read(position);
+      data = cartridge_cpu_read(position);
    }  
    // accessing 2 kb cpu ram address space
    else if ( position <= CPU_RAM_END )
    {
-      cpu_tick();
-      return cpu_ram[position & 0x7FF];
+      data = cpu_ram[position & 0x7FF];
    }
    // accessing ppu registers
    else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
    {
-      cpu_tick();
-      return ppu_port_read( 0x2000 | (position & 0x7) );
-   }
-   else
-   {
-      cpu_tick();
+      
+      data = ppu_port_read( 0x2000 | (position & 0x7) );
    }
    
-   return 0xFF;
+   return data;
 }
 
 // write single byte to bus and clocks cpu by 1 tick
 void cpu_bus_write(uint16_t position, uint8_t data)
 { 
+   cpu_tick();
+
    // accessing 2 kb cpu ram address space
    if ( position <= CPU_RAM_END )
    {
@@ -62,9 +61,36 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    {
       ppu_port_write( 0x2000 | (position & 0x7), data );
    }
+   // writing to cartridge (i.e. program RAM, NOT ROM)
+   else if ( position >= 0x6000 && position <= 0x7FFF )
+   {
+      cartridge_cpu_write(position, data);
+   }
    else if (position == 0x4041)
    {
       printf("oamdma\n");
    }
-   cpu_tick();
+}
+
+/**
+ * Used by disassembler to read from memory without affecting the NES during
+ * runtime. Does not read from ppu ports in order to avoid
+ * disrupting the PPU during rendering.
+*/
+uint8_t DEBUG_cpu_bus_read(uint16_t position)
+{
+   static uint8_t data = 0;
+
+   // addressing cartridge space
+   if ( position >= CPU_CARTRIDGE_START )
+   {
+      data = cartridge_cpu_read(position);
+   }  
+   // accessing 2 kb cpu ram address space
+   else if ( position <= CPU_RAM_END )
+   {
+      data = cpu_ram[position & 0x7FF];
+   }
+   
+   return data;
 }
