@@ -413,44 +413,105 @@ static void gui_cpu_debug(void)
 {
    cpu_6502_t* cpu = get_cpu();
    ImVec4 red = {0.9686274509803922f, 0.1843137254901961f, 0.1843137254901961f, 1.0f};
+   ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV;
+   ImVec2 zero_vec = {0.0f, 0.0f};
 
    igBegin("CPU Debug", &g_config.cpu_debug, ImGuiWindowFlags_None);
-      igTextColored(red, "PC: ");
-      igSameLine(0.0f, -1.0f);
-      igText("%04X", cpu->pc);
-      igSameLine(0.0f, -1.0f);
-      gui_help_marker("Program counter");
+      igText("CPU Registers");
+      if ( igBeginTable("CPU registers table", 2, flags, zero_vec, 0.0f) )
+      {
+         igTableNextRow(0, 0.0f);
+         igTableSetColumnIndex(0);
 
-      igTextColored(red, " A: ");
-      igSameLine(0.0f, -1.0f);
-      igText("  %02X", cpu->ac);
-      igSameLine(0.0f, -1.0f);
-      gui_help_marker("Acumulator");
+         igTextColored(red, "PC: ");
+         igSameLine(0.0f, -1.0f);
+         igText("%04X", cpu->pc);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Program counter");
 
-      igTextColored(red, " X: ");
-      igSameLine(0.0f, -1.0f);
-      igText("  %02X", cpu->X);
-      igSameLine(0.0f, -1.0f);
-      gui_help_marker("X register");
+         igTextColored(red, " A: ");
+         igSameLine(0.0f, -1.0f);
+         igText("  %02X", cpu->ac);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Acumulator");
 
-      igTextColored(red, " Y: ");
-      igSameLine(0.0f, -1.0f);
-      igText("  %02X", cpu->Y);
-      igSameLine(0.0f, -1.0f);
-      gui_help_marker("Y register");
+         igTextColored(red, " X: ");
+         igSameLine(0.0f, -1.0f);
+         igText("  %02X", cpu->X);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("X register");
 
-      igTextColored(red, "SP: ");
-      igSameLine(0.0f, -1.0f);
-      igText("  %02X", cpu->sp);
-      igSameLine(0.0f, -1.0f);
-      gui_help_marker("Stack pointer");
+         igTextColored(red, " Y: ");
+         igSameLine(0.0f, -1.0f);
+         igText("  %02X", cpu->Y);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Y register");
 
-      igTextColored(red, " P: ");
-      igSameLine(0.0f, -1.0f);
-      igText("  %02X", cpu->status_flags);
-      igSameLine(0.0f, -1.0f);
-      gui_help_marker("CPU flags");
+         igTextColored(red, "SP: ");
+         igSameLine(0.0f, -1.0f);
+         igText("  %02X", cpu->sp);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Stack pointer");
 
+         igTableSetColumnIndex(1);
+
+         //igTableNextRow(0, 0.0f);
+         igTextColored(red, " P: ");
+         igSameLine(0.0f, -1.0f);
+         igText("  %02X", cpu->status_flags);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("CPU flag register, below are the individual bits representing each status flag");
+
+         igTextColored(red, " C: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", cpu->status_flags & 1);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Carry Flag");
+
+         igTextColored(red, " Z: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 2) >> 1);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Zero Flag");
+
+         igTextColored(red, " I: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 4) >> 2);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Interrupt Flag");
+
+         igTextColored(red, " D: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 8) >> 3);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Binary decimal mode Flag");
+
+         igTextColored(red, " B: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 16) >> 4);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Break Flag");
+
+         igTextColored(red, " -: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 32) >> 5);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Unused Flag");
+
+         igTextColored(red, " V: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 64) >> 6);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Overflow Flag");
+
+         igTextColored(red, " N: ");
+         igSameLine(0.0f, -1.0f);
+         igText("   %1X", (cpu->status_flags & 128) >> 7);
+         igSameLine(0.0f, -1.0f);
+         gui_help_marker("Negative Flag");
+
+         igEndTable();
+      }
       igNewLine();
 
       igText("Instruction Log");
