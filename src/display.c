@@ -50,25 +50,22 @@ static bool display_create_frameBuffers(void);
 static void display_resize_framebuffer(int width, int height);
 static void display_set_pixel_position(float pixel_w, float pixel_h);
 
-typedef struct Display_Config_t 
-{
-   /**
-    * bit 0: fullscreen
-    * bit 1: screen size 1x
-    * bit 2: screen size 2x
-    * bit 3: screen size 3x
-   */
-   uint8_t display_size;
-   bool cpu_debug; // toggle cpu debug widget
-
-} Display_Config_t;
-
-// global gui state
-static Display_Config_t g_config = 
+// global state of emulator
+static Emulator_State_t emulator_state = 
 {
    .display_size = 4,
    .cpu_debug = false,
+   .is_paused = true,
+   .instruction_step = false,
 }; 
+
+/**
+ * Returns pointer to the emulator state struct
+*/
+Emulator_State_t* get_emulator_state(void)
+{
+   return &emulator_state;
+}
 
 /**
  * setup sdl, create window, and opengl context
@@ -178,14 +175,34 @@ void display_process_event(bool* done)
    while ( SDL_PollEvent(&event) )
    {
       ImGui_ImplSDL2_ProcessEvent(&event);
+
       if ( event.type == SDL_QUIT )
       {
          *done = true;
       }
+
       if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
       {
          *done = true;
       }
+
+      if ( event.type == SDL_KEYUP )
+      {
+         switch (event.key.keysym.scancode)
+         {
+            // step through single instruction when period keypad is pressed
+            case SDL_SCANCODE_PERIOD:
+               if ( emulator_state.is_paused )
+               {
+                  printf("instruction step\n");
+                  emulator_state.instruction_step = true;
+               }
+               break;
+            default:
+               break;
+         }
+      }
+
    }
 }
 
@@ -208,7 +225,10 @@ void display_render(void)
 
    // draw gui components
    gui_main_viewport();
-   if (g_config.cpu_debug) gui_cpu_debug();
+   if (emulator_state.cpu_debug)
+   {
+      gui_cpu_debug();
+   }
    gui_demo();
    
    glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
@@ -331,9 +351,9 @@ static void gui_main_viewport(void)
 
          if (igBeginMenu("Tools", true))
          {
-            if ( igMenuItem_Bool("CPU Debug", "", g_config.cpu_debug, true) )
+            if ( igMenuItem_Bool("CPU Debug", "", emulator_state.cpu_debug, true) )
             {
-               g_config.cpu_debug = !g_config.cpu_debug;
+               emulator_state.cpu_debug = !emulator_state.cpu_debug;
             }
             igEndMenu();
          }
@@ -341,7 +361,7 @@ static void gui_main_viewport(void)
          if (igBeginMenu("Window", true))
          {
             // use bit masking to toggle display size settings
-            if ( igMenuItem_Bool("Fullscreen", "", g_config.display_size & 1, true) )
+            if ( igMenuItem_Bool("Fullscreen", "", emulator_state.display_size & 1, true) )
             {
                SDL_DisplayMode display_mode;
                if ( SDL_GetDesktopDisplayMode(0, &display_mode) != 0 )
@@ -353,10 +373,10 @@ static void gui_main_viewport(void)
                SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
                
                printf("%d %d\n", display_mode.w, display_mode.h);
-               g_config.display_size = (uint8_t) ~0xFE;
+               emulator_state.display_size = (uint8_t) ~0xFE;
             }
 
-            if ( igMenuItem_Bool("1x", "", g_config.display_size & 2, true) )
+            if ( igMenuItem_Bool("1x", "", emulator_state.display_size & 2, true) )
             {
                float w = DISPLAY_W - (NES_PIXELS_W);
                float h = DISPLAY_H - (NES_PIXELS_H);
@@ -364,10 +384,10 @@ static void gui_main_viewport(void)
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               g_config.display_size = (uint8_t) ~0xFD;
+               emulator_state.display_size = (uint8_t) ~0xFD;
             }
 
-            if ( igMenuItem_Bool("2x", "", g_config.display_size & 4, true) )
+            if ( igMenuItem_Bool("2x", "", emulator_state.display_size & 4, true) )
             {
                float w = DISPLAY_W;
                float h = DISPLAY_H;
@@ -375,10 +395,10 @@ static void gui_main_viewport(void)
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               g_config.display_size = (uint8_t) ~0xFB;
+               emulator_state.display_size = (uint8_t) ~0xFB;
             }
 
-            if ( igMenuItem_Bool("3x", "", g_config.display_size & 8, true) )
+            if ( igMenuItem_Bool("3x", "", emulator_state.display_size & 8, true) )
             {
                float w = DISPLAY_W + (NES_PIXELS_W);
                float h = DISPLAY_H + (NES_PIXELS_H);
@@ -386,7 +406,7 @@ static void gui_main_viewport(void)
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               g_config.display_size = (uint8_t) ~0xF7;
+               emulator_state.display_size = (uint8_t) ~0xF7;
             }
 
             igEndMenu();
@@ -416,7 +436,7 @@ static void gui_cpu_debug(void)
    ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV;
    ImVec2 zero_vec = {0.0f, 0.0f};
 
-   igBegin("CPU Debug", &g_config.cpu_debug, ImGuiWindowFlags_None);
+   igBegin("CPU Debug", &emulator_state.cpu_debug, ImGuiWindowFlags_None);
       igText("CPU Registers");
       if ( igBeginTable("CPU registers table", 2, flags, zero_vec, 0.0f) )
       {
@@ -517,6 +537,13 @@ static void gui_cpu_debug(void)
       igText("Instruction Log");
       igSameLine(0.0f, -1.0f);
       gui_help_marker("Disassembly of program instructions.");
+
+      igText("%s", log_get_current_instruction());
+      igText("%s", log_get_next_instruction(1));
+      igText("%s", log_get_next_instruction(2));
+      igText("%s", log_get_next_instruction(3));
+      igText("%s", log_get_next_instruction(4));
+      igText("%s", log_get_next_instruction(5));
       
    igEnd();
 }
