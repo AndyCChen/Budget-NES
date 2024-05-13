@@ -192,11 +192,17 @@ void display_process_event(bool* done)
          {
             // step through single instruction when period keypad is pressed
             case SDL_SCANCODE_PERIOD:
+            {
                if ( emulator_state.run_state == EMULATOR_PAUSED )
                {
                   emulator_state.instruction_step = true;
                }
                break;
+            }
+            case SDL_SCANCODE_P:
+            {
+               emulator_state.run_state = ~(emulator_state.run_state) & 0x1;
+            }
             default:
                break;
          }

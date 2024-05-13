@@ -14,8 +14,8 @@
 // enum for setting the emulator to be running normally or paused for single stepping through instructions or a frame
 typedef enum Emulator_Run_State_t
 {
-   EMULATOR_RUNNING,
-   EMULATOR_PAUSED,
+   EMULATOR_PAUSED = 0,
+   EMULATOR_RUNNING = 1,
 } Emulator_Run_State_t;
 
 typedef struct Emulator_State_t 
