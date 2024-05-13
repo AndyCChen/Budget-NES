@@ -86,6 +86,7 @@ add_executable(nes
    src/display.c
    src/ppu.c
    src/ppu_renderer_lookup.c
+   src/disassembler.c
    src/mapper.c
    src/mappers/mapper_000.c
 )
