@@ -11,40 +11,75 @@
 #include "includes/log.h"
 #include "includes/display.h"
 
-bool nestest_log_flag = true;
+static bool budgetNES_init(const char* rom_path);
+static void budgetNES_shutdown(void);
 
 int main(int argc, char *argv[])
 {
    (void) argc;
    (void) argv;
 
-   if ( !display_init() || !cartridge_load( argv[1] ) || !ppu_load_palettes("./ntscpalette.pal") )
+   if ( !budgetNES_init( argv[1] ) )
    {
       return EXIT_FAILURE;
    }
 
-   cpu_init();
-   log_open();
+   Emulator_State_t* emulator_state = get_emulator_state();
 
    bool done = false;
    while (!done)
    {
       display_clear();
-      display_process_event(&done);   
+      display_process_event(&done); 
 
-      for (int i = 0; i < 20; ++i) 
+      switch (emulator_state->run_state)
       {
-         cpu_emulate_instruction();
+         case EMULATOR_RUNNING:
+         {
+            for (int i = 0; i < 20; ++i) 
+            {
+               cpu_emulate_instruction();
+            }
+            break;
+         }
+         case EMULATOR_PAUSED:
+         {
+            if (emulator_state->instruction_step)
+            {
+               cpu_emulate_instruction();
+               emulator_state->instruction_step = false;
+            }
+
+            break;
+         }
       }
+
+
+
+      
 
       display_render(); 
       display_update();
    }
- 
-   log_close();
    
-   cartridge_free_memory();
-   display_shutdown();
+   budgetNES_shutdown();
 
    return 0;
+}
+
+static bool budgetNES_init(const char* rom_path)
+{
+   if ( !display_init() || !cartridge_load( rom_path ) || !ppu_load_palettes("./ntscpalette.pal") )
+   {
+      return false;
+   }
+
+   cpu_init();
+   return true;
+}
+
+static void budgetNES_shutdown(void)
+{
+   cartridge_free_memory();
+   display_shutdown();
 }

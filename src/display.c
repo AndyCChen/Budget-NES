@@ -55,7 +55,7 @@ static Emulator_State_t emulator_state =
 {
    .display_size = 4,
    .cpu_debug = false,
-   .is_paused = true,
+   .run_state = EMULATOR_RUNNING,
    .instruction_step = false,
 }; 
 
@@ -192,9 +192,8 @@ void display_process_event(bool* done)
          {
             // step through single instruction when period keypad is pressed
             case SDL_SCANCODE_PERIOD:
-               if ( emulator_state.is_paused )
+               if ( emulator_state.run_state == EMULATOR_PAUSED )
                {
-                  printf("instruction step\n");
                   emulator_state.instruction_step = true;
                }
                break;
@@ -433,7 +432,7 @@ static void gui_cpu_debug(void)
 {
    cpu_6502_t* cpu = get_cpu();
    ImVec4 red = {0.9686274509803922f, 0.1843137254901961f, 0.1843137254901961f, 1.0f};
-   ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV;
+   ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuterH;
    ImVec2 zero_vec = {0.0f, 0.0f};
 
    igBegin("CPU Debug", &emulator_state.cpu_debug, ImGuiWindowFlags_None);
@@ -538,7 +537,20 @@ static void gui_cpu_debug(void)
       igSameLine(0.0f, -1.0f);
       gui_help_marker("Disassembly of program instructions.");
 
-      igText("%s", log_get_current_instruction());
+      log_update_current();
+      igNewLine();
+
+      // log previous disassembled opcode
+      igText("%s", log_get_prev_instruction(5));
+      igText("%s", log_get_prev_instruction(4));
+      igText("%s", log_get_prev_instruction(3));
+      igText("%s", log_get_prev_instruction(2));
+      igText("%s", log_get_prev_instruction(1));
+
+      // log current opcode that will be executed
+      igTextColored(red, "%s", log_get_current_instruction());
+
+      // log future opcodes that will be executed
       igText("%s", log_get_next_instruction(1));
       igText("%s", log_get_next_instruction(2));
       igText("%s", log_get_next_instruction(3));

@@ -75,7 +75,7 @@ void log_rewind(uint8_t r)
 
 void log_update_current(void)
 {
-   current = modulo(buffer_head - MAX_NEXT, MAX_INSTR);
+   current = modulo(buffer_head - MAX_NEXT - 1, MAX_INSTR);
 }
 
 const char* log_get_current_instruction(void)
@@ -86,4 +86,10 @@ const char* log_get_current_instruction(void)
 const char* log_get_next_instruction(uint8_t x)
 {
    return ring_buffer[ (current + x) % MAX_INSTR ];
+}
+
+const char* log_get_prev_instruction(uint8_t x)
+{
+   uint8_t prev = modulo(current - x, MAX_INSTR);
+   return ring_buffer[prev];
 }

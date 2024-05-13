@@ -32,6 +32,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 static void stack_push(uint8_t value);
 static uint8_t stack_pop(void);
 static bool check_opcode_access_mode(uint8_t opcode);
+static inline void update_disassembly(uint16_t pc);
 
 // current opcode of the current instruction
 static uint8_t current_opcode;
@@ -2291,9 +2292,7 @@ static uint8_t BRK(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   log_rewind(MAX_NEXT);
-   disassemble_set_position(cpu.pc);
-   disassemble_next_x(MAX_NEXT);
+   update_disassembly(cpu.pc);
 
    return 0;
 }
@@ -2305,9 +2304,7 @@ static uint8_t JMP(void)
 {
    cpu.pc = instruction_operand;
 
-   log_rewind(MAX_NEXT);
-   disassemble_set_position(cpu.pc);
-   disassemble_next_x(MAX_NEXT);
+   update_disassembly(cpu.pc);
    return 0;
 }
 
@@ -2330,9 +2327,7 @@ static uint8_t JSR(void)
 
    cpu.pc = instruction_operand;
 
-   log_rewind(MAX_NEXT);
-   disassemble_set_position(cpu.pc);
-   disassemble_next_x(MAX_NEXT);
+   update_disassembly(cpu.pc);
 
    return 0;
 }
@@ -2354,9 +2349,7 @@ static uint8_t RTI(void)
 
    cpu.pc = ( hi << 8) | lo;
 
-   log_rewind(MAX_NEXT);
-   disassemble_set_position(cpu.pc);
-   disassemble_next_x(MAX_NEXT);
+   update_disassembly(cpu.pc);
 
    return 0;
 }
@@ -2374,9 +2367,7 @@ static uint8_t RTS(void)
    ++cpu.pc;
    cpu_tick(); // 1 cycle used for incrementing pc
 
-   log_rewind(MAX_NEXT);
-   disassemble_set_position(cpu.pc);
-   disassemble_next_x(MAX_NEXT);
+   update_disassembly(cpu.pc);
 
    return 0;
 }
@@ -2606,9 +2597,7 @@ static uint8_t branch(void)
 
    cpu.pc = instruction_operand;
 
-   log_rewind(MAX_NEXT);
-   disassemble_set_position(cpu.pc);
-   disassemble_next_x(MAX_NEXT);
+   update_disassembly(cpu.pc);
 
    return extra_cycle;
 }
@@ -2740,6 +2729,7 @@ void cpu_init(void)
    cpu.pc = (hi << 8) | lo;
 
    disassemble_set_position(cpu.pc); // tell the disassembler to begin disassembling intructions at the current pc value
+   disassemble();
    disassemble_next_x(MAX_NEXT);             // disassemble the next x instructions
 }
 
@@ -2819,4 +2809,15 @@ cpu_6502_t* get_cpu(void)
 const instruction_t* get_instruction_lookup_entry(uint8_t position)
 {
    return &instruction_lookup_table[position];
+}
+
+/**
+ * When ever program jumps to new location to begin execution such as when branches are taken
+ * or during jmp instructions, we must update the disassembled instructions to reflect the jump.
+*/
+static inline void update_disassembly(uint16_t pc)
+{
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(pc);
+   disassemble_next_x(MAX_NEXT);
 }

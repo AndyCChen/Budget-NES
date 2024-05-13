@@ -130,11 +130,11 @@ void disassemble(void)
              * we need to treat the offset as a 16 bit value. The offset byte is negative value
              * in 2's complement, so the added extra 8 bits are all set to 1, hence the 0xFF00 bitmask.
             */
-            instruction_operand = (position + 1) + ( (uint16_t) offset_byte | 0xFF00 );
+            instruction_operand = (position + 2) + ( (uint16_t) offset_byte | 0xFF00 );
          }
          else
          {
-            instruction_operand = (position + 1) + offset_byte;
+            instruction_operand = (position + 2) + offset_byte;
          }
 
          log_write("%04X %s $%04X\n", position, instruction->mnemonic, instruction_operand);

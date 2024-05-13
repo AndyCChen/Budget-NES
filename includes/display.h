@@ -11,6 +11,13 @@
  * renders/updates to the screen
 */
 
+// enum for setting the emulator to be running normally or paused for single stepping through instructions or a frame
+typedef enum Emulator_Run_State_t
+{
+   EMULATOR_RUNNING,
+   EMULATOR_PAUSED,
+} Emulator_Run_State_t;
+
 typedef struct Emulator_State_t 
 {
    /**
@@ -20,17 +27,10 @@ typedef struct Emulator_State_t
     * bit 3: screen size 3x
    */
    uint8_t display_size;
-   bool cpu_debug; // toggle cpu debug widget
-   bool is_paused;  
-   bool instruction_step; // true: steps the emulator forward by 1 instruction, false: do nothing
+   bool cpu_debug;                 // toggle cpu debug widget
+   Emulator_Run_State_t run_state; 
+   bool instruction_step;          // true: steps the emulator forward by 1 instruction, false: do nothing
 } Emulator_State_t;
-
-// enum for setting the emulator to be running normally or paused for single stepping through instructions or a frame
-typedef enum Emulator_Run_State_t
-{
-   RUNNING,
-   PAUSED,
-} Emulator_Run_State_t;
 
 bool display_init(void);
 void display_clear(void);

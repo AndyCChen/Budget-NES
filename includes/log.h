@@ -39,11 +39,17 @@ void log_rewind(uint8_t r);
 const char* log_get_current_instruction(void);
 
 /**
- * Get the x disassembled instruction starting from the instruction currently being executed.
+ * Get the x-th disassembled instruction starting from the instruction currently being executed.
  * @param x the next x-th instruction to retrive. Passing in 2 for example means retrieve the 2nd instruction relative
  * to the instruction being executed currently.
 */
 const char* log_get_next_instruction(uint8_t x);
+
+/**
+ * Get the previous x-th disassembled instruction starting from the instruction currently being executed
+ * @param x the x-th previous instruction to retrieve
+*/
+const char* log_get_prev_instruction(uint8_t x);
 
 /**
  * Updates the index that points to the disassembled instruction that is being executed by the emulator
