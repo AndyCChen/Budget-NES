@@ -8,6 +8,7 @@
 #include "../includes/bus.h"
 #include "../includes/util.h"
 #include "../includes/ppu.h"
+#include "../includes/disassembler.h"
 
 #define NMI_VECTOR       0xFFFA // address of non-maskable interrupt vector
 #define RESET_VECTOR     0xFFFC // address of reset vector
@@ -20,31 +21,6 @@
  * a value is popped, the stack pointer is incremented
 */
 #define CPU_STACK_ADDRESS 0x0100
-
-typedef enum address_modes_t
-{
-   IMP, // implied
-   ACC, // accumulator
-   IMM, // immediate
-   ABS, // absolute
-   XAB, // X-indexed absolute
-   YAB, // Y-indexed absolute
-   ABI, // absolute indirect
-   ZPG, // zero page
-   XZP, // X-indexed zero page
-   YZP, // Y-indexed zero page
-   XZI, // X-indexed zero page indirect
-   YZI, // Zero Page indirect Y indexed 
-   REL  // relative
-} address_modes_t;
-
-typedef struct instruction_t
-{
-   char* mnemonic;                    // 3 character mnemonic of the a instruction
-   uint8_t (*opcode_function) (void); // pointer to a function that contain the execution code of a instruction, may return extra cycle if branching occurs
-   address_modes_t mode;              // enum that represents the addressing mode of the instruction
-   uint8_t cycles;                    // number of base clock cycles this instruction takes
-} instruction_t;
 
 static cpu_6502_t cpu;
 
@@ -61,7 +37,7 @@ static bool check_opcode_access_mode(uint8_t opcode);
 static uint8_t current_opcode;
 
 // current instruction to be executed
-static instruction_t* current_instruction = NULL;
+static const instruction_t* current_instruction = NULL;
 
 /**
  * Stores the operand of the instrucion depending on it's adressing mode.
@@ -219,7 +195,7 @@ static uint8_t NOP(void){
 // (a16)    absolute indirect             ABI
 // r8       relative                      REL
 
-static instruction_t instruction_lookup_table[256] = 
+static const instruction_t instruction_lookup_table[256] = 
 {
    /* 0x00 - 0x 0F */
    {"BRK", &BRK, IMP, 7},  {"ORA", &ORA, XZI, 6},  {"*JAM", &JAM, IMP, 0},
@@ -366,19 +342,16 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
       case IMP:
       {
          cpu_bus_read(cpu.pc); // dummy read next byte
-         log_write("%s", current_instruction->mnemonic);
          break;
       }
       case ACC:
       { 
          cpu_bus_read(cpu.pc); // dummy read next byte
-         nestest_log("%s A", current_instruction->mnemonic);
          break;
       }
       case IMM:
       {
          instruction_operand = cpu_fetch();
-         nestest_log("%s #$%02X", current_instruction->mnemonic, instruction_operand);
          break;
       }
       case ABS:
@@ -387,8 +360,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint8_t hi = cpu_fetch();
 
          instruction_operand = ( hi << 8 ) | lo;
-
-         nestest_log("%s $%04X", current_instruction->mnemonic, instruction_operand);
          
          break;
       }
@@ -397,7 +368,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint8_t lo = cpu_fetch();
          uint8_t hi = cpu_fetch();
 
-        // uint16_t abs_address = ( hi << 8 ) | (uint8_t) ( lo + cpu.X  );
          uint16_t abs_address = ( hi << 8 ) | lo;
 
          instruction_operand = abs_address + cpu.X;
@@ -429,7 +399,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.X) );
          }
 
-         nestest_log("%s $%04X,X", current_instruction->mnemonic, abs_address);
          break;
       }
       case YAB:
@@ -468,7 +437,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
          }
 
-         nestest_log("%s $%04X,Y", current_instruction->mnemonic, abs_address);
          break;
       }
       case ABI:
@@ -485,14 +453,12 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 
          instruction_operand = ( indirect_address_hi << 8 ) | indirect_address_lo;
 
-         nestest_log("%s ($%04X)", current_instruction->mnemonic, abs_address);
          break;
       }
       case ZPG:
       {
          instruction_operand = cpu_fetch();
 
-         nestest_log("%s $%02X", current_instruction->mnemonic, instruction_operand);
          break;
       }
       case XZP:
@@ -502,7 +468,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand = ( zpg_address + cpu.X ) & 0x00FF;
 
-         nestest_log("%s $%02X,X", current_instruction->mnemonic, zpg_address);
          break;
       }
       case YZP:
@@ -512,7 +477,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          cpu_bus_read(zpg_address); // dummy read while adding index
          instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
 
-         nestest_log("%s $%02X,Y", current_instruction->mnemonic, zpg_address);
          break;
       }
       case XZI:
@@ -526,7 +490,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 
          instruction_operand = ( hi << 8 ) | lo;
 
-         nestest_log("%s%s ($%02X,X) @ %02X = %04X %3s", current_instruction->mnemonic, zpg_base_address);
          break;
       }
       case YZI:
@@ -567,7 +530,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             cpu_bus_read( (hi << 8) | (uint8_t) (lo + cpu.Y) );
          }
 
-         nestest_log("%s ($%02X),Y", current_instruction->mnemonic, zpg_address);
          break;
       }
       case REL:
@@ -591,7 +553,6 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
             instruction_operand = cpu.pc + offset_byte;
          }
 
-         nestest_log("%s $%04X", current_instruction->mnemonic, instruction_operand);
          break;
       }
    }
@@ -2330,6 +2291,10 @@ static uint8_t BRK(void)
 
    cpu.pc = (hi << 8) | lo;
 
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(cpu.pc);
+   disassemble_next_x(MAX_NEXT);
+
    return 0;
 }
 
@@ -2339,6 +2304,10 @@ static uint8_t BRK(void)
 static uint8_t JMP(void)
 {
    cpu.pc = instruction_operand;
+
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(cpu.pc);
+   disassemble_next_x(MAX_NEXT);
    return 0;
 }
 
@@ -2361,6 +2330,10 @@ static uint8_t JSR(void)
 
    cpu.pc = instruction_operand;
 
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(cpu.pc);
+   disassemble_next_x(MAX_NEXT);
+
    return 0;
 }
 
@@ -2381,6 +2354,10 @@ static uint8_t RTI(void)
 
    cpu.pc = ( hi << 8) | lo;
 
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(cpu.pc);
+   disassemble_next_x(MAX_NEXT);
+
    return 0;
 }
 
@@ -2396,6 +2373,10 @@ static uint8_t RTS(void)
    cpu.pc = ( hi << 8 ) | lo;
    ++cpu.pc;
    cpu_tick(); // 1 cycle used for incrementing pc
+
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(cpu.pc);
+   disassemble_next_x(MAX_NEXT);
 
    return 0;
 }
@@ -2625,6 +2606,10 @@ static uint8_t branch(void)
 
    cpu.pc = instruction_operand;
 
+   log_rewind(MAX_NEXT);
+   disassemble_set_position(cpu.pc);
+   disassemble_next_x(MAX_NEXT);
+
    return extra_cycle;
 }
 
@@ -2694,43 +2679,24 @@ static uint8_t stack_pop(void)
 */
 void cpu_emulate_instruction(void)
 {
-   //static uint32_t total_cycles = 0;
-   
-      nestest_log("%04X  ", cpu.pc); // log current pc value before fetching
+   uint8_t opcode = cpu_fetch();
+   cpu_decode(opcode);
+   cpu_execute();
 
-      uint8_t opcode = cpu_fetch();
-      cpu_decode(opcode);
-      cpu_execute();
-
-      static bool is_processing_nmi = false;
-      if ( get_nmi_status() )
-      {
-         if (is_processing_nmi == false)
-         {
-            cpu_NMI();
-            is_processing_nmi = true;
-            
-         }
-         
-      }
-      else
-      {
-         is_processing_nmi = false;
-      }
-
-      nestest_log("%s\n", "");
-      log_clear();
-
-   //cpu.cycle_count = 0;
-
-   //total_cycles += cycles;
-   /* if (total_cycles != cpu.cycle_count)
+   if ( get_nmi_status() )
    {
-      printf("Incorrect Cycle: %d != %d\n", total_cycles, cpu.cycle_count);
-      exit(1);
-   } */
-   
-   // todo count cycles
+      if (cpu.is_processing_nmi == false)
+      {
+         cpu_NMI();
+         cpu.is_processing_nmi = true;
+      }  
+   }
+   else
+   {
+      cpu.is_processing_nmi = false;
+   }
+
+   disassemble();
 }
 
 /**
@@ -2763,6 +2729,7 @@ void cpu_reset(void)
 void cpu_init(void)
 {
    cpu.cycle_count = 0;
+   cpu.is_processing_nmi = false;
    cpu.ac = 0;
    cpu.X = 0;
    cpu.Y = 0;
@@ -2771,6 +2738,9 @@ void cpu_init(void)
    uint8_t lo = cpu_bus_read(RESET_VECTOR);
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
+
+   disassemble_set_position(cpu.pc); // tell the disassembler to begin disassembling intructions at the current pc value
+   disassemble_next_x(MAX_NEXT);             // disassemble the next x instructions
 }
 
 /**
@@ -2840,4 +2810,13 @@ static bool check_opcode_access_mode(uint8_t opcode)
 cpu_6502_t* get_cpu(void)
 {
    return &cpu;
+}
+
+/**
+ * @param position the opcode byte index to lookup
+ * @return pointer to lookup entry
+*/
+const instruction_t* get_instruction_lookup_entry(uint8_t position)
+{
+   return &instruction_lookup_table[position];
 }

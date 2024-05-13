@@ -1,12 +1,17 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include "../includes/log.h"
 
+#define MAX_INSTR 11        // max number of disassembled instructions to store in ring buffer
+#define DISASSEM_LENGTH 64  // max size of the buffer used to store disassembled instruction c_strings
+
 FILE *log_file = NULL;
-static char log_buffer[256]; // 256 byte long buffer for storing log of a single instruction
-static uint8_t head = 0;     // pointer to current position in log buffer
+static char ring_buffer[MAX_INSTR][DISASSEM_LENGTH]; // a ring buffer disassembled instruction c_strings
+static uint8_t buffer_head = 0;                      // position of head in ring buffer, this will generally be pointing to the most recently disassembled instruction a couple instructions ahead of the currently executed instruction
+static uint8_t sub_buffer_head = 0;                  // position of the write cursor of a c_string inside the ring buffer
 
 // opens/create file for nestest logs
 // does nothing if nestest_log_flag is set to false
@@ -28,36 +33,6 @@ bool log_open(void)
    return log_file != NULL;
 }
 
-void log_write(const char* const format, ...)
-{
-   va_list args;
-   va_start(args, format);
-
-   uint16_t bytes_written = vsnprintf(log_buffer + head, 256 - head, format, args);
-   head += bytes_written;
-
-   va_end(args);
-}
-
-// output log buffer into log file
-void log_file_output(void)
-{
-   fprintf(log_file, log_buffer);
-}
-
-// moves pointer back to beginning of log buffer
-void log_clear(void)
-{
-   head = 0;
-}
-
-// retrieves pointer to log_buffer
-char* log_get(void)
-{
-   return log_buffer;
-}
-
-
 // closes nestest log file
 void log_close(void)
 {
@@ -66,4 +41,32 @@ void log_close(void)
    {
       fclose(log_file);
    }
+}
+
+void log_write(const char* const format, ...)
+{
+   va_list args;
+   va_start(args, format);
+   
+   assert( (sub_buffer_head) < DISASSEM_LENGTH && "Buffer overflow in log buffer!\n" );
+   uint32_t bytes_written = vsnprintf(&ring_buffer[buffer_head][sub_buffer_head], DISASSEM_LENGTH - sub_buffer_head, format, args);
+   sub_buffer_head += bytes_written;
+   
+   va_end(args);
+}
+
+void log_new_line(void)
+{
+   buffer_head += 1;         // increment head pointer
+   buffer_head %= MAX_INSTR; // wrap back to zero if head exceeds max buffer size
+   
+   sub_buffer_head = 0;      // move the sub buffer head back to the beginner of the c_string
+}
+
+void log_rewind(uint8_t r)
+{
+   buffer_head -= r;
+   buffer_head %= MAX_INSTR; 
+
+   sub_buffer_head = 0;      // move the sub buffer head back to the beginner of the c_string
 }
