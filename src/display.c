@@ -583,8 +583,8 @@ static void gui_cpu_debug(void)
             {
                emulator_state.instruction_step = true;
             }
-            gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
          igEndDisabled();
+         gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
 
          igPopStyleColor(2);
          igEndTable();
