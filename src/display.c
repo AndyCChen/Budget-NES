@@ -190,7 +190,7 @@ void display_process_event(bool* done)
       {
          switch (event.key.keysym.scancode)
          {
-            // step through single instruction when period keypad is pressed
+            // step through single instruction when period keypad is pressed and only when emulator is paused
             case SDL_SCANCODE_PERIOD:
             {
                if ( emulator_state.run_state == EMULATOR_PAUSED )
@@ -199,15 +199,15 @@ void display_process_event(bool* done)
                }
                break;
             }
+            // press P to pause emulator
             case SDL_SCANCODE_P:
             {
-               emulator_state.run_state = ~(emulator_state.run_state) & 0x1;
+               emulator_state.run_state = (emulator_state.run_state == EMULATOR_RUNNING) ? EMULATOR_PAUSED : EMULATOR_RUNNING;
             }
             default:
                break;
          }
       }
-
    }
 }
 
@@ -371,7 +371,7 @@ static void gui_main_viewport(void)
                SDL_DisplayMode display_mode;
                if ( SDL_GetDesktopDisplayMode(0, &display_mode) != 0 )
                {
-                  printf("Error in get desktop display mode: %s\n", SDL_GetError());
+                  printf("Error in getting desktop display mode: %s\n", SDL_GetError());
                }
 
                SDL_SetWindowDisplayMode(window, &display_mode);
@@ -379,6 +379,7 @@ static void gui_main_viewport(void)
                
                printf("%d %d\n", display_mode.w, display_mode.h);
                emulator_state.display_size = (uint8_t) ~0xFE;
+               io->ConfigFlags ^= ImGuiConfigFlags_ViewportsEnable; // disable multiviewports when in fullscreen
             }
 
             if ( igMenuItem_Bool("1x", "", emulator_state.display_size & 2, true) )
@@ -390,6 +391,7 @@ static void gui_main_viewport(void)
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
                emulator_state.display_size = (uint8_t) ~0xFD;
+               io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
             }
 
             if ( igMenuItem_Bool("2x", "", emulator_state.display_size & 4, true) )
@@ -401,6 +403,7 @@ static void gui_main_viewport(void)
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
                emulator_state.display_size = (uint8_t) ~0xFB;
+               io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
             }
 
             if ( igMenuItem_Bool("3x", "", emulator_state.display_size & 8, true) )
@@ -412,6 +415,7 @@ static void gui_main_viewport(void)
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
                emulator_state.display_size = (uint8_t) ~0xF7;
+               io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
             }
 
             igEndMenu();
@@ -438,7 +442,7 @@ static void gui_cpu_debug(void)
 {
    cpu_6502_t* cpu = get_cpu();
    ImVec4 red = {0.9686274509803922f, 0.1843137254901961f, 0.1843137254901961f, 1.0f};
-   ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuterH;
+   ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV;
    ImVec2 zero_vec = {0.0f, 0.0f};
 
    igBegin("CPU Debug", &emulator_state.cpu_debug, ImGuiWindowFlags_None);
@@ -451,88 +455,73 @@ static void gui_cpu_debug(void)
          igTextColored(red, "PC: ");
          igSameLine(0.0f, -1.0f);
          igText("%04X", cpu->pc);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Program counter");
 
          igTextColored(red, " A: ");
          igSameLine(0.0f, -1.0f);
          igText("  %02X", cpu->ac);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Acumulator");
 
          igTextColored(red, " X: ");
          igSameLine(0.0f, -1.0f);
          igText("  %02X", cpu->X);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("X register");
 
          igTextColored(red, " Y: ");
          igSameLine(0.0f, -1.0f);
          igText("  %02X", cpu->Y);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Y register");
 
          igTextColored(red, "SP: ");
          igSameLine(0.0f, -1.0f);
          igText("  %02X", cpu->sp);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Stack pointer");
 
          igTableSetColumnIndex(1);
 
-         //igTableNextRow(0, 0.0f);
          igTextColored(red, " P: ");
          igSameLine(0.0f, -1.0f);
          igText("  %02X", cpu->status_flags);
-         igSameLine(0.0f, -1.0f);
-         gui_help_marker("CPU flag register, below are the individual bits representing each status flag");
+         gui_help_marker("CPU processor flags, below are the individual bits representing each status flag");
 
          igTextColored(red, " C: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", cpu->status_flags & 1);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Carry Flag");
 
          igTextColored(red, " Z: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 2) >> 1);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Zero Flag");
 
          igTextColored(red, " I: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 4) >> 2);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Interrupt Flag");
 
          igTextColored(red, " D: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 8) >> 3);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Binary decimal mode Flag");
 
          igTextColored(red, " B: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 16) >> 4);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Break Flag");
 
          igTextColored(red, " -: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 32) >> 5);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Unused Flag");
 
          igTextColored(red, " V: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 64) >> 6);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Overflow Flag");
 
          igTextColored(red, " N: ");
          igSameLine(0.0f, -1.0f);
          igText("   %1X", (cpu->status_flags & 128) >> 7);
-         igSameLine(0.0f, -1.0f);
          gui_help_marker("Negative Flag");
 
          igEndTable();
@@ -540,29 +529,66 @@ static void gui_cpu_debug(void)
       igNewLine();
 
       igText("Instruction Log");
-      igSameLine(0.0f, -1.0f);
       gui_help_marker("Disassembly of program instructions.");
 
-      log_update_current();
-      igNewLine();
+      if ( igBeginTable("Instruction Disassembly", 2, flags, zero_vec, 0.0f) )
+      {
+         igTableNextRow(0, 0.0f);
+         igTableSetColumnIndex(0);
 
-      // log previous disassembled opcode
-      igText("%s", log_get_prev_instruction(5));
-      igText("%s", log_get_prev_instruction(4));
-      igText("%s", log_get_prev_instruction(3));
-      igText("%s", log_get_prev_instruction(2));
-      igText("%s", log_get_prev_instruction(1));
+         log_update_current();
 
-      // log current opcode that will be executed
-      igTextColored(red, "%s", log_get_current_instruction());
+         // log previous disassembled opcodes
+         igText("%s", log_get_prev_instruction(5));
+         igText("%s", log_get_prev_instruction(4));
+         igText("%s", log_get_prev_instruction(3));
+         igText("%s", log_get_prev_instruction(2));
+         igText("%s", log_get_prev_instruction(1));
 
-      // log future opcodes that will be executed
-      igText("%s", log_get_next_instruction(1));
-      igText("%s", log_get_next_instruction(2));
-      igText("%s", log_get_next_instruction(3));
-      igText("%s", log_get_next_instruction(4));
-      igText("%s", log_get_next_instruction(5));
-      
+         // log current opcode that will be executed
+         igTextColored(red, "%s", log_get_current_instruction());
+
+         // log future opcodes that will be executed
+         igText("%s", log_get_next_instruction(1));
+         igText("%s", log_get_next_instruction(2));
+         igText("%s", log_get_next_instruction(3));
+         igText("%s", log_get_next_instruction(4));
+         igText("%s", log_get_next_instruction(5));
+
+         // pause, instruction and frame step buttons
+         igTableSetColumnIndex(1);
+
+         igPushStyleColor_Vec4(ImGuiCol_ButtonHovered, red);
+         igPushStyleColor_Vec4(ImGuiCol_ButtonActive, red);
+
+         if (emulator_state.run_state == EMULATOR_PAUSED) 
+         {
+            igPushStyleColor_Vec4(ImGuiCol_Button, red);
+            if ( igButton("Pause", zero_vec) )
+            {
+               emulator_state.run_state = EMULATOR_RUNNING;
+            }
+            igPopStyleColor(1);
+         }
+         else
+         {
+            if ( igButton("Pause", zero_vec) )
+            {
+               emulator_state.run_state = EMULATOR_PAUSED;
+            }
+         }
+
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
+            if ( igButton("Intruction Step", zero_vec) )
+            {
+               emulator_state.instruction_step = true;
+            }
+            gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
+         igEndDisabled();
+
+         igPopStyleColor(2);
+         igEndTable();
+      }
    igEnd();
 }
 
@@ -816,10 +842,11 @@ void set_pixel_color(uint32_t row, uint32_t col, vec3 color)
 
 static void gui_help_marker(const char* desc)
 {
+   igSameLine(0.0f, -1.0f);
    igTextDisabled("(?)");
    if (igBeginItemTooltip())
    {
-      igPushTextWrapPos(igGetFontSize() * 35.0f);
+      igPushTextWrapPos(igGetFontSize() * 15.0f);
       igTextUnformatted(desc, NULL);
       igPopTextWrapPos();
       igEndTooltip();
