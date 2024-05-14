@@ -20,14 +20,6 @@ void log_close(void);
 void log_write(const char* const format, ...);
 
 /**
- * Advances the head of the ring buffer by 1
- * to point to the next location that will store
- * the disassembled instruction c_string.
- * Also moves the sub head pointer to the beginning of the c_string.
-*/
-void log_new_line(void);
-
-/**
  * Moves the head of the buffer back.
  * @param r move the buffer head back r times
 */

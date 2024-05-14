@@ -143,7 +143,6 @@ void disassemble(void)
    }
 
    position += instruction_size;
-   log_new_line();
 }
 
 void disassemble_next_x(uint8_t x)

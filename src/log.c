@@ -59,18 +59,14 @@ void log_write(const char* const format, ...)
    assert( (bytes_written) < DISASSEM_LENGTH && "Buffer overflow in log buffer!\n" );
    
    va_end(args);
-}
 
-void log_new_line(void)
-{
    buffer_head += 1;         // increment head pointer
    buffer_head %= MAX_INSTR; // wrap back to zero if head exceeds max buffer size
 }
 
 void log_rewind(uint8_t r)
 {
-   buffer_head -= r;
-   buffer_head = modulo(buffer_head, MAX_INSTR); 
+   buffer_head = modulo(buffer_head - r, MAX_INSTR); 
 }
 
 void log_update_current(void)
