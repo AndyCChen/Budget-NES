@@ -9,6 +9,7 @@
 #include "../includes/util.h"
 #include "../includes/ppu.h"
 #include "../includes/disassembler.h"
+#include "../includes/controllers.h"
 
 #define NMI_VECTOR       0xFFFA // address of non-maskable interrupt vector
 #define RESET_VECTOR     0xFFFC // address of reset vector
@@ -2685,6 +2686,7 @@ void cpu_emulate_instruction(void)
       cpu.is_processing_nmi = false;
    }
 
+   controller_reload_shift_registers(); // check if controller shifts registers need to be reloaded
    disassemble();
 }
 

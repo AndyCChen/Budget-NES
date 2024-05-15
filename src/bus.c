@@ -5,6 +5,7 @@
 #include "../includes/cartridge.h"
 #include "../includes/ppu.h"
 #include "../includes/cpu.h"
+#include "../includes/controllers.h"
 
 // address ranges used by cpu to access cartridge space
 
@@ -39,8 +40,17 @@ uint8_t cpu_bus_read(uint16_t position)
    // accessing ppu registers
    else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
    {
-      
       data = ppu_port_read( 0x2000 | (position & 0x7) );
+   }
+   // reading controller 1 input state
+   else if ( position == 0x4016 )
+   {
+      data = controller1_read();
+   }
+   // reading controller 2 input state, CONTROLLER 2 NOT SUPPORTED!
+   else if ( position == 0x4017 )
+   {
+      data = controller2_read();
    }
    
    return data;
@@ -61,14 +71,15 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    {
       ppu_port_write( 0x2000 | (position & 0x7), data );
    }
+   // writing to controllers
+   else if (position == 0x4016)
+   {
+      controller_write_strobe(data);
+   }
    // writing to cartridge (i.e. program RAM, NOT ROM)
    else if ( position >= 0x6000 && position <= 0x7FFF )
    {
       cartridge_cpu_write(position, data);
-   }
-   else if (position == 0x4041)
-   {
-      printf("oamdma\n");
    }
 }
 

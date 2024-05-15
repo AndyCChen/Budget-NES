@@ -190,7 +190,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
          break;
       case PPUMASK:
          ppu_mask = data;
-         printf("Mask write %02X\n", data);
+         //printf("Mask write %02X\n", data);
          break;
       case OAMADDR:
          oam_address = data;

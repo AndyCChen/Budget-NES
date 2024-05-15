@@ -10,6 +10,7 @@
 #include "../includes/display.h"
 #include "../includes/cpu.h"
 #include "../includes/log.h"
+#include "../includes/controllers.h"
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
@@ -203,6 +204,102 @@ void display_process_event(bool* done)
             case SDL_SCANCODE_P:
             {
                emulator_state.run_state = (emulator_state.run_state == EMULATOR_RUNNING) ? EMULATOR_PAUSED : EMULATOR_RUNNING;
+               break;
+            }
+
+            // gameplay controls
+
+            /* case SDL_SCANCODE_W: // up
+            {
+               controller1_set_button_up(BUTTON_UP);
+               break;
+            }
+            case SDL_SCANCODE_A: // left
+            {
+               controller1_set_button_up(BUTTON_LEFT);
+               break;
+            }
+            case SDL_SCANCODE_S: // down
+            {
+               controller1_set_button_up(BUTTON_DOWN);
+               break;
+            }
+            case SDL_SCANCODE_D: // right
+            {
+               controller1_set_button_up(BUTTON_RIGHT);
+               break;
+            }
+            case SDL_SCANCODE_Q: // start
+            {
+               controller1_set_button_up(BUTTON_START);
+               break;
+            }
+            case SDL_SCANCODE_E: // select
+            {
+               controller1_set_button_up(BUTTON_SELECT);
+               break;
+            }
+            case SDL_SCANCODE_K: // B button
+            {
+               controller1_set_button_up(BUTTON_B);
+               break;
+            }
+            case SDL_SCANCODE_L: // A button
+            {
+               controller1_set_button_up(BUTTON_A);
+               break;
+            } 
+ */
+            default:
+               break;
+         }
+      }
+
+      if ( event.type == SDL_KEYDOWN )
+      {
+         switch (event.key.keysym.scancode)
+         {
+            // gameplay controls
+
+            case SDL_SCANCODE_W: // up
+            {
+               controller1_set_button_down(BUTTON_UP);
+               break;
+            }
+            case SDL_SCANCODE_A: // left
+            {
+               controller1_set_button_down(BUTTON_LEFT);
+               break;
+            }
+            case SDL_SCANCODE_S: // down
+            {
+               controller1_set_button_down(BUTTON_DOWN);
+               break;
+            }
+            case SDL_SCANCODE_D: // right
+            {
+               controller1_set_button_down(BUTTON_RIGHT);
+               break;
+            }
+            case SDL_SCANCODE_Q: // start
+            {
+               controller1_set_button_down(BUTTON_START);
+               break;
+            }
+            case SDL_SCANCODE_E: // select
+            {
+               controller1_set_button_down(BUTTON_SELECT);
+               break;
+            }
+            case SDL_SCANCODE_K: // B button
+            {
+               controller1_set_button_down(BUTTON_B);
+               break;
+            }
+            case SDL_SCANCODE_L: // A button
+            {
+               controller1_set_button_down(BUTTON_A);
+               break;
             }
             default:
                break;
