@@ -21,7 +21,7 @@
 #define PPUSCROLL 0x2005 // write x2
 #define PPUADDR   0x2006 // write x2
 #define PPUDATA   0x2007 // read/write
-#define OAMDMA    0x4041 // write
+#define OAMDMA    0x4014 // write
 
 #define PALETTE_START 0x3F00
 
@@ -62,6 +62,7 @@ static uint8_t open_bus = 0;
 static uint8_t palette_ram[32];
 static uint8_t oam_ram[256];
 static uint8_t secondary_oam_ram[32];
+static uint8_t sprite_output[8];
 
 // track current scanline and cycles
 
@@ -152,7 +153,8 @@ void ppu_cycle(void)
       if (cycle == 1)
       {
          odd_even_flag = !odd_even_flag;
-         ppu_status &= ~0x80; // clear VBlank flag on cycle 1 of scanline 261
+         ppu_status &= ~0xC0; // clear VBlank and sprite 0 flag on cycle 1 of scanline 261
+
       }
 
       if (cycle >= 280 && cycle <= 304)
@@ -232,9 +234,11 @@ void ppu_port_write(uint16_t position, uint8_t data)
       case OAMDMA: // todo: handle clock cycles
       {
          uint16_t read_address = data << 8;
+         cpu_tick();
          for (size_t i = 0; i < 256; ++i)
          {
             oam_data = cpu_bus_read(read_address + i);
+            cpu_tick();
             oam_ram[oam_address] = oam_data;
             oam_address += 1;
          }
@@ -425,6 +429,35 @@ void transfer_t_horizontal(void)
 void transfer_t_vertical(void)
 {
    v_register = (v_register & ~0x7BE0) | (t_register & 0x7BE0);
+}
+
+void sprite_clear_secondary_oam(void)
+{
+   for (size_t i = 0; i < 32; ++i)
+   {
+      secondary_oam_ram[i] = 0xFF;
+   }
+}
+
+void sprite_evaluation(void)
+{
+   size_t secondary_oam_index = 0;
+   for (size_t n = 0; n < 256 && secondary_oam_index < 32; n += 4)
+   {
+      uint8_t y_coord = oam_ram[n];  // read y coord
+      if ( secondary_oam_index < 32 )
+      {
+         secondary_oam_ram[secondary_oam_index] = y_coord; // write y coord into secondary oam
+
+         if ( (scanline - y_coord) >= 0 && (scanline - y_coord) <= 8 ) // if sprite is in y range, copy rest of sprite data into secondary oam
+         {
+            secondary_oam_ram[++secondary_oam_index] = oam_ram[n + 1]; // tile index
+            secondary_oam_ram[++secondary_oam_index] = oam_ram[n + 2]; // attributes
+            secondary_oam_ram[++secondary_oam_index] = oam_ram[n + 3]; // x position
+            secondary_oam_index += 1;
+         }
+      }
+   }
 }
 
 void fetch_sprite_lo(void)
