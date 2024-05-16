@@ -48,6 +48,7 @@ static uint8_t  attribute_shift_register_lo = 0;
 static uint8_t  attribute_shift_register_hi = 0;
 static uint8_t  attribute_1_bit_latch_x = 0;     // 1 bit value selected by bit 1 of coarse_x
 static uint8_t  attribute_1_bit_latch_y = 0;     // 1 bit value selected by bit 1 of coarse_y
+static uint8_t  sprite_;
 
 static bool odd_even_flag = false; // false: on a odd frame, true: on a even frame
 static bool nmi_has_occured = false;
@@ -62,7 +63,7 @@ static uint8_t open_bus = 0;
 static uint8_t palette_ram[32];
 static uint8_t oam_ram[256];
 static uint8_t secondary_oam_ram[32];
-static uint8_t sprite_output[8];
+static uint8_t sprite_output[256];
 
 // track current scanline and cycles
 
@@ -78,18 +79,22 @@ static uint8_t get_palette_index(uint8_t index);
 void ppu_cycle(void)
 {
    uint8_t output_pixel = 0; // final 5 bit output index into palette ram for a pixel color
+
    if ( (cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336) )
    {
-      uint8_t position = 15 - x_register; // position of the bit to select
-
       /**
        * Output pixel bit pattern
        * 43210
          |||||
-         |||++- Pixel value from tile data
-         |++--- Palette number from attribute table or OAM
-         +----- Background/Sprite select
+         |||++- Pixel value from tile data, this is the index within a pallete.
+         |++--- Palette number from attribute table or OAM, this is what pallete to use.
+         +----- Background/Sprite select.
       */
+
+      // PPU selects bits to output a final color index for a pixel, after which shift registers are shifted 1 bit 
+      // and every 8 cycles the shift registers are reloaded with newly fetched data.
+
+      uint8_t position = 15 - x_register; // position of the bit to select
 
       output_pixel = (tile_shift_register_lo >> position) & 0x1;              // set bit 0
       output_pixel |= ( (tile_shift_register_hi >> position) & 0x1 ) << 1;    // set bit 1
@@ -110,7 +115,11 @@ void ppu_cycle(void)
       attribute_shift_register_lo |= attribute_1_bit_latch_x;          
       attribute_shift_register_hi = attribute_shift_register_hi << 1;
       attribute_shift_register_hi |= attribute_1_bit_latch_y;
+
+ 
    }
+
+
 
    // scanline 0-239 (i.e 240 scanlines) are the visible scanlines to the display
    if (scanline <= 239)
@@ -119,9 +128,13 @@ void ppu_cycle(void)
 
       if (cycle >= 1 && cycle <= 256)
       {
-         //set_pixel_color()
-         uint8_t palette_index = palette_ram[ get_palette_index(output_pixel) ] & 0x3F;
-         set_pixel_color( scanline, cycle - 1, system_palette[palette_index] );
+         if ( (output_pixel & 0x3) == 0 ) // transparent pixels will display colors at 0x3F00
+         {
+            output_pixel = 0;
+         }
+
+         uint8_t palette_index = palette_ram[ output_pixel ] ;
+         set_pixel_color( scanline, cycle - 1, system_palette[palette_index & 0x3F] );
       }
    }
    else if (scanline >= 240 && scanline <= 260) // vertical blank scanlines
@@ -136,9 +149,7 @@ void ppu_cycle(void)
 
       if (scanline == 260 && cycle == 340)
       {
-
          nmi_has_occured = false;
-         
       }
 
       if (scanline == 241 && cycle == 1)
@@ -154,7 +165,6 @@ void ppu_cycle(void)
       {
          odd_even_flag = !odd_even_flag;
          ppu_status &= ~0xC0; // clear VBlank and sprite 0 flag on cycle 1 of scanline 261
-
       }
 
       if (cycle >= 280 && cycle <= 304)
@@ -253,12 +263,10 @@ void ppu_port_write(uint16_t position, uint8_t data)
          if ( (v_register & 0x3FFF) >= PALETTE_START )
          {
             // writing to palette ram
-            palette_ram[v_register & 0x1F] = data;
-            //printf("P %04X %02X %s\n", v_register & 0x3FFF, data, nmi_has_occured ? "VBLANK" : "RENDERING");
+            palette_ram[ get_palette_index( v_register & 0x1F ) ] = data;
          }
          else
          {
-            //printf("V %04X %02X %s\n", v_register & 0x3FFF, data, nmi_has_occured ? "VBLANK" : "RENDERING");
             cartridge_ppu_write(v_register & 0x3FFF, data);
          }
 
@@ -284,7 +292,7 @@ uint8_t ppu_port_read(uint16_t position)
          // when reading palette, data is returned directly from palette ram rather than the internal read buffer
          if ( (v_register & 0x3FFF) >= PALETTE_START )
          {
-            open_bus = palette_ram[v_register & 0x1F];
+            open_bus = palette_ram[ get_palette_index(v_register & 0x1F) ];
          }
 
          v_register += (ppu_control & 4) ? 32 : 1; // increment vram address by 1 if bit 2 of control register is clear, else increment by 32
@@ -317,7 +325,7 @@ void fetch_nametable(void)
 void fetch_attribute()
 {
    //                                     nametable select         hi 3 bit of coarse y           hi 3 bit of coarse x
-   uint16_t attribute_address = 0x23C0 | (v_register & 0xC00) | ( (v_register >> 4) & 0x38 ) | ( (v_register >> 2) & 0x7 );
+   uint16_t attribute_address = 0x23C0 | (v_register & 0x0C00) | ( (v_register >> 4) & 0x38 ) | ( (v_register >> 2) & 0x07 );
    //                           0x23C0 means select from address space 0x2000 and up with a 960 byte offset. Attribute table is the last 64 bytes of our 1024 byte nametable
 
    attribute_byte = cartridge_ppu_read(attribute_address);
@@ -353,9 +361,9 @@ void increment_v_horizontal(void)
    tile_shift_register_lo |= pattern_tile_lo_bits;
    tile_shift_register_hi |= pattern_tile_hi_bits;
 
-   // load 1 bit latches with a bit selected by coarse x and y
-   uint8_t x_bit = v_register & 0x1;
-   uint8_t y_bit = (v_register >> 5) & 0x1;
+   // load 1 bit latches with a bit selected by bit 1 of coarse x and y
+   uint8_t x_bit = (v_register >> 1) & 0x1;
+   uint8_t y_bit = (v_register >> 6) & 0x1;
    
 
    uint8_t position = x_bit * 2 + y_bit * 4;
@@ -442,24 +450,43 @@ void sprite_clear_secondary_oam(void)
 void sprite_evaluation(void)
 {
    size_t secondary_oam_index = 0;
-   for (size_t n = 0; n < 256 && secondary_oam_index < 32; n += 4)
+   while ( true )
    {
-      uint8_t y_coord = oam_ram[n];  // read y coord
+      uint8_t y_coord = oam_ram[oam_address];
       if ( secondary_oam_index < 32 )
       {
-         secondary_oam_ram[secondary_oam_index] = y_coord; // write y coord into secondary oam
+         secondary_oam_ram[secondary_oam_index] = y_coord;
 
          if ( (scanline - y_coord) >= 0 && (scanline - y_coord) <= 8 ) // if sprite is in y range, copy rest of sprite data into secondary oam
          {
-            secondary_oam_ram[++secondary_oam_index] = oam_ram[n + 1]; // tile index
-            secondary_oam_ram[++secondary_oam_index] = oam_ram[n + 2]; // attributes
-            secondary_oam_ram[++secondary_oam_index] = oam_ram[n + 3]; // x position
-            secondary_oam_index += 1;
+            secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 1]; // tile index
+            secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 2]; // attributes
+            secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 3]; // x position
+            secondary_oam_index += 1; // increment to next free location is secondary oam
          }
       }
+
+      if ( (oam_address + 4) > 255 ) // finish sprite evaluation when all sprites in oam_ram has been scanned
+      {
+         break;
+      }
+      else
+      {
+         oam_address += 4;          // else increment oam_address by 4 bytes and continue evaluation
+      }
    }
+
+   // todo: sprite overflow detection
 }
 
+/* 
+0HNNNN NNNNPyyy
+|||||| |||||+++- T: Fine Y offset, the row number within a tile
+|||||| ||||+---- P: Bit plane (0: less significant bit; 1: more significant bit)
+||++++-++++----- N: Tile number from name table
+|+-------------- H: Half of pattern table (0: "left"; 1: "right")
++--------------- 0: Pattern table is at $0000-$1FFF 
+*/
 void fetch_sprite_lo(void)
 {
 
@@ -513,12 +540,11 @@ static uint8_t get_palette_index(uint8_t index)
 {
    switch (index)
    {
-      case 0x04:
+      /* case 0x04:
       case 0x08:
       case 0x0C:
-         return index & 0x00;
       case 0x10:
-         return index & 0x00;
+         return index & 0x00; */
       case 0x14:
          return index & 0x04;
       case 0x18:

@@ -49,7 +49,7 @@ void transfer_t_vertical(void);
 
 void fetch_sprite_lo(void);
 void fetch_sprite_hi(void);
-void secondary_oam_clear(void);
-void evaluate_sprite(void);
+void sprite_clear_secondary_oam(void);
+void sprite_evaluation(void);
 
 #endif
