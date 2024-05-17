@@ -48,7 +48,6 @@ static uint8_t  attribute_shift_register_lo = 0;
 static uint8_t  attribute_shift_register_hi = 0;
 static uint8_t  attribute_1_bit_latch_x = 0;     // 1 bit value selected by bit 1 of coarse_x
 static uint8_t  attribute_1_bit_latch_y = 0;     // 1 bit value selected by bit 1 of coarse_y
-static uint8_t  sprite_;
 
 static bool odd_even_flag = false; // false: on a odd frame, true: on a even frame
 static bool nmi_has_occured = false;
@@ -63,7 +62,7 @@ static uint8_t open_bus = 0;
 static uint8_t palette_ram[32];
 static uint8_t oam_ram[256];
 static uint8_t secondary_oam_ram[32];
-static uint8_t sprite_output[256];
+static output_sprite_t output_sprites[8]; // array of fetched sprites that will be rendered on the next scanline
 
 // track current scanline and cycles
 
@@ -78,8 +77,9 @@ static uint8_t get_palette_index(uint8_t index);
 
 void ppu_cycle(void)
 {
-   uint8_t output_pixel = 0; // final 5 bit output index into palette ram for a pixel color
+   uint8_t background_pixel = 0;
 
+   // background tile rendering
    if ( (cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336) )
    {
       /**
@@ -96,13 +96,13 @@ void ppu_cycle(void)
 
       uint8_t position = 15 - x_register; // position of the bit to select
 
-      output_pixel = (tile_shift_register_lo >> position) & 0x1;              // set bit 0
-      output_pixel |= ( (tile_shift_register_hi >> position) & 0x1 ) << 1;    // set bit 1
+      background_pixel = (tile_shift_register_lo >> position) & 0x1;              // set bit 0
+      background_pixel |= ( (tile_shift_register_hi >> position) & 0x1 ) << 1;    // set bit 1
 
       position = 7 - x_register;
 
-      output_pixel |= ( (attribute_shift_register_lo >> position) & 0x1 ) << 2; // set bit 2
-      output_pixel |= ( (attribute_shift_register_hi >> position) & 0x1 ) << 3; // set bit 3
+      background_pixel |= ( (attribute_shift_register_lo >> position) & 0x1 ) << 2; // set bit 2
+      background_pixel |= ( (attribute_shift_register_hi >> position) & 0x1 ) << 3; // set bit 3
 
       // shift registers left by 1
 
@@ -115,22 +115,81 @@ void ppu_cycle(void)
       attribute_shift_register_lo |= attribute_1_bit_latch_x;          
       attribute_shift_register_hi = attribute_shift_register_hi << 1;
       attribute_shift_register_hi |= attribute_1_bit_latch_y;
-
- 
    }
 
+   uint8_t sprite_pixel = 0;
+   int active_sprite = -1;
 
+   // sprite rendering
+   if (cycle >= 1 && cycle <= 256) 
+   {
+      // search for the first in range sprite on the horizontal axis
+      for (size_t i = 0; i < 8; ++i)
+      {
+         if ( cycle - output_sprites[i].x_position >= 0 && cycle - output_sprites[i].x_position <= 8 )
+         {
+            active_sprite = i;
+            break;
+         }
+      }
+
+      if (active_sprite != -1)
+      {
+         // contruct 4 bit pallete index with pattern table bitplanes and attribute bytes of the sprite
+         sprite_pixel = (output_sprites[active_sprite].lo_bitplane >> 7) & 0x1;
+         sprite_pixel |= ( (output_sprites[active_sprite].hi_bitplane >> 7) & 0x1 ) << 1;
+         sprite_pixel |= (output_sprites[active_sprite].attribute & 0x3) << 2;
+
+         // shift bitplanes once they have been used to render a pixel
+         output_sprites[active_sprite].lo_bitplane = output_sprites[active_sprite].lo_bitplane << 1;
+         output_sprites[active_sprite].hi_bitplane = output_sprites[active_sprite].hi_bitplane << 1;
+      }
+   }
 
    // scanline 0-239 (i.e 240 scanlines) are the visible scanlines to the display
    if (scanline <= 239)
    {
       if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table if rendering enabled
 
+      if (cycle == 1)
+      {
+         sprite_clear_secondary_oam(); // for simplicity, initialize secondary oam all cycle 1 of ppu visible scanlines
+      }
+
+      if (cycle == 65)
+      {
+         sprite_evaluation();         // for simplicity, do sprite evaluation all in 1 ppu cycle during cycle 65 of a visible scanline
+      }
+
       if (cycle >= 1 && cycle <= 256)
       {
-         if ( (output_pixel & 0x3) == 0 ) // transparent pixels will display colors at 0x3F00
+         uint8_t output_pixel = 0;
+
+         // no active sprite for this pixel so we just choose from the background
+         if (active_sprite == -1)
          {
-            output_pixel = 0;
+            if ( (background_pixel & 0x3) == 0 ) // transparent pixels will display colors at 0x3F00
+            {
+               output_pixel = 0;
+            }
+            else
+            {
+               output_pixel = background_pixel;
+            }
+         }
+         // active sprite present so we must determine whether to render the background or sprite
+         else
+         {
+            // bg and sp are background and sprite color indices within a palette, 0 means that color is the transparent background color
+            uint8_t bg = background_pixel & 0x3;
+            uint8_t sp = sprite_pixel & 0x3;
+            // 0: sprite is in front of background, 1: sprite is behind background
+            uint8_t sp_priority = (output_sprites[active_sprite].attribute & 0x20) >> 5;
+
+            if (bg == 0 && sp == 0)      output_pixel = 0;
+            else if (bg == 0 && sp != 0) output_pixel = sprite_pixel;
+            else if (bg != 0 && sp == 0) output_pixel = background_pixel;
+            else                         output_pixel = (sp_priority) ? background_pixel : sprite_pixel;
          }
 
          uint8_t palette_index = palette_ram[ output_pixel ] ;
@@ -487,14 +546,36 @@ void sprite_evaluation(void)
 |+-------------- H: Half of pattern table (0: "left"; 1: "right")
 +--------------- 0: Pattern table is at $0000-$1FFF 
 */
-void fetch_sprite_lo(void)
+
+// we cheat a little here and fetch sprites all on a single ppu cycle for simplicity
+void fetch_sprites(void)
 {
+   oam_address = 0;
 
-}
+   for (size_t i = 0; i < 8; ++i)
+   {
+      uint8_t sprite_fine_y        = secondary_oam_ram[(i * 4)] - scanline; // row within a sprite
+      uint8_t tile_number          = secondary_oam_ram[(i * 4) + 1];
+      output_sprites[i].attribute  = secondary_oam_ram[(i * 4) + 2];
+      output_sprites[i].x_position = secondary_oam_ram[(i * 4) + 3];
 
-void fetch_sprite_hi(void)
-{
+      // using 8 by 8 sprites
+      if ((ppu_control & 0x20) == 0)
+      {
+         // fetching lo bitplane
+         uint16_t pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (0 << 3) | (sprite_fine_y & 0x7);
+         output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address);
 
+         // fetching hi bitplane
+         pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (1 << 3) | (sprite_fine_y & 0x7);
+         output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address);
+      }
+      // using 8 by 16 sprites
+      else                           
+      {
+         
+      }
+   }
 }
 
 bool ppu_load_palettes(const char* path)

@@ -78,7 +78,7 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    }
    // sprite oam dma
    else if (position == 0x4014)
-   {  printf("oam dma\n");
+   {  
       ppu_port_write(position, data);
    }
    // writing to cartridge (i.e. program RAM, NOT ROM)

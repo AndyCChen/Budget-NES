@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
       {
          case EMULATOR_RUNNING:
          {
-            for (int i = 0; i < 500; ++i) 
+            for (int i = 0; i < 1000; ++i) 
             {
                cpu_emulate_instruction();
             }

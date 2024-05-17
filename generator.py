@@ -25,10 +25,13 @@ def write_chunk2(file, chunk_number: int):
    file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&fetch_nametable,",          label ="// cycle", cycle = cycle + 2))
    file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&rest_cycle,",               label ="// cycle", cycle = cycle + 3))
    file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&fetch_nametable,",          label ="// cycle", cycle = cycle + 4))
-   file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&rest_cycle,",               label ="// cycle", cycle = cycle + 5))
-   file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&fetch_sprite_lo,",          label ="// cycle", cycle = cycle + 6))
+   if (cycle + 5 == 261):
+      file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&fetch_sprites,",         label ="// cycle", cycle = cycle + 5))
+   else:
+      file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&rest_cycle,",            label ="// cycle", cycle = cycle + 5))
+   file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&rest_cycle,",               label ="// cycle", cycle = cycle + 6))
    file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&rest_cycle,",               label ="// cycle", cycle = cycle + 7))
-   file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&fetch_sprite_hi,",          label ="// cycle", cycle = cycle + 8))
+   file.write('\t{func:<30} {label:>30} {cycle}\n'.format(func = "&rest_cycle,",               label ="// cycle", cycle = cycle + 8))
 
 
 with open ("src/ppu_renderer_lookup.c", "w", encoding="utf-8") as source:

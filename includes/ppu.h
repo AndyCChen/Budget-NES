@@ -4,6 +4,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef struct output_sprite_t
+{
+   uint8_t x_position;
+   uint8_t lo_bitplane;
+   uint8_t hi_bitplane;
+   uint8_t attribute;
+} output_sprite_t;
+
 /**
  * Loads .pal file into system colors for ppu.
  * @param path path to the .pal file
@@ -46,9 +54,7 @@ void increment_v_vertical(void);
 void increment_v_both(void);     // wrapper to call horizonal and vertical increment in one event
 void transfer_t_horizontal(void);
 void transfer_t_vertical(void);
-
-void fetch_sprite_lo(void);
-void fetch_sprite_hi(void);
+void fetch_sprites(void);
 void sprite_clear_secondary_oam(void);
 void sprite_evaluation(void);
 
