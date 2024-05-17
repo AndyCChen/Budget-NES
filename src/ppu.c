@@ -126,7 +126,7 @@ void ppu_cycle(void)
       // search for the first in range sprite on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
-         if ( cycle - output_sprites[i].x_position >= 0 && cycle - output_sprites[i].x_position <= 8 )
+         if ( cycle - output_sprites[i].x_position >= 1 && cycle - output_sprites[i].x_position <= 8 )
          {
             active_sprite = i;
             break;
@@ -187,9 +187,9 @@ void ppu_cycle(void)
             uint8_t sp_priority = (output_sprites[active_sprite].attribute & 0x20) >> 5;
 
             if (bg == 0 && sp == 0)      output_pixel = 0;
-            else if (bg == 0 && sp != 0) output_pixel = sprite_pixel;
+            else if (bg == 0 && sp != 0) output_pixel = 0x10 | sprite_pixel;
             else if (bg != 0 && sp == 0) output_pixel = background_pixel;
-            else                         output_pixel = (sp_priority) ? background_pixel : sprite_pixel;
+            else                         output_pixel = (sp_priority) ? background_pixel : (0x10 | sprite_pixel);
          }
 
          uint8_t palette_index = palette_ram[ output_pixel ] ;
@@ -516,7 +516,7 @@ void sprite_evaluation(void)
       {
          secondary_oam_ram[secondary_oam_index] = y_coord;
 
-         if ( (scanline - y_coord) >= 0 && (scanline - y_coord) <= 8 ) // if sprite is in y range, copy rest of sprite data into secondary oam
+         if ( (scanline - y_coord) >= 0 && (scanline - y_coord) < 8 ) // if sprite is in y range, copy rest of sprite data into secondary oam
          {
             secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 1]; // tile index
             secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 2]; // attributes
@@ -554,11 +554,11 @@ void fetch_sprites(void)
 
    for (size_t i = 0; i < 8; ++i)
    {
-      uint8_t sprite_fine_y        = secondary_oam_ram[(i * 4)] - scanline; // row within a sprite
+      uint8_t sprite_fine_y        = scanline - secondary_oam_ram[(i * 4)]; // row within a sprite
       uint8_t tile_number          = secondary_oam_ram[(i * 4) + 1];
       output_sprites[i].attribute  = secondary_oam_ram[(i * 4) + 2];
       output_sprites[i].x_position = secondary_oam_ram[(i * 4) + 3];
-
+      //printf("fine y sprite: %d - %d = %d\n", secondary_oam_ram[(i * 4)], scanline, sprite_fine_y);
       // using 8 by 8 sprites
       if ((ppu_control & 0x20) == 0)
       {
