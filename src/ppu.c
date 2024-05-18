@@ -130,7 +130,7 @@ void ppu_cycle(void)
       // search for the first in range opaque sprite pixel on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
-         if ( cycle - output_sprites[i].x_position >= 1 && cycle - output_sprites[i].x_position <= 8 )
+         if ( cycle - output_sprites[i].x_position >= 2 )
          {
             if (!sprite_found)
             {
@@ -572,6 +572,12 @@ void fetch_sprites(void)
       // using 8 by 8 sprites
       if ((ppu_control & 0x20) == 0)
       {
+         // sprite flipped vertically
+         if (output_sprites[i].attribute & 0x80)
+         {
+            sprite_fine_y = 7 - sprite_fine_y;
+         }
+
          // fetching lo bitplane
          uint16_t pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (0 << 3) | (sprite_fine_y & 0x7);
          output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address);
