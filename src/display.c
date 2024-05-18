@@ -209,7 +209,7 @@ void display_process_event(bool* done)
 
             // gameplay controls
 
-            /* case SDL_SCANCODE_W: // up
+            case SDL_SCANCODE_W: // up
             {
                controller1_set_button_up(BUTTON_UP);
                break;
@@ -249,7 +249,7 @@ void display_process_event(bool* done)
                controller1_set_button_up(BUTTON_A);
                break;
             } 
- */
+
             default:
                break;
          }

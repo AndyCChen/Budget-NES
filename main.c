@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
       {
          case EMULATOR_RUNNING:
          {
-            for (int i = 0; i < 1000; ++i) 
+            for (int i = 0; i < 2000; ++i) 
             {
                cpu_emulate_instruction();
             }
@@ -54,14 +54,10 @@ int main(int argc, char *argv[])
          }
       }
 
-
-
-      
-
       display_render(); 
       display_update();
    }
-   
+
    budgetNES_shutdown();
 
    return 0;

@@ -22,14 +22,8 @@ static uint32_t modulo(int x, int m)
 
 // opens/create file for nestest logs
 // does nothing if nestest_log_flag is set to false
-/* bool log_open(void)
+bool log_open(void)
 {
-   // do not open/create log file if log flag is false
-   if ( !nestest_log_flag )
-   {
-      return false;
-   }
-
    log_file = fopen("nes.log", "w");
    
    if (log_file == NULL)
@@ -38,17 +32,13 @@ static uint32_t modulo(int x, int m)
    }
 
    return log_file != NULL;
-} */
+}
 
 // closes nestest log file
-/* void log_close(void)
+void log_close(void)
 {
-   // only close file if log flag was true
-   if ( nestest_log_flag )
-   {
       fclose(log_file);
-   }
-} */
+}
 
 void log_write(const char* const format, ...)
 {
@@ -57,6 +47,7 @@ void log_write(const char* const format, ...)
    
    uint32_t bytes_written = vsnprintf( ring_buffer[buffer_head], DISASSEM_LENGTH, format, args );
    assert( (bytes_written) < DISASSEM_LENGTH && "Buffer overflow in log buffer!\n" );
+   //vfprintf(log_file, format, args);
    
    va_end(args);
 

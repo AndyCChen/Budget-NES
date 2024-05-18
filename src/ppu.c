@@ -75,6 +75,8 @@ static vec3 system_palette[64];
 // retrieves palette index that is mirrored if necessary
 static uint8_t get_palette_index(uint8_t index);
 
+static uint8_t flip_bits_horizontally(uint8_t in);
+
 void ppu_cycle(void)
 {
    uint8_t background_pixel = 0;
@@ -190,6 +192,9 @@ void ppu_cycle(void)
             else if (bg == 0 && sp != 0) output_pixel = 0x10 | sprite_pixel;
             else if (bg != 0 && sp == 0) output_pixel = background_pixel;
             else                         output_pixel = (sp_priority) ? background_pixel : (0x10 | sprite_pixel);
+
+            // check for sprite 0 hit
+            
          }
 
          uint8_t palette_index = palette_ram[ output_pixel ] ;
@@ -558,7 +563,7 @@ void fetch_sprites(void)
       uint8_t tile_number          = secondary_oam_ram[(i * 4) + 1];
       output_sprites[i].attribute  = secondary_oam_ram[(i * 4) + 2];
       output_sprites[i].x_position = secondary_oam_ram[(i * 4) + 3];
-      //printf("fine y sprite: %d - %d = %d\n", secondary_oam_ram[(i * 4)], scanline, sprite_fine_y);
+
       // using 8 by 8 sprites
       if ((ppu_control & 0x20) == 0)
       {
@@ -574,6 +579,13 @@ void fetch_sprites(void)
       else                           
       {
          
+      }
+
+      // sprite flipped horizontally
+      if (output_sprites[i].attribute & 0x40)
+      {
+         output_sprites[i].lo_bitplane = flip_bits_horizontally( output_sprites[i].lo_bitplane );
+         output_sprites[i].hi_bitplane = flip_bits_horizontally( output_sprites[i].hi_bitplane );
       }
    }
 }
@@ -635,6 +647,14 @@ static uint8_t get_palette_index(uint8_t index)
       default:
          return index & 0x1F;
    }
+}
+
+static uint8_t flip_bits_horizontally(uint8_t in)
+{
+   in = (in & 0xF0) >> 4 | (in & 0x0F) << 4;
+   in = (in & 0xCC) >> 2 | (in & 0x33) << 2;
+   in = (in & 0xAA) >> 1 | (in & 0x55) << 1;
+   return in;
 }
 
 bool get_nmi_status(void)
