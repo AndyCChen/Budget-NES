@@ -80,6 +80,7 @@ static uint8_t flip_bits_horizontally(uint8_t in);
 void ppu_cycle(void)
 {
    uint8_t background_pixel = 0;
+   uint8_t sprite_pixel = 0;
 
    // background tile rendering
    if ( (cycle >= 1 && cycle <= 256) || (cycle >= 321 && cycle <= 336) )
@@ -119,32 +120,36 @@ void ppu_cycle(void)
       attribute_shift_register_hi |= attribute_1_bit_latch_y;
    }
 
-   uint8_t sprite_pixel = 0;
    int active_sprite = -1;
 
    // sprite rendering
    if (cycle >= 1 && cycle <= 256) 
    {
-      // search for the first in range sprite on the horizontal axis
+      bool sprite_found = false;
+
+      // search for the first in range opaque sprite pixel on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
          if ( cycle - output_sprites[i].x_position >= 1 && cycle - output_sprites[i].x_position <= 8 )
          {
-            active_sprite = i;
-            break;
+            if (!sprite_found)
+            {
+               // contruct 4 bit pallete index with pattern table bitplanes and attribute bytes of the sprite
+               sprite_pixel = (output_sprites[i].lo_bitplane >> 7) & 0x1;
+               sprite_pixel |= ( (output_sprites[i].hi_bitplane >> 7) & 0x1 ) << 1;
+               sprite_pixel |= (output_sprites[i].attribute & 0x3) << 2;
+
+               if ( (sprite_pixel & 0x3) != 0 ) // only set sprite found to true if the sprite pixel found is not transparent
+               {
+                  sprite_found = true;
+                  active_sprite = i;
+               }
+            }
+
+            // shift bitplanes once they have been used to render a pixel
+            output_sprites[i].lo_bitplane = output_sprites[i].lo_bitplane << 1;
+            output_sprites[i].hi_bitplane = output_sprites[i].hi_bitplane << 1;
          }
-      }
-
-      if (active_sprite != -1)
-      {
-         // contruct 4 bit pallete index with pattern table bitplanes and attribute bytes of the sprite
-         sprite_pixel = (output_sprites[active_sprite].lo_bitplane >> 7) & 0x1;
-         sprite_pixel |= ( (output_sprites[active_sprite].hi_bitplane >> 7) & 0x1 ) << 1;
-         sprite_pixel |= (output_sprites[active_sprite].attribute & 0x3) << 2;
-
-         // shift bitplanes once they have been used to render a pixel
-         output_sprites[active_sprite].lo_bitplane = output_sprites[active_sprite].lo_bitplane << 1;
-         output_sprites[active_sprite].hi_bitplane = output_sprites[active_sprite].hi_bitplane << 1;
       }
    }
 
