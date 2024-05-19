@@ -366,7 +366,7 @@ uint8_t ppu_port_read(uint16_t position)
          v_register += (ppu_control & 4) ? 32 : 1; // increment vram address by 1 if bit 2 of control register is clear, else increment by 32
          break;
       case PPUSTATUS: // read only
-         open_bus = (ppu_status & 0xE0) | open_bus;
+         open_bus = (ppu_status & 0xE0) | (open_bus & 0x1F); // load ppu status onto bits 7-5 of the open bus
          write_toggle = false;
          ppu_status = ppu_status & ~(0x80); // clear vertical blank flag after read
          break;

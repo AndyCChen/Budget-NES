@@ -10,8 +10,9 @@ extern FILE *log_file; // pointer to nes test output log file
 
    
 
-bool log_open(void);
-void log_close(void);
+bool log_file_open(void);
+void log_file_close(void);
+void log_to_file();
 
 /**
  * Start writing to the ring buffer with a max

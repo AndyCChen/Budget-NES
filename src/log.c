@@ -22,7 +22,7 @@ static uint32_t modulo(int x, int m)
 
 // opens/create file for nestest logs
 // does nothing if nestest_log_flag is set to false
-bool log_open(void)
+bool log_file_open(void)
 {
    log_file = fopen("nes.log", "w");
    
@@ -35,7 +35,7 @@ bool log_open(void)
 }
 
 // closes nestest log file
-void log_close(void)
+void log_file_close(void)
 {
       fclose(log_file);
 }
@@ -63,6 +63,12 @@ void log_rewind(uint8_t r)
 void log_update_current(void)
 {
    current = modulo(buffer_head - MAX_NEXT - 1, MAX_INSTR);
+}
+
+void log_to_file(void)
+{
+   log_update_current();
+   fprintf(log_file, "%s", log_get_current_instruction());
 }
 
 const char* log_get_current_instruction(void)
