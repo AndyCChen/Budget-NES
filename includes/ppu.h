@@ -56,6 +56,5 @@ void transfer_t_horizontal(void);
 void transfer_t_vertical(void);
 void fetch_sprites(void);
 void sprite_clear_secondary_oam(void);
-void sprite_evaluation(void);
 
 #endif

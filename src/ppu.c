@@ -63,6 +63,7 @@ static uint8_t palette_ram[32];
 static uint8_t oam_ram[256];
 static uint8_t secondary_oam_ram[32];
 static output_sprite_t output_sprites[8]; // array of fetched sprites that will be rendered on the next scanline
+static uint8_t number_of_sprites = 0;     // number of sprites to draw on the next scanline
 
 // track current scanline and cycles
 
@@ -74,8 +75,8 @@ static vec3 system_palette[64];
 
 // retrieves palette index that is mirrored if necessary
 static uint8_t get_palette_index(uint8_t index);
-
 static uint8_t flip_bits_horizontally(uint8_t in);
+static void sprite_evaluation(void);
 
 void ppu_cycle(void)
 {
@@ -130,7 +131,7 @@ void ppu_cycle(void)
       // search for the first in range opaque sprite pixel on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
-         if ( cycle - output_sprites[i].x_position >= 2 )
+         if ( cycle >= output_sprites[i].x_position + 1 )
          {
             if (!sprite_found)
             {
@@ -249,7 +250,7 @@ void ppu_cycle(void)
    }
 
    cycle++;
-   if (cycle > 340) // finish processing 341 cycles of 1 scanline, move onto the next scanline
+   if (cycle == 341) // finish processing 341 cycles of 1 scanline, move onto the next scanline
    {
       cycle = 0;
       scanline++;
@@ -271,7 +272,6 @@ void ppu_port_write(uint16_t position, uint8_t data)
          break;
       case PPUMASK:
          ppu_mask = data;
-         //printf("Mask write %02X\n", data);
          break;
       case OAMADDR:
          oam_address = data;
@@ -313,11 +313,10 @@ void ppu_port_write(uint16_t position, uint8_t data)
       case OAMDMA: // todo: handle clock cycles
       {
          uint16_t read_address = data << 8;
-         cpu_tick();
          for (size_t i = 0; i < 256; ++i)
          {
-            oam_data = cpu_bus_read(read_address + i);
             cpu_tick();
+            oam_data = cpu_bus_read(read_address + i);
             oam_ram[oam_address] = oam_data;
             oam_address += 1;
          }
@@ -516,9 +515,10 @@ void sprite_clear_secondary_oam(void)
    }
 }
 
-void sprite_evaluation(void)
+static void sprite_evaluation(void)
 {
    size_t secondary_oam_index = 0;
+   number_of_sprites = 0;
    while ( true )
    {
       uint8_t y_coord = oam_ram[oam_address];
@@ -531,7 +531,8 @@ void sprite_evaluation(void)
             secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 1]; // tile index
             secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 2]; // attributes
             secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 3]; // x position
-            secondary_oam_index += 1; // increment to next free location is secondary oam
+            secondary_oam_index += 1; // increment to next free location in secondary oam
+            number_of_sprites += 1;
          }
       }
 
@@ -544,7 +545,6 @@ void sprite_evaluation(void)
          oam_address += 4;          // else increment oam_address by 4 bytes and continue evaluation
       }
    }
-
    // todo: sprite overflow detection
 }
 
@@ -598,6 +598,14 @@ void fetch_sprites(void)
          output_sprites[i].lo_bitplane = flip_bits_horizontally( output_sprites[i].lo_bitplane );
          output_sprites[i].hi_bitplane = flip_bits_horizontally( output_sprites[i].hi_bitplane );
       }
+
+      // when there are less than 8 sprites on the next scanline, the remaining fetches are have their color index replaced with the transparent background color
+      if (i >= number_of_sprites)
+      {
+         output_sprites[i].lo_bitplane = 0;
+         output_sprites[i].hi_bitplane = 0;
+      }
+      
    }
 }
 
