@@ -11,6 +11,10 @@ Learning how to write a emulator for the NES console.
 - [ ] more mappers
 - [ ] debug gui
 
+## Current Progress
+
+![Alt text](/res/budgetNES.png?raw=true "corrupted nestest title")
+
 ## Initial attempts at PPU graphics rendering
 Here were my initial tries at trying to get the ppu to at least render
 the background tiles of the menu screens of the nestest and donkey kong rom.
