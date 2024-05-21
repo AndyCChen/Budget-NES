@@ -220,7 +220,7 @@ bool cartridge_load(const char* const filepath)
       }
    }
 
-   printf("prg-rom size: %zu chr-rom/ram size: %zu prg-ram size: %zu %d\n", prg_rom_size, chr_mem_size, prg_ram_size, header.prg_rom_size);
+   printf("prg-rom size: %zu chr-rom/ram size: %zu prg-ram size: %zu\n", prg_rom_size, chr_mem_size, prg_ram_size);
 
    fclose(file);
    return true;

@@ -37,19 +37,17 @@ static void gui_help_marker(const char* desc);
 static GLuint viewport_FBO;
 static GLuint viewport_textureID;
 static GLuint viewport_RBO;
-static GLuint pixel_VAO, pixel_VBO, pixel_IBO;
+static GLuint pixel_VAO;
 static GLuint instanced_color_VBO;
-static GLuint shader_program;
 
-static mat4 pixel_pos[NES_PIXELS_W * NES_PIXELS_H];
 static vec4 pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 
 static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 static void display_create_pixels(void);
 static bool display_create_shaders(void);
-static bool display_create_frameBuffers(void);
-static void display_resize_framebuffer(int width, int height);
-static void display_set_pixel_position(float pixel_w, float pixel_h);
+static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID);
+static void display_resize_framebuffer(int width, int height, GLuint textureID, GLuint RBO_ID);
+static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[]);
 
 // global state of emulator
 static Emulator_State_t emulator_state = 
@@ -144,7 +142,7 @@ bool display_init(void)
    ImGui_ImplOpenGL3_Init(glsl_version);
 
    display_create_pixels();
-   if ( !display_create_shaders() || !display_create_frameBuffers() )
+   if ( !display_create_shaders() || !display_create_frameBuffers(&viewport_FBO, &viewport_textureID, &viewport_RBO) )
    {
       return false;
    }
@@ -394,7 +392,7 @@ static void gui_demo(void)
    igSameLine(0.0f, -1.0f);
    igText("Counter = %d", counter);
 
-   igText("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / igGetIO()->Framerate, igGetIO()->Framerate);
+   igText("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io->Framerate, io->Framerate);
    igEnd();
 
    if (show_another_window)
@@ -525,7 +523,7 @@ static void gui_main_viewport(void)
          ImVec2 size;
          igGetWindowSize(&size);
          glViewport(0, 0, (int) size.x, (int) size.y);
-         display_resize_framebuffer((int) size.x, (int) size.y);
+         display_resize_framebuffer((int) size.x, (int) size.y, viewport_textureID, viewport_RBO);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
@@ -691,9 +689,11 @@ static void gui_cpu_debug(void)
 
 static void display_create_pixels(void)
 {
+   mat4* pixel_pos = malloc(NES_PIXELS_W * NES_PIXELS_W * sizeof(mat4));
+   if (pixel_pos == NULL) printf("Failed to allocate memory for pixel pos\n");
    float pixel_w = DISPLAY_W / NES_PIXELS_W;
    float pixel_h = DISPLAY_H / NES_PIXELS_H;
-   display_set_pixel_position(pixel_w, pixel_h);
+   display_set_pixel_position(pixel_w, pixel_h, pixel_pos);
 
    float pixel_vertices[] = {
       0.0f,    0.0f,    0.0f, // top left
@@ -708,6 +708,7 @@ static void display_create_pixels(void)
    };
 
    // send vertex data for pixels
+   GLuint pixel_VBO, pixel_IBO;
    glGenVertexArrays(1, &pixel_VAO);
    glGenBuffers(1, &pixel_VBO);
    glGenBuffers(1, &pixel_IBO);
@@ -755,31 +756,32 @@ static void display_create_pixels(void)
    glBindVertexArray(0);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+   free(pixel_pos);
 }
 
-static bool display_create_frameBuffers(void)
+static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID)
 {
-   glGenFramebuffers(1, &viewport_FBO);
-   glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
+   glGenFramebuffers(1, FBO_ID);
+   glBindFramebuffer(GL_FRAMEBUFFER, *FBO_ID);
 
    int width, height;
    SDL_GetWindowSize(window, &width, &height);
 
-   glGenTextures(1, &viewport_textureID);
-   glBindTexture(GL_TEXTURE_2D, viewport_textureID);
+   glGenTextures(1, textureID);
+   glBindTexture(GL_TEXTURE_2D, *textureID);
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA , width, height, 0, GL_RGBA , GL_UNSIGNED_BYTE, NULL);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    glBindTexture(GL_TEXTURE_2D, 0);
 
-   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, viewport_textureID, 0);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *textureID, 0);
 
-   glGenRenderbuffers(1, &viewport_RBO);
-   glBindRenderbuffer(GL_RENDERBUFFER, viewport_RBO);
+   glGenRenderbuffers(1, RBO_ID);
+   glBindRenderbuffer(GL_RENDERBUFFER, *RBO_ID);
    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, viewport_RBO);
+   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, *RBO_ID);
 
    
    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -792,17 +794,17 @@ static bool display_create_frameBuffers(void)
    return true;
 }
 
-static void display_resize_framebuffer(int width, int height)
+static void display_resize_framebuffer(int width, int height, GLuint textureID, GLuint RBO_ID)
 {
-   glBindTexture(GL_TEXTURE_2D, viewport_textureID);
+   glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, viewport_textureID, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
 
-	glBindRenderbuffer(GL_RENDERBUFFER, viewport_RBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, RBO_ID);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, viewport_RBO);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, RBO_ID);
 }
 
 static bool display_create_shaders(void)
@@ -832,7 +834,7 @@ static bool display_create_shaders(void)
       "  fragColor = color;\n"
       "}\0";
 
-   shader_program = glCreateProgram();
+   GLuint shader_program = glCreateProgram();
    if (shader_program == 0)
    {
       printf("Error creating shader program!\n");
@@ -908,7 +910,7 @@ static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum
  * @param w width of the pixel
  * @param h height of the pixel
 */
-static void display_set_pixel_position(float pixel_w, float pixel_h)
+static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[])
 {
    for (size_t row = 0; row < NES_PIXELS_H; ++row)
    {
@@ -948,4 +950,9 @@ static void gui_help_marker(const char* desc)
       igPopTextWrapPos();
       igEndTooltip();
    }
+}
+
+float display_get_framerate(void)
+{
+   return io->Framerate;
 }

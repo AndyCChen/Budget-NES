@@ -37,6 +37,7 @@ void display_clear(void);
 void display_render(void);
 void display_update(void);
 void display_shutdown(void);
+float display_get_framerate(void);
 void display_process_event(bool* done);
 void set_pixel_color(uint32_t row, uint32_t col, vec3 color);
 Emulator_State_t* get_emulator_state(void);

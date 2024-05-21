@@ -10,6 +10,7 @@
 #include "../includes/ppu.h"
 #include "../includes/disassembler.h"
 #include "../includes/controllers.h"
+#include "../includes/display.h"
 
 #define NMI_VECTOR       0xFFFA // address of non-maskable interrupt vector
 #define RESET_VECTOR     0xFFFC // address of reset vector
@@ -2691,11 +2692,24 @@ void cpu_emulate_instruction(void)
 }
 
 /**
+ * Run the cpu for an x amount of clock cycles per frame depending on current framerate
+*/
+void cpu_run(void)
+{
+   while (cpu.cycle_count <= (size_t) (1789773 / display_get_framerate()))
+   {
+      cpu_emulate_instruction();
+   }
+
+   cpu.cycle_count = 0;
+}
+
+/**
  * Ticks cpu by 1 clock cycle and runs ppu for 3 cycles
 */
 void cpu_tick(void)
 {
-   //cpu.cycle_count += 1;
+   cpu.cycle_count += 1;
    ppu_cycle();
    ppu_cycle();
    ppu_cycle();

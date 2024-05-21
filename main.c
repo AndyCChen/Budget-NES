@@ -36,10 +36,7 @@ int main(int argc, char *argv[])
       {
          case EMULATOR_RUNNING:
          {
-            for (int i = 0; i < 2500; ++i) 
-            {
-               cpu_emulate_instruction();
-            }
+            cpu_run();
             break;
          }
          case EMULATOR_PAUSED:

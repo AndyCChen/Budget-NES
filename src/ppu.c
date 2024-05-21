@@ -131,7 +131,7 @@ void ppu_cycle(void)
       // search for the first in range opaque sprite pixel on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
-         if ( cycle >= output_sprites[i].x_position + 1 )
+         if ( cycle >= output_sprites[i].x_position + 1 && cycle - (output_sprites[i].x_position + 1) <= 8 )
          {
             if (!sprite_found)
             {
@@ -310,9 +310,10 @@ void ppu_port_write(uint16_t position, uint8_t data)
 
          write_toggle = !write_toggle;
          break;
-      case OAMDMA: // todo: handle clock cycles
+      case OAMDMA:
       {
          uint16_t read_address = data << 8;
+         cpu_tick();
          for (size_t i = 0; i < 256; ++i)
          {
             cpu_tick();
