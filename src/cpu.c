@@ -2692,11 +2692,12 @@ void cpu_emulate_instruction(void)
 }
 
 /**
- * Run the cpu for an x amount of clock cycles per frame depending on current framerate
+ * Run the cpu for an x amount of clock cycles per frame depending refresh rate
 */
-void cpu_run(void)
+void cpu_run()
 {
-   while (cpu.cycle_count <= (size_t) (1789773 / display_get_framerate()))
+   float refresh_rate = (float) display_get_refresh_rate();
+   while ( cpu.cycle_count <= (size_t) (1789773 / refresh_rate) )
    {
       cpu_emulate_instruction();
    }

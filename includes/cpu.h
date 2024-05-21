@@ -52,7 +52,7 @@ typedef struct instruction_t
 } instruction_t;
 
 void cpu_emulate_instruction(void);
-void cpu_run(void);
+void cpu_run();
 void cpu_reset(void);
 void cpu_init(void);
 void cpu_IRQ(void);

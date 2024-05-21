@@ -125,7 +125,7 @@ bool display_init(void)
    }
 
    SDL_GL_MakeCurrent(window, gContext);
-   SDL_GL_SetSwapInterval(1); // enable vsync
+   SDL_GL_SetSwapInterval(-1); // enable vsync
    SDL_Log("opengl version: %s", (char*)glGetString(GL_VERSION));
 
    // setup imgui context
@@ -146,6 +146,14 @@ bool display_init(void)
    {
       return false;
    }
+
+   SDL_DisplayMode mode;
+   if ( SDL_GetDesktopDisplayMode(0, &mode) != 0)
+   {
+      printf("Failed getting display information! %s\n", SDL_GetError());
+   }
+
+   emulator_state.refresh_rate = mode.refresh_rate;
 
    return true;
 }
@@ -952,7 +960,7 @@ static void gui_help_marker(const char* desc)
    }
 }
 
-float display_get_framerate(void)
+uint8_t display_get_refresh_rate(void)
 {
-   return io->Framerate;
+   return emulator_state.refresh_rate;
 }

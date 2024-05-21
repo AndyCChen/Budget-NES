@@ -30,6 +30,7 @@ typedef struct Emulator_State_t
    bool cpu_debug;                 // toggle cpu debug widget
    Emulator_Run_State_t run_state; 
    bool instruction_step;          // true: steps the emulator forward by 1 instruction, false: do nothing
+   uint8_t refresh_rate;
 } Emulator_State_t;
 
 bool display_init(void);
@@ -37,7 +38,7 @@ void display_clear(void);
 void display_render(void);
 void display_update(void);
 void display_shutdown(void);
-float display_get_framerate(void);
+uint8_t display_get_refresh_rate(void);
 void display_process_event(bool* done);
 void set_pixel_color(uint32_t row, uint32_t col, vec3 color);
 Emulator_State_t* get_emulator_state(void);
