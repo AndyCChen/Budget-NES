@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "vec4.h"
 
 typedef struct output_sprite_t
 {
@@ -56,5 +57,13 @@ void transfer_t_horizontal(void);
 void transfer_t_vertical(void);
 void fetch_sprites(void);
 void sprite_clear_secondary_oam(void);
+
+/**
+ * Used by debug gui widget to view pattern tables. Initializes pixel colors to draw based on values read
+ * from the pattern tables. For chr-rom calling this once at the beginning will suffice. For chr-ram, since that changes
+ * during runtime the pixel colors will need to also be update which is not currently handled yet.
+ * @param data color buffer of pixels that will be rendered
+*/
+void DEBUG_ppu_init_pattern_table(vec4* data);
 
 #endif

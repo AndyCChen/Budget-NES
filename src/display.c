@@ -888,15 +888,15 @@ static bool display_init_pattern_table_buffers(void)
 
    GLuint pattern_table_color_VBO;
    vec4* pattern_table_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
-   //DEBUG_ppu_init_pattern_table(pattern_table_pixel_colors);
+   DEBUG_ppu_init_pattern_table(pattern_table_pixel_colors);
 
-   for (int i = 0; i < 16384 - 1; ++i)
+   /* for (int i = 0; i < 16384 - 1; ++i)
    {
       pattern_table_pixel_colors[i][0] = 0.2f;
       pattern_table_pixel_colors[i][1] = 0.5f;
       pattern_table_pixel_colors[i][2] = 0.8f;
       pattern_table_pixel_colors[i][3] = 1.0f;
-   }
+   } */
 
    glGenBuffers(1, &pattern_table_color_VBO);
    glBindBuffer(GL_ARRAY_BUFFER, pattern_table_color_VBO);

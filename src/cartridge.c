@@ -17,7 +17,7 @@ static nes_header_t header;
 static uint8_t ppu_vram[1024 * 2];
 static uint8_t *prg_rom = NULL;
 static uint8_t *prg_ram = NULL;
-static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom, very few cartridge have chr-ram and rom so we ignore those cases
+static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom
 
 static bool load_iNES(uint8_t *iNES_header, nes_header_t *header );
 

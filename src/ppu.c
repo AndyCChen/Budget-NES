@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "vec3.h"
+#include "vec4.h"
 
 #include "../includes/ppu.h"
 #include "../includes/cartridge.h"
@@ -680,4 +681,38 @@ static uint8_t flip_bits_horizontally(uint8_t in)
 bool get_nmi_status(void)
 {
    return nmi_has_occured;
+}
+
+void DEBUG_ppu_init_pattern_table(vec4* data)
+{
+   const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
+
+   for (int tile_row = 0; tile_row < 16; ++tile_row)
+   {
+      for (int tile_col = 0; tile_col < 16; ++tile_col)
+      {
+         uint8_t tile_number = (tile_row * 16) + tile_col;
+         
+         for (int fine_y = 0; fine_y < 8; ++fine_y)
+         {
+            uint8_t lo = cartridge_ppu_read( (tile_number << 4) | fine_y );
+            uint8_t hi = cartridge_ppu_read( (tile_number << 4) | (1 << 3) | fine_y );
+
+            for (int fine_x = 0; fine_x < 8; ++fine_x)
+            {
+               vec3* color = &system_palette[ debug_palette[( (hi & 0x80) >> 6 ) | ( (lo & 0x80) >> 7 )] ];
+               uint32_t index = (tile_row * 128 * 8) + (tile_col * 8) + (fine_y * 128) + fine_x;
+               data[index][0] = color[0][0];
+               data[index][1] = color[0][1];
+               data[index][2] = color[0][2];
+               data[index][3] = 1.0f;
+
+               lo = lo << 1;
+               hi = hi << 1;
+            }
+         }
+      }
+   }
+   
+
 }
