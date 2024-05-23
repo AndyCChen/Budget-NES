@@ -28,6 +28,7 @@ typedef struct Emulator_State_t
    */
    uint8_t display_size;
    bool cpu_debug;                 // toggle cpu debug widget
+   bool pattern_table_viewer;  // toggle pattern table viewer
    Emulator_Run_State_t run_state; 
    bool instruction_step;          // true: steps the emulator forward by 1 instruction, false: do nothing
    uint8_t refresh_rate;

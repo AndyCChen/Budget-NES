@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 static bool budgetNES_init(const char* rom_path)
 {
-   if ( !display_init() || !cartridge_load( rom_path ) || !ppu_load_palettes("./ntscpalette.pal") )
+   if ( !cartridge_load( rom_path ) || !display_init() || !ppu_load_palettes("./ntscpalette.pal") )
    {
       return false;
    }

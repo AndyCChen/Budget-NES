@@ -11,6 +11,7 @@
 #include "../includes/cpu.h"
 #include "../includes/log.h"
 #include "../includes/controllers.h"
+#include "../includes/ppu.h"
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
@@ -29,31 +30,34 @@ static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 static void gui_demo(void);
 static void gui_main_viewport(void);
 static void gui_cpu_debug(void);
+static void gui_pattern_table_viewer(void);
 static void gui_help_marker(const char* desc);
 
 // opengl graphics
 // ---------------------------------------------------------------
 
-static GLuint viewport_FBO;
-static GLuint viewport_textureID;
-static GLuint viewport_RBO;
-static GLuint pixel_VAO;
-static GLuint instanced_color_VBO;
+static GLuint viewport_FBO, pattern_table_FBO;      
+static GLuint viewport_textureID, pattern_table_textureID;
+static GLuint viewport_RBO, pattern_table_RBO;       
+static GLuint viewport_VAO, pattern_table_VAO;
+static GLuint viewport_color_VBO;
 
-static vec4 pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
+static vec4 viewport_pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 
 static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum type);
-static void display_create_pixels(void);
+static bool display_init_main_viewport_buffers(void);
+static bool display_init_pattern_table_buffers(void);
 static bool display_create_shaders(void);
-static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID);
+static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height);
 static void display_resize_framebuffer(int width, int height, GLuint textureID, GLuint RBO_ID);
-static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[]);
+static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[], uint32_t width, uint32_t height);
 
 // global state of emulator
 static Emulator_State_t emulator_state = 
 {
    .display_size = 4,
    .cpu_debug = false,
+   .pattern_table_viewer = false,
    .run_state = EMULATOR_RUNNING,
    .instruction_step = false,
 }; 
@@ -141,8 +145,8 @@ bool display_init(void)
    ImGui_ImplSDL2_InitForOpenGL(window, gContext);
    ImGui_ImplOpenGL3_Init(glsl_version);
 
-   display_create_pixels();
-   if ( !display_create_shaders() || !display_create_frameBuffers(&viewport_FBO, &viewport_textureID, &viewport_RBO) )
+   
+   if ( !display_create_shaders() || !display_init_main_viewport_buffers() || !display_init_pattern_table_buffers() )
    {
       return false;
    }
@@ -316,7 +320,7 @@ void display_process_event(bool* done)
 
 void display_clear(void)
 {
-   glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
+   //glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
    glClear(GL_COLOR_BUFFER_BIT);
 }
@@ -331,25 +335,29 @@ void display_render(void)
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   // draw gui components
-   gui_main_viewport();
-   if (emulator_state.cpu_debug)
-   {
-      gui_cpu_debug();
-   }
+   if (emulator_state.cpu_debug) gui_cpu_debug();
    gui_demo();
    
-   glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
-   
    // send the updated color values buffer for pixels all at once
-   glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
-   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &pixel_colors);
+   glBindBuffer(GL_ARRAY_BUFFER, viewport_color_VBO);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &viewport_pixel_colors);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-   glBindVertexArray(pixel_VAO);
-   glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
+   gui_main_viewport();
 
+   glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
+   glBindVertexArray(viewport_VAO);
+   glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+   if (emulator_state.pattern_table_viewer) 
+   {
+      gui_pattern_table_viewer();
+      glBindFramebuffer(GL_FRAMEBUFFER, pattern_table_FBO);
+      glBindVertexArray(pattern_table_VAO);
+      glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, 128 * 128);
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+   }
 }
 
 // update frame
@@ -463,6 +471,12 @@ static void gui_main_viewport(void)
             {
                emulator_state.cpu_debug = !emulator_state.cpu_debug;
             }
+
+            if ( igMenuItem_Bool("Pattern Table Viewer", "", emulator_state.pattern_table_viewer, true) )
+            {
+               emulator_state.pattern_table_viewer = !emulator_state.pattern_table_viewer;
+            }
+
             igEndMenu();
          }
 
@@ -695,13 +709,54 @@ static void gui_cpu_debug(void)
    igEnd();
 }
 
-static void display_create_pixels(void)
+static void gui_pattern_table_viewer(void)
 {
+   igBegin("Pattern Tables", &emulator_state.pattern_table_viewer, ImGuiWindowFlags_None);
+
+      ImVec2 zero_vec = {0, 0};
+      ImVec2 size; 
+      igGetWindowSize(&size);
+
+      igText("Pattern Table 0"); gui_help_marker("Table 1");
+      igSameLine( (size.x / 2) + 5, -1.0f );
+      igText("Pattern Table 1");
+      
+      igBeginChild_Str("Pattern Tables Container", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+         igGetWindowSize(&size);
+         ImVec2 child_size = {(size.x / 2.0f) - 5, (size.x / 2.0f) - 5};   
+
+         ImVec2 uv_min = {0, 1};
+         ImVec2 uv_max = {1, 0};
+         ImVec4 col = {1, 1, 1, 1};
+         ImVec4 border = {0, 0, 0, 0};
+         
+         igBeginChild_Str("Pattern Table 0", child_size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+            igGetWindowSize(&size);
+            glViewport(0, 0, (int) child_size.x, (int) child_size.y);
+            display_resize_framebuffer(child_size.x, child_size.y, pattern_table_textureID, pattern_table_RBO);
+            igImage( (void*) (uintptr_t) pattern_table_textureID, child_size, uv_min, uv_max, col, border); 
+         igEndChild();
+         
+         igSameLine(0.0f, -1.0f);
+
+         igBeginChild_Str("Pattern Table 1", child_size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+            igImage( (void*) (uintptr_t) pattern_table_textureID, child_size, uv_min, uv_max, col, border); 
+         igEndChild();
+      igEndChild();
+   igEnd();
+}
+
+static bool display_init_main_viewport_buffers(void)
+{
+   int width, height;
+   SDL_GetWindowSize(window, &width, &height);
+
    mat4* pixel_pos = malloc(NES_PIXELS_W * NES_PIXELS_W * sizeof(mat4));
    if (pixel_pos == NULL) printf("Failed to allocate memory for pixel pos\n");
-   float pixel_w = DISPLAY_W / NES_PIXELS_W;
-   float pixel_h = DISPLAY_H / NES_PIXELS_H;
-   display_set_pixel_position(pixel_w, pixel_h, pixel_pos);
+
+   float pixel_w = (float) width / NES_PIXELS_W;
+   float pixel_h = (float) height / NES_PIXELS_H;
+   display_set_pixel_position(pixel_w, pixel_h, pixel_pos, NES_PIXELS_W, NES_PIXELS_H);
 
    float pixel_vertices[] = {
       0.0f,    0.0f,    0.0f, // top left
@@ -716,28 +771,29 @@ static void display_create_pixels(void)
    };
 
    // send vertex data for pixels
-   GLuint pixel_VBO, pixel_IBO;
-   glGenVertexArrays(1, &pixel_VAO);
-   glGenBuffers(1, &pixel_VBO);
-   glGenBuffers(1, &pixel_IBO);
+   GLuint viewport_pixel_VBO, viewport_pixel_IBO;
+   glGenVertexArrays(1, &viewport_VAO);
+   glGenBuffers(1, &viewport_pixel_VBO);
+   glGenBuffers(1, &viewport_pixel_IBO);
 
-   glBindVertexArray(pixel_VAO);
-   glBindBuffer(GL_ARRAY_BUFFER, pixel_VBO);
+   glBindVertexArray(viewport_VAO);
+   glBindBuffer(GL_ARRAY_BUFFER, viewport_pixel_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
 
-   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pixel_IBO);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, viewport_pixel_IBO);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
    glEnableVertexAttribArray(0);
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
 
    // send instanced transformation data for pixels
-   GLuint instance_VBO;
-   glGenBuffers(1, &instance_VBO);
+   GLuint transformation_VBO;
+   glGenBuffers(1, &transformation_VBO);
 
-   glBindBuffer(GL_ARRAY_BUFFER, instance_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, transformation_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * NES_PIXELS_W * NES_PIXELS_H, pixel_pos, GL_STATIC_DRAW);
-   
+   free(pixel_pos);
+
    glEnableVertexAttribArray(1);
    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
    glEnableVertexAttribArray(2);
@@ -753,9 +809,9 @@ static void display_create_pixels(void)
    glVertexAttribDivisor(4, 1);
 
    // send instanced color data for pixels
-   glGenBuffers(1, &instanced_color_VBO);
-   glBindBuffer(GL_ARRAY_BUFFER, instanced_color_VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, pixel_colors, GL_DYNAMIC_DRAW);
+   glGenBuffers(1, &viewport_color_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, viewport_color_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, viewport_pixel_colors, GL_DYNAMIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
    
@@ -764,16 +820,107 @@ static void display_create_pixels(void)
    glBindVertexArray(0);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-   free(pixel_pos);
+
+   if ( !display_create_frameBuffers(&viewport_FBO, &viewport_textureID, &viewport_RBO, width, height) ) return false;
+
+   return true;
 }
 
-static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID)
+static bool display_init_pattern_table_buffers(void)
+{
+   int width, height;
+   SDL_GetWindowSize(window, &width, &height);
+
+   mat4* pixel_pos = malloc(128 * 128 * sizeof(mat4));
+   if (pixel_pos == NULL) printf("Failed to allocate memory for pixel pos\n");
+
+   float pixel_w = (float) width / 128;
+   float pixel_h = (float) height / 128;
+   display_set_pixel_position(pixel_w, pixel_h, pixel_pos, 128, 128);
+
+   float pixel_vertices[] = {
+      0.0f,    0.0f,    0.0f, // top left
+      0.0f,    pixel_h, 0.0f, // bottom left
+      pixel_w, pixel_h, 0.0f, // bottom right
+      pixel_w, 0.0f,    0.0f, // top right
+   };
+
+   GLubyte indices[] = {
+      0, 1, 2,
+      2, 3, 0,
+   };
+
+   GLuint pattern_table_VBO, pattern_table_IBO;
+   glGenVertexArrays(1, &pattern_table_VAO);
+   glGenBuffers(1, &pattern_table_VBO);
+   glGenBuffers(1, &pattern_table_IBO);
+
+   glBindVertexArray(pattern_table_VAO);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_table_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
+
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pattern_table_IBO);
+   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+   glEnableVertexAttribArray(0);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*) 0);
+
+   GLuint transformation_VBO;
+   glGenBuffers(1, &transformation_VBO);
+
+   glBindBuffer(GL_ARRAY_BUFFER, transformation_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * 128 * 128, pixel_pos, GL_STATIC_DRAW);
+   free(pixel_pos);
+
+   glEnableVertexAttribArray(1);
+   glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
+   glEnableVertexAttribArray(2);
+   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 1 * sizeof(vec4) ));
+   glEnableVertexAttribArray(3);
+   glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 2 * sizeof(vec4) ));
+   glEnableVertexAttribArray(4);
+   glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 3 * sizeof(vec4) ));
+
+   glVertexAttribDivisor(1, 1);
+   glVertexAttribDivisor(2, 1);
+   glVertexAttribDivisor(3, 1);
+   glVertexAttribDivisor(4, 1);
+
+   GLuint pattern_table_color_VBO;
+   vec4* pattern_table_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
+   //DEBUG_ppu_init_pattern_table(pattern_table_pixel_colors);
+
+   for (int i = 0; i < 16384 - 1; ++i)
+   {
+      pattern_table_pixel_colors[i][0] = 0.2f;
+      pattern_table_pixel_colors[i][1] = 0.5f;
+      pattern_table_pixel_colors[i][2] = 0.8f;
+      pattern_table_pixel_colors[i][3] = 1.0f;
+   }
+
+   glGenBuffers(1, &pattern_table_color_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_table_color_VBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_pixel_colors, GL_STATIC_DRAW);
+   glEnableVertexAttribArray(5);
+   glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
+
+   glVertexAttribDivisor(5, 1);
+
+   glBindVertexArray(0);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+   
+   free(pattern_table_pixel_colors);
+
+   if ( !display_create_frameBuffers(&pattern_table_FBO, &pattern_table_textureID, &pattern_table_RBO, width, height) ) return false;
+
+   return true;
+}
+
+static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height)
 {
    glGenFramebuffers(1, FBO_ID);
    glBindFramebuffer(GL_FRAMEBUFFER, *FBO_ID);
-
-   int width, height;
-   SDL_GetWindowSize(window, &width, &height);
 
    glGenTextures(1, textureID);
    glBindTexture(GL_TEXTURE_2D, *textureID);
@@ -918,16 +1065,16 @@ static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum
  * @param w width of the pixel
  * @param h height of the pixel
 */
-static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[])
+static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[], uint32_t width, uint32_t height)
 {
-   for (size_t row = 0; row < NES_PIXELS_H; ++row)
+   for (size_t row = 0; row < height; ++row)
    {
-      for (size_t col = 0; col < NES_PIXELS_W; ++col)
+      for (size_t col = 0; col < width; ++col)
       {
          mat4 model = GLM_MAT4_IDENTITY_INIT;
          vec3 translation = {pixel_w * col, pixel_h * row, 0.0f};
          glm_translate(model, translation);
-         glm_mat4_copy(model, pixel_pos[row * NES_PIXELS_W + col]);
+         glm_mat4_copy(model, pixel_pos[row * width + col]);
       }
    }
 }
@@ -941,10 +1088,10 @@ void set_pixel_color(uint32_t row, uint32_t col, vec3 color)
 {
    uint32_t index = row * NES_PIXELS_W + col;
 
-   pixel_colors[index][0] = color[0];
-   pixel_colors[index][1] = color[1];
-   pixel_colors[index][2] = color[2];
-   pixel_colors[index][3] = 1.0f;
+   viewport_pixel_colors[index][0] = color[0];
+   viewport_pixel_colors[index][1] = color[1];
+   viewport_pixel_colors[index][2] = color[2];
+   viewport_pixel_colors[index][3] = 1.0f;
 }
 
 static void gui_help_marker(const char* desc)
