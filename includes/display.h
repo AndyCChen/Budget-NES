@@ -41,7 +41,7 @@ void display_update(void);
 void display_shutdown(void);
 uint8_t display_get_refresh_rate(void);
 void display_process_event(bool* done);
-void set_pixel_color(uint32_t row, uint32_t col, vec3 color);
+void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color);
 Emulator_State_t* get_emulator_state(void);
 
 #endif

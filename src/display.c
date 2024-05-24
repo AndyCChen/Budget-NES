@@ -18,6 +18,21 @@
 #define DISPLAY_W 256.0f * 3
 #define DISPLAY_H 240.0f * 3
 
+/**
+ * row 0: top left
+ * row 1: bottom left
+ * row 2: bottom right
+ * row 3: top right
+*/
+#define PIXEL_VERTICES_INIT(pixel_w, pixel_h) {0.0f,    0.0f,    0.0f,  \
+                                               0.0f,    pixel_h, 0.0f,  \
+                                               pixel_w, pixel_h, 0.0f,  \
+                                               pixel_w, 0.0f,    0.0f}; \
+
+// indices of index buffer object for pixel vertices
+#define PIXEL_INDICES_INIT {0, 1, 2,  \
+                            2, 3, 0}; \
+
 static SDL_Window* window = NULL;
 static SDL_GLContext gContext = NULL;
 static ImGuiIO* io = NULL;
@@ -46,7 +61,7 @@ struct Viewport_buffers {
 
 /**
  * Two pattern table that are rendered to their own framebuffers and textures,
- * but they share some of the same VBOs and IBOs.
+ * but they share some of the same VBOs (for vertex data and) and IBOs.
 */
 struct Pattern_tables_buffers {
    GLuint FBO[2];
@@ -67,6 +82,7 @@ static vec4 viewport_pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 static bool display_init_main_viewport_buffers(void);
 static bool display_init_pattern_table_buffers(void);
+static void display_free_pattern_table_buffers(void);
 static bool display_create_shaders(void);
 static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height);
 static void display_resize_texture(int width, int height, GLuint textureID, GLuint RBO_ID);
@@ -166,7 +182,7 @@ bool display_init(void)
    ImGui_ImplOpenGL3_Init(glsl_version);
 
    
-   if ( !display_create_shaders() || !display_init_main_viewport_buffers() || !display_init_pattern_table_buffers() )
+   if ( !display_create_shaders() || !display_init_main_viewport_buffers() )
    {
       return false;
    }
@@ -500,6 +516,19 @@ static void gui_main_viewport(void)
 
             if ( igMenuItem_Bool("Pattern Table Viewer", "", emulator_state.pattern_table_viewer, true) )
             {
+               if (!emulator_state.pattern_table_viewer)
+               {
+                  if ( !display_init_pattern_table_buffers() )
+                  {
+                     printf("Could not initialize pattern table viewer!\n");
+                     display_free_pattern_table_buffers();
+                  }
+               }
+               else
+               {
+                  display_free_pattern_table_buffers();
+               }
+
                emulator_state.pattern_table_viewer = !emulator_state.pattern_table_viewer;
             }
 
@@ -738,7 +767,6 @@ static void gui_cpu_debug(void)
 static void gui_pattern_table_viewer(void)
 {
    igBegin("Pattern Tables", &emulator_state.pattern_table_viewer, ImGuiWindowFlags_None);
-
       ImVec2 zero_vec = {0, 0};
       ImVec2 size; 
       igGetWindowSize(&size);
@@ -770,6 +798,12 @@ static void gui_pattern_table_viewer(void)
             igImage( (void*) (uintptr_t) pattern_tables.textureID[1], size, uv_min, uv_max, col, border); 
          igEndChild();
       igEndChild();
+
+      if (!emulator_state.pattern_table_viewer)
+      {
+         display_free_pattern_table_buffers();
+      }
+
    igEnd();
 }
 
@@ -779,23 +813,15 @@ static bool display_init_main_viewport_buffers(void)
    SDL_GetWindowSize(window, &width, &height);
 
    mat4* pixel_pos = malloc(NES_PIXELS_W * NES_PIXELS_W * sizeof(mat4));
-   if (pixel_pos == NULL) printf("Failed to allocate memory for pixel pos\n");
+   if (pixel_pos == NULL) printf("Failed to allocate memory for main viewport pixel pos\n");
 
    float pixel_w = (float) width / NES_PIXELS_W;
    float pixel_h = (float) height / NES_PIXELS_H;
    display_set_pixel_position(pixel_w, pixel_h, pixel_pos, NES_PIXELS_W, NES_PIXELS_H);
 
-   float pixel_vertices[] = {
-      0.0f,    0.0f,    0.0f, // top left
-      0.0f,    pixel_h, 0.0f, // bottom left
-      pixel_w, pixel_h, 0.0f, // bottom right
-      pixel_w, 0.0f,    0.0f, // top right
-   };
+   float pixel_vertices[] = PIXEL_VERTICES_INIT(pixel_w, pixel_h);
 
-   GLubyte indices[] = {
-      0, 1, 2,
-      2, 3, 0,
-   };
+   GLubyte indices[] = PIXEL_INDICES_INIT;
 
    // send vertex data for pixels
    GLuint vertex_VBO, vertex_IBO;
@@ -855,6 +881,7 @@ static bool display_init_main_viewport_buffers(void)
 
 static bool display_init_pattern_table_buffers(void)
 {
+   printf("initialize buffer!\n");
    int width, height;
    SDL_GetWindowSize(window, &width, &height);
 
@@ -862,7 +889,7 @@ static bool display_init_pattern_table_buffers(void)
 
    if (pixel_pos == NULL)
    {
-      printf("Failed to allocate memory for pixel pos\n");
+      printf("Failed to allocate memory for pattern table pixel pos\n");
       return false;
    }
 
@@ -871,7 +898,7 @@ static bool display_init_pattern_table_buffers(void)
 
    if (pattern_table_0_pixel_colors == NULL || pattern_table_1_pixel_colors == NULL)
    {
-      printf("Failed to allocate memory for pixel colors\n");
+      printf("Failed to allocate memory for patten table pixel colors\n");
       return false;
    }
 
@@ -881,17 +908,9 @@ static bool display_init_pattern_table_buffers(void)
    float pixel_h = (float) height / 128;
    display_set_pixel_position(pixel_w, pixel_h, pixel_pos, 128, 128);
 
-   float pixel_vertices[] = {
-      0.0f,    0.0f,    0.0f, // top left
-      0.0f,    pixel_h, 0.0f, // bottom left
-      pixel_w, pixel_h, 0.0f, // bottom right
-      pixel_w, 0.0f,    0.0f, // top right
-   };
+   float pixel_vertices[] = PIXEL_VERTICES_INIT(pixel_w, pixel_h);
 
-   GLubyte indices[] = {
-      0, 1, 2,
-      2, 3, 0,
-   };
+   GLubyte indices[] = PIXEL_INDICES_INIT;
 
    // buffers used by both pattern tables
 
@@ -993,6 +1012,22 @@ static bool display_init_pattern_table_buffers(void)
    if ( !display_create_frameBuffers(&pattern_tables.FBO[1], &pattern_tables.textureID[1], &pattern_tables.RBO[1], width, height) ) return false;
 
    return true;
+}
+
+static void display_free_pattern_table_buffers(void)
+{
+   printf("free buffer!\n");
+   glBindVertexArray(0);
+
+   glDeleteTextures(2, pattern_tables.textureID);
+   glDeleteRenderbuffers(2, pattern_tables.RBO);
+   glDeleteFramebuffers(2, pattern_tables.FBO);
+
+   glDeleteBuffers(1, &pattern_tables.vertex_VBO);
+   glDeleteBuffers(1, &pattern_tables.vertex_IBO);
+   glDeleteBuffers(1, &pattern_tables.translation_VBO);
+   glDeleteBuffers(2, pattern_tables.color_VBO);
+   glDeleteVertexArrays(2, pattern_tables.VAO);
 }
 
 static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height)
@@ -1155,11 +1190,11 @@ static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_
 }
 
 /**
- * Updates color of a pixel in the buffer on host memory side.
+ * Updates color of a pixel in the buffer on host memory side for the main viewport.
  * @param row of the pixel
  * @param col of the pixel
 */
-void set_pixel_color(uint32_t row, uint32_t col, vec3 color)
+void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color)
 {
    uint32_t index = row * NES_PIXELS_W + col;
 

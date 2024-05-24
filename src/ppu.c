@@ -205,7 +205,7 @@ void ppu_cycle(void)
          }
 
          uint8_t palette_index = palette_ram[ output_pixel ] ;
-         set_pixel_color( scanline, cycle - 1, system_palette[palette_index & 0x3F] );
+         set_viewport_pixel_color( scanline, cycle - 1, system_palette[palette_index & 0x3F] );
       }
    }
    else if (scanline >= 240 && scanline <= 260) // vertical blank scanlines
