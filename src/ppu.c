@@ -683,7 +683,7 @@ bool get_nmi_status(void)
    return nmi_has_occured;
 }
 
-void DEBUG_ppu_init_pattern_table(vec4* data)
+void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1)
 {
    const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
 
@@ -695,20 +695,35 @@ void DEBUG_ppu_init_pattern_table(vec4* data)
          
          for (int fine_y = 0; fine_y < 8; ++fine_y)
          {
-            uint8_t lo = cartridge_ppu_read( (tile_number << 4) | fine_y );
-            uint8_t hi = cartridge_ppu_read( (tile_number << 4) | (1 << 3) | fine_y );
+            uint8_t p0_lo = cartridge_ppu_read( (tile_number << 4) | fine_y );
+            uint8_t p0_hi = cartridge_ppu_read( (tile_number << 4) | (1 << 3) | fine_y );
+
+            uint8_t p1_lo = cartridge_ppu_read( (1 << 12) | (tile_number << 4) | fine_y );
+            uint8_t p1_hi = cartridge_ppu_read( (1 << 12) | (tile_number << 4) | (1 << 3) | fine_y );
 
             for (int fine_x = 0; fine_x < 8; ++fine_x)
             {
-               vec3* color = &system_palette[ debug_palette[( (hi & 0x80) >> 6 ) | ( (lo & 0x80) >> 7 )] ];
-               uint32_t index = (tile_row * 128 * 8) + (tile_col * 8) + (fine_y * 128) + fine_x;
-               data[index][0] = color[0][0];
-               data[index][1] = color[0][1];
-               data[index][2] = color[0][2];
-               data[index][3] = 1.0f;
+               
+               vec3* p0_color = &system_palette[ debug_palette[( (p0_hi & 0x80) >> 6 ) | ( (p0_lo & 0x80) >> 7 )] ];
+               vec3* p1_color = &system_palette[ debug_palette[( (p1_hi & 0x80) >> 6 ) | ( (p1_lo & 0x80) >> 7 )] ];
 
-               lo = lo << 1;
-               hi = hi << 1;
+               uint32_t index = (tile_row * 128 * 8) + (tile_col * 8) + (fine_y * 128) + fine_x;
+
+               p0[index][0] = p0_color[0][0];
+               p0[index][1] = p0_color[0][1];
+               p0[index][2] = p0_color[0][2];
+               p0[index][3] = 1.0f;
+
+               p1[index][0] = p1_color[0][0];
+               p1[index][1] = p1_color[0][1];
+               p1[index][2] = p1_color[0][2];
+               p1[index][3] = 1.0f;
+
+               p0_lo = p0_lo << 1;
+               p0_hi = p0_hi << 1;
+
+               p1_lo = p1_lo << 1;
+               p1_hi = p1_hi << 1;
             }
          }
       }

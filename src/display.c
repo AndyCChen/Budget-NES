@@ -36,11 +36,31 @@ static void gui_help_marker(const char* desc);
 // opengl graphics
 // ---------------------------------------------------------------
 
-static GLuint viewport_FBO, pattern_table_FBO;      
-static GLuint viewport_textureID, pattern_table_textureID;
-static GLuint viewport_RBO, pattern_table_RBO;       
-static GLuint viewport_VAO, pattern_table_VAO;
-static GLuint viewport_color_VBO;
+struct Viewport_buffers {
+   GLuint FBO;
+   GLuint textureID;
+   GLuint RBO;
+   GLuint VAO;
+   GLuint color_VBO;
+};
+
+/**
+ * Two pattern table that are rendered to their own framebuffers and textures,
+ * but they share some of the same VBOs and IBOs.
+*/
+struct Pattern_tables_buffers {
+   GLuint FBO[2];
+   GLuint textureID[2];
+   GLuint RBO[2];
+   GLuint VAO[2];
+   GLuint color_VBO[2];
+   GLuint vertex_VBO;
+   GLuint vertex_IBO;
+   GLuint translation_VBO;
+};
+
+static struct Viewport_buffers viewport;
+static struct Pattern_tables_buffers pattern_tables;
 
 static vec4 viewport_pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
 
@@ -49,7 +69,7 @@ static bool display_init_main_viewport_buffers(void);
 static bool display_init_pattern_table_buffers(void);
 static bool display_create_shaders(void);
 static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height);
-static void display_resize_framebuffer(int width, int height, GLuint textureID, GLuint RBO_ID);
+static void display_resize_texture(int width, int height, GLuint textureID, GLuint RBO_ID);
 static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[], uint32_t width, uint32_t height);
 
 // global state of emulator
@@ -338,23 +358,29 @@ void display_render(void)
    if (emulator_state.cpu_debug) gui_cpu_debug();
    gui_demo();
    
-   // send the updated color values buffer for pixels all at once
-   glBindBuffer(GL_ARRAY_BUFFER, viewport_color_VBO);
+   // update color buffer of main display every frame
+   glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &viewport_pixel_colors);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
    gui_main_viewport();
 
-   glBindFramebuffer(GL_FRAMEBUFFER, viewport_FBO);
-   glBindVertexArray(viewport_VAO);
+   glBindFramebuffer(GL_FRAMEBUFFER, viewport.FBO);
+   glBindVertexArray(viewport.VAO);
    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
    if (emulator_state.pattern_table_viewer) 
    {
       gui_pattern_table_viewer();
-      glBindFramebuffer(GL_FRAMEBUFFER, pattern_table_FBO);
-      glBindVertexArray(pattern_table_VAO);
+
+      glBindFramebuffer(GL_FRAMEBUFFER, pattern_tables.FBO[0]);
+      glBindVertexArray(pattern_tables.VAO[0]);
+      glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, 128 * 128);
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+      glBindFramebuffer(GL_FRAMEBUFFER, pattern_tables.FBO[1]);
+      glBindVertexArray(pattern_tables.VAO[1]);
       glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, 128 * 128);
       glBindFramebuffer(GL_FRAMEBUFFER, 0);
    }
@@ -429,10 +455,10 @@ static void gui_main_viewport(void)
 {
    ImVec2 zero_vec = {0, 0}; 
 
-   ImGuiViewport* viewport = igGetMainViewport();
-   igSetNextWindowPos(viewport->WorkPos, 0, zero_vec);
-   igSetNextWindowSize(viewport->WorkSize, 0);
-   igSetNextWindowViewport(viewport->ID);
+   ImGuiViewport* main_viewport = igGetMainViewport();
+   igSetNextWindowPos(main_viewport->WorkPos, 0, zero_vec);
+   igSetNextWindowSize(main_viewport->WorkSize, 0);
+   igSetNextWindowViewport(main_viewport->ID);
    
    igPushStyleVar_Float(ImGuiStyleVar_WindowRounding, 0.0f);
    igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -545,12 +571,12 @@ static void gui_main_viewport(void)
          ImVec2 size;
          igGetWindowSize(&size);
          glViewport(0, 0, (int) size.x, (int) size.y);
-         display_resize_framebuffer((int) size.x, (int) size.y, viewport_textureID, viewport_RBO);
+         display_resize_texture((int) size.x, (int) size.y, viewport.textureID, viewport.RBO);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
          ImVec4 border = {0, 0, 0, 0};
-         igImage( (void*) (uintptr_t) viewport_textureID, size, uv_min, uv_max, col, border); 
+         igImage( (void*) (uintptr_t) viewport.textureID, size, uv_min, uv_max, col, border); 
       igEndChild();
    igEnd();
 }
@@ -717,11 +743,11 @@ static void gui_pattern_table_viewer(void)
       ImVec2 size; 
       igGetWindowSize(&size);
 
-      igText("Pattern Table 0"); gui_help_marker("Table 1");
+      igText("Pattern Table 0"); gui_help_marker("Pattern table 0 located at $0000-$0FFF of ppu address space");
       igSameLine( (size.x / 2) + 5, -1.0f );
-      igText("Pattern Table 1");
+      igText("Pattern Table 1"); gui_help_marker("Pattern table 1 located at $1000-$1FFF of ppu address space");
       
-      igBeginChild_Str("Pattern Tables Container", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+      igBeginChild_Str("Pattern Tables Container", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar);
          igGetWindowSize(&size);
          ImVec2 child_size = {(size.x / 2.0f) - 5, (size.x / 2.0f) - 5};   
 
@@ -732,15 +758,16 @@ static void gui_pattern_table_viewer(void)
          
          igBeginChild_Str("Pattern Table 0", child_size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
             igGetWindowSize(&size);
-            glViewport(0, 0, (int) child_size.x, (int) child_size.y);
-            display_resize_framebuffer(child_size.x, child_size.y, pattern_table_textureID, pattern_table_RBO);
-            igImage( (void*) (uintptr_t) pattern_table_textureID, child_size, uv_min, uv_max, col, border); 
+            glViewport(0, 0, (int) size.x, (int) size.y);
+            display_resize_texture(size.x, size.y, pattern_tables.textureID[0], pattern_tables.RBO[0]);
+            igImage( (void*) (uintptr_t) pattern_tables.textureID[0], size, uv_min, uv_max, col, border); 
          igEndChild();
          
          igSameLine(0.0f, -1.0f);
 
-         igBeginChild_Str("Pattern Table 1", child_size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
-            igImage( (void*) (uintptr_t) pattern_table_textureID, child_size, uv_min, uv_max, col, border); 
+         igBeginChild_Str("Pattern Table 1", size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
+            display_resize_texture(size.x, size.y, pattern_tables.textureID[1], pattern_tables.RBO[1]);
+            igImage( (void*) (uintptr_t) pattern_tables.textureID[1], size, uv_min, uv_max, col, border); 
          igEndChild();
       igEndChild();
    igEnd();
@@ -771,16 +798,16 @@ static bool display_init_main_viewport_buffers(void)
    };
 
    // send vertex data for pixels
-   GLuint viewport_pixel_VBO, viewport_pixel_IBO;
-   glGenVertexArrays(1, &viewport_VAO);
-   glGenBuffers(1, &viewport_pixel_VBO);
-   glGenBuffers(1, &viewport_pixel_IBO);
+   GLuint vertex_VBO, vertex_IBO;
+   glGenVertexArrays(1, &viewport.VAO);
+   glGenBuffers(1, &vertex_VBO);
+   glGenBuffers(1, &vertex_IBO);
 
-   glBindVertexArray(viewport_VAO);
-   glBindBuffer(GL_ARRAY_BUFFER, viewport_pixel_VBO);
+   glBindVertexArray(viewport.VAO);
+   glBindBuffer(GL_ARRAY_BUFFER, vertex_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
 
-   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, viewport_pixel_IBO);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_IBO);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
    glEnableVertexAttribArray(0);
@@ -809,8 +836,8 @@ static bool display_init_main_viewport_buffers(void)
    glVertexAttribDivisor(4, 1);
 
    // send instanced color data for pixels
-   glGenBuffers(1, &viewport_color_VBO);
-   glBindBuffer(GL_ARRAY_BUFFER, viewport_color_VBO);
+   glGenBuffers(1, &viewport.color_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, viewport_pixel_colors, GL_DYNAMIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
@@ -821,7 +848,7 @@ static bool display_init_main_viewport_buffers(void)
    glBindBuffer(GL_ARRAY_BUFFER, 0);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-   if ( !display_create_frameBuffers(&viewport_FBO, &viewport_textureID, &viewport_RBO, width, height) ) return false;
+   if ( !display_create_frameBuffers(&viewport.FBO, &viewport.textureID, &viewport.RBO, width, height) ) return false;
 
    return true;
 }
@@ -832,7 +859,23 @@ static bool display_init_pattern_table_buffers(void)
    SDL_GetWindowSize(window, &width, &height);
 
    mat4* pixel_pos = malloc(128 * 128 * sizeof(mat4));
-   if (pixel_pos == NULL) printf("Failed to allocate memory for pixel pos\n");
+
+   if (pixel_pos == NULL)
+   {
+      printf("Failed to allocate memory for pixel pos\n");
+      return false;
+   }
+
+   vec4* pattern_table_0_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
+   vec4* pattern_table_1_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
+
+   if (pattern_table_0_pixel_colors == NULL || pattern_table_1_pixel_colors == NULL)
+   {
+      printf("Failed to allocate memory for pixel colors\n");
+      return false;
+   }
+
+   DEBUG_ppu_init_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
 
    float pixel_w = (float) width / 128;
    float pixel_h = (float) height / 128;
@@ -850,57 +893,89 @@ static bool display_init_pattern_table_buffers(void)
       2, 3, 0,
    };
 
-   GLuint pattern_table_VBO, pattern_table_IBO;
-   glGenVertexArrays(1, &pattern_table_VAO);
-   glGenBuffers(1, &pattern_table_VBO);
-   glGenBuffers(1, &pattern_table_IBO);
+   // buffers used by both pattern tables
 
-   glBindVertexArray(pattern_table_VAO);
-   glBindBuffer(GL_ARRAY_BUFFER, pattern_table_VBO);
+   glGenBuffers(1, &pattern_tables.vertex_VBO);
+   glGenBuffers(1, &pattern_tables.vertex_IBO);
+   glGenBuffers(1, &pattern_tables.translation_VBO);
+
+   // setup buffers for pattern table 0
+
+   glGenVertexArrays(1, &pattern_tables.VAO[0]);
+   
+   glBindVertexArray(pattern_tables.VAO[0]);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.vertex_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
 
-   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pattern_table_IBO);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pattern_tables.vertex_IBO);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
    glEnableVertexAttribArray(0);
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*) 0);
 
-   GLuint transformation_VBO;
-   glGenBuffers(1, &transformation_VBO);
-
-   glBindBuffer(GL_ARRAY_BUFFER, transformation_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.translation_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * 128 * 128, pixel_pos, GL_STATIC_DRAW);
-   free(pixel_pos);
 
    glEnableVertexAttribArray(1);
    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
+   glVertexAttribDivisor(1, 1);
+   
    glEnableVertexAttribArray(2);
    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 1 * sizeof(vec4) ));
+   glVertexAttribDivisor(2, 1);
+
    glEnableVertexAttribArray(3);
    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 2 * sizeof(vec4) ));
+   glVertexAttribDivisor(3, 1);
+
    glEnableVertexAttribArray(4);
    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 3 * sizeof(vec4) ));
-
-   glVertexAttribDivisor(1, 1);
-   glVertexAttribDivisor(2, 1);
-   glVertexAttribDivisor(3, 1);
    glVertexAttribDivisor(4, 1);
 
-   GLuint pattern_table_color_VBO;
-   vec4* pattern_table_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
-   DEBUG_ppu_init_pattern_table(pattern_table_pixel_colors);
+   glGenBuffers(1, &pattern_tables.color_VBO[0]);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[0]);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_0_pixel_colors, GL_STATIC_DRAW);
+   glEnableVertexAttribArray(5);
+   glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
 
-   /* for (int i = 0; i < 16384 - 1; ++i)
-   {
-      pattern_table_pixel_colors[i][0] = 0.2f;
-      pattern_table_pixel_colors[i][1] = 0.5f;
-      pattern_table_pixel_colors[i][2] = 0.8f;
-      pattern_table_pixel_colors[i][3] = 1.0f;
-   } */
+   glVertexAttribDivisor(5, 1);
 
-   glGenBuffers(1, &pattern_table_color_VBO);
-   glBindBuffer(GL_ARRAY_BUFFER, pattern_table_color_VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_pixel_colors, GL_STATIC_DRAW);
+   glBindVertexArray(0);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+   // setup buffers for pattern table 1
+
+   glGenVertexArrays(1, &pattern_tables.VAO[1]);
+
+   glBindVertexArray(pattern_tables.VAO[1]);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.vertex_VBO);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pattern_tables.vertex_IBO);
+
+   glEnableVertexAttribArray(0);
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*) 0);
+
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.translation_VBO);
+
+   glEnableVertexAttribArray(1);
+   glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
+   glVertexAttribDivisor(1, 1);
+   
+   glEnableVertexAttribArray(2);
+   glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 1 * sizeof(vec4) ));
+   glVertexAttribDivisor(2, 1);
+   
+   glEnableVertexAttribArray(3);
+   glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 2 * sizeof(vec4) ));
+   glVertexAttribDivisor(3, 1);
+
+   glEnableVertexAttribArray(4);
+   glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 3 * sizeof(vec4) ));
+   glVertexAttribDivisor(4, 1);
+
+   glGenBuffers(1, &pattern_tables.color_VBO[1]);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[1]);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_1_pixel_colors, GL_STATIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
 
@@ -910,9 +985,12 @@ static bool display_init_pattern_table_buffers(void)
    glBindBuffer(GL_ARRAY_BUFFER, 0);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
    
-   free(pattern_table_pixel_colors);
+   free(pixel_pos);
+   free(pattern_table_0_pixel_colors);
+   free(pattern_table_1_pixel_colors);
 
-   if ( !display_create_frameBuffers(&pattern_table_FBO, &pattern_table_textureID, &pattern_table_RBO, width, height) ) return false;
+   if ( !display_create_frameBuffers(&pattern_tables.FBO[0], &pattern_tables.textureID[0], &pattern_tables.RBO[0], width, height) ) return false;
+   if ( !display_create_frameBuffers(&pattern_tables.FBO[1], &pattern_tables.textureID[1], &pattern_tables.RBO[1], width, height) ) return false;
 
    return true;
 }
@@ -928,28 +1006,25 @@ static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuin
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
    glBindTexture(GL_TEXTURE_2D, 0);
-
    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *textureID, 0);
 
    glGenRenderbuffers(1, RBO_ID);
    glBindRenderbuffer(GL_RENDERBUFFER, *RBO_ID);
    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, *RBO_ID);
-
    
    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
    {
       printf("Framebuffer creation failed!\n");
       return false;
    }
+
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-   
    return true;
 }
 
-static void display_resize_framebuffer(int width, int height, GLuint textureID, GLuint RBO_ID)
+static void display_resize_texture(int width, int height, GLuint textureID, GLuint RBO_ID)
 {
    glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
