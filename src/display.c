@@ -15,8 +15,8 @@
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
-#define DISPLAY_W 256.0f * 3
-#define DISPLAY_H 240.0f * 3
+#define DISPLAY_W_INIT 256.0f * 3
+#define DISPLAY_H_INIT 240.0f * 3
 
 /**
  * row 0: top left
@@ -140,7 +140,7 @@ bool display_init(void)
    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
    SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN);
-   window = SDL_CreateWindow("Budget NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W, DISPLAY_H, window_flags);
+   window = SDL_CreateWindow("Budget NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W_INIT, DISPLAY_H_INIT, window_flags);
 
    if (window == NULL)
    {
@@ -556,8 +556,8 @@ static void gui_main_viewport(void)
 
             if ( igMenuItem_Bool("1x", "", emulator_state.display_size & 2, true) )
             {
-               float w = DISPLAY_W - (NES_PIXELS_W);
-               float h = DISPLAY_H - (NES_PIXELS_H);
+               float w = DISPLAY_W_INIT - (NES_PIXELS_W);
+               float h = DISPLAY_H_INIT - (NES_PIXELS_H);
 
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
@@ -568,8 +568,8 @@ static void gui_main_viewport(void)
 
             if ( igMenuItem_Bool("2x", "", emulator_state.display_size & 4, true) )
             {
-               float w = DISPLAY_W;
-               float h = DISPLAY_H;
+               float w = DISPLAY_W_INIT;
+               float h = DISPLAY_H_INIT;
 
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
@@ -580,8 +580,8 @@ static void gui_main_viewport(void)
 
             if ( igMenuItem_Bool("3x", "", emulator_state.display_size & 8, true) )
             {
-               float w = DISPLAY_W + (NES_PIXELS_W);
-               float h = DISPLAY_H + (NES_PIXELS_H);
+               float w = DISPLAY_W_INIT + (NES_PIXELS_W);
+               float h = DISPLAY_H_INIT + (NES_PIXELS_H);
 
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
@@ -904,8 +904,8 @@ static bool display_init_pattern_table_buffers(void)
 
    DEBUG_ppu_init_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
 
-   float pixel_w = (float) width / 128;
-   float pixel_h = (float) height / 128;
+   float pixel_w = (float) DISPLAY_W_INIT / 128;
+   float pixel_h = (float) DISPLAY_H_INIT / 128;
    display_set_pixel_position(pixel_w, pixel_h, pixel_pos, 128, 128);
 
    float pixel_vertices[] = PIXEL_VERTICES_INIT(pixel_w, pixel_h);
@@ -1131,7 +1131,7 @@ static bool display_create_shaders(void)
    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
 
    mat4 ortho_projection = GLM_MAT4_IDENTITY_INIT;
-   glm_ortho(0.0f, DISPLAY_W, DISPLAY_H, 0.0f, -1.0f, 1.0f, ortho_projection);
+   glm_ortho(0.0f, DISPLAY_W_INIT, DISPLAY_H_INIT, 0.0f, -1.0f, 1.0f, ortho_projection);
    GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
 
