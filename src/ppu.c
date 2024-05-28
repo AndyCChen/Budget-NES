@@ -137,7 +137,7 @@ void ppu_cycle(void)
             if (!sprite_found)
             {
                // contruct 4 bit pallete index with pattern table bitplanes and attribute bytes of the sprite
-               sprite_pixel = (output_sprites[i].lo_bitplane >> 7) & 0x1;
+               sprite_pixel =  (output_sprites[i].lo_bitplane >> 7) & 0x1;
                sprite_pixel |= ( (output_sprites[i].hi_bitplane >> 7) & 0x1 ) << 1;
                sprite_pixel |= (output_sprites[i].attribute & 0x3) << 2;
 
@@ -158,22 +158,34 @@ void ppu_cycle(void)
    // scanline 0-239 (i.e 240 scanlines) are the visible scanlines to the display
    if (scanline <= 239)
    {
-      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table if rendering enabled
+      uint8_t output_pixel = 0;
 
-      if (cycle == 1)
+      if (ppu_mask & 0x18) // check if rendering is enabled
       {
-         sprite_clear_secondary_oam(); // for simplicity, initialize secondary oam all cycle 1 of ppu visible scanlines
-      }
+         scanline_lookup[cycle]();
 
-      if (cycle == 65)
-      {
-         sprite_evaluation();         // for simplicity, do sprite evaluation all in 1 ppu cycle during cycle 65 of a visible scanline
+         if (cycle == 1)
+         {
+            sprite_clear_secondary_oam(); // for simplicity, initialize secondary oam all cycle 1 of ppu visible scanlines
+         }
+
+         if (cycle == 65)
+         {
+            sprite_evaluation();         // for simplicity, do sprite evaluation all in 1 ppu cycle during cycle 65 of a visible scanline
+         }
+
+         if ( (ppu_mask & 0x08) == 0 )
+         {
+            background_pixel = 0;
+         }
+         else if ( (ppu_mask & 0x10) == 0 )
+         {
+            sprite_pixel = 0;
+         }
       }
 
       if (cycle >= 1 && cycle <= 256)
       {
-         uint8_t output_pixel = 0;
-
          // no active sprite for this pixel so we just choose from the background
          if (active_sprite == -1)
          {
@@ -192,6 +204,7 @@ void ppu_cycle(void)
             // bg and sp are background and sprite color indices within a palette, 0 means that color is the transparent background color
             uint8_t bg = background_pixel & 0x3;
             uint8_t sp = sprite_pixel & 0x3;
+
             // 0: sprite is in front of background, 1: sprite is behind background
             uint8_t sp_priority = (output_sprites[active_sprite].attribute & 0x20) >> 5;
 
@@ -240,7 +253,7 @@ void ppu_cycle(void)
 
       if (cycle >= 280 && cycle <= 304)
       {
-         if (ppu_mask & 0x18) transfer_t_vertical(); // transfer if rendering enabled
+         if (ppu_mask & 0x18) transfer_t_vertical(); // reload vertical scroll bits if rendering enabled
       }
       else if (cycle == 339)
       {
@@ -685,7 +698,7 @@ bool get_nmi_status(void)
 
 void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1)
 {
-   const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
+   //const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
 
    for (int tile_row = 0; tile_row < 16; ++tile_row)
    {
@@ -703,9 +716,8 @@ void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1)
 
             for (int fine_x = 0; fine_x < 8; ++fine_x)
             {
-               
-               vec3* p0_color = &system_palette[ debug_palette[( (p0_hi & 0x80) >> 6 ) | ( (p0_lo & 0x80) >> 7 )] ];
-               vec3* p1_color = &system_palette[ debug_palette[( (p1_hi & 0x80) >> 6 ) | ( (p1_lo & 0x80) >> 7 )] ];
+               vec3* p0_color = &system_palette[ palette_ram[( (p0_hi & 0x80) >> 6 ) | ( (p0_lo & 0x80) >> 7 )] ];
+               vec3* p1_color = &system_palette[ palette_ram[( (p1_hi & 0x80) >> 6 ) | ( (p1_lo & 0x80) >> 7 )] ];
 
                uint32_t index = (tile_row * 128 * 8) + (tile_col * 8) + (fine_y * 128) + fine_x;
 
