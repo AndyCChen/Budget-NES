@@ -27,6 +27,7 @@
 static cpu_6502_t cpu;
 
 static uint8_t cpu_fetch(void);
+static uint8_t cpu_fetch_no_increment(void);
 static uint8_t cpu_execute(void);
 static void cpu_decode(uint8_t opcode);
 static uint8_t branch(void);
@@ -550,6 +551,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
              * in 2's complement, so the added extra 8 bits are all set to 1, hence the 0xFF00 bitmask.
             */
             instruction_operand = cpu.pc + ( (uint16_t) offset_byte | 0xFF00 );
+            //instruction_operand = cpu.pc - offset_byte;
          }
          else
          {
@@ -2592,10 +2594,10 @@ void cpu_NMI(void)
 */
 static uint8_t branch(void)
 {
-   cpu_fetch(); // next instruction byte is fetched in the cpu pipeline
+   cpu_fetch_no_increment(); // next instruction byte is fetched in the cpu pipeline
    uint8_t extra_cycle = (instruction_operand & 0xFF00) != (cpu.pc & 0xFF00);
 
-   if (extra_cycle) cpu_tick(); // extra cycle to fix pc hight byte due to page cross
+   if (extra_cycle) cpu_tick(); // extra cycle to fix pc high byte due to page cross
 
    cpu.pc = instruction_operand;
 
@@ -2614,6 +2616,18 @@ static uint8_t cpu_fetch(void)
    // fetch
    uint8_t fetched_byte = cpu_bus_read(cpu.pc);
    ++cpu.pc;
+
+   return fetched_byte;
+}
+
+/**
+ * Same exact function as cpu_fetch but does not increment the program counter
+ * @returns the fetched byte
+*/
+static uint8_t cpu_fetch_no_increment(void)
+{
+   // fetch
+   uint8_t fetched_byte = cpu_bus_read(cpu.pc);
 
    return fetched_byte;
 }
