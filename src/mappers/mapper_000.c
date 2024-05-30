@@ -1,4 +1,5 @@
 #include "../includes/mappers/mapper_000.h"
+#include "../includes/mappers/mirror_config.h"
 
 #define CPU_CARTRIDGE_PRG_RAM_START 0x6000
 #define CPU_CARTRIDGE_PRG_RAM_END   0x7FFF
@@ -53,22 +54,11 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
 
       if ( header->nametable_arrangement )
       {
-         // vertical mirroring
-         position = position & ~(0x0800);
-
-
+         mirror_config_vertical(&position);
       }
       else
       {
-         // horizontal mirroring
-         if (position >= 0x2000 && position <= 0x27FF)
-         {
-            position = position & ~(0x0400);
-         }
-         else
-         {
-            position = ( position & ~(0x0C00) ) | 0x400;
-         }
+         mirror_config_horizontal(&position);
       }
 
       *mapped_addr = position & 0x7FF;
@@ -118,20 +108,11 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
 
       if ( header->nametable_arrangement )
       {
-         // vertical mirroring
-         position = position & ~(0x0800);
+         mirror_config_vertical(&position);
       }
       else
       {
-         // horizontal mirroring
-         if (position >= 0x2000 && position <= 0x27FF)
-         {
-            position = position & ~(0x0400);
-         }
-         else
-         {
-            position = ( position & ~(0x0C00) ) | 0x400;
-         }
+         mirror_config_horizontal(&position);
       }
 
       *mapped_addr = position & 0x7FF;
