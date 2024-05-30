@@ -89,6 +89,7 @@ add_executable(nes
    src/disassembler.c
    src/controllers.c
    src/mapper.c
+   src/mappers/mirror_config.c
    src/mappers/mapper_000.c
 )
 
