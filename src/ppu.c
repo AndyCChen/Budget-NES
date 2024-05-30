@@ -62,7 +62,7 @@ static uint8_t open_bus = 0;
 
 static uint8_t palette_ram[32];
 static uint8_t oam_ram[256];
-static uint8_t secondary_oam_ram[32];
+static input_sprite_t secondary_oam_ram[8];
 static output_sprite_t output_sprites[8]; // array of fetched sprites that will be rendered on the next scanline
 static uint8_t number_of_sprites = 0;     // number of sprites to draw on the next scanline
 
@@ -174,6 +174,7 @@ void ppu_cycle(void)
             sprite_evaluation();         // for simplicity, do sprite evaluation all in 1 ppu cycle during cycle 65 of a visible scanline
          }
 
+         // check if rendering of background or sprite pixels are disabled, if disabled just set color to transparent background color
          if ( (ppu_mask & 0x08) == 0 )
          {
             background_pixel = 0;
@@ -214,7 +215,10 @@ void ppu_cycle(void)
             else                         output_pixel = (sp_priority) ? background_pixel : (0x10 | sprite_pixel);
 
             // check for sprite 0 hit
-            
+            if ( active_sprite == 0 )
+            {
+                
+            }
          }
 
          uint8_t palette_index = palette_ram[ output_pixel ] ;
@@ -231,11 +235,6 @@ void ppu_cycle(void)
          }
       }
 
-      if (scanline == 260 && cycle == 340)
-      {
-         nmi_has_occured = false;
-      }
-
       if (scanline == 241 && cycle == 1)
       {  
          ppu_status |= 0x80; // set VBlank flag on cycle 1 of scanline 241  
@@ -247,6 +246,7 @@ void ppu_cycle(void)
    {
       if (cycle == 1)
       {
+         nmi_has_occured = false;
          odd_even_flag = !odd_even_flag;
          ppu_status &= ~0xC0; // clear VBlank and sprite 0 flag on cycle 1 of scanline 261
       }
@@ -327,7 +327,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
       case OAMDMA:
       {
          uint16_t read_address = data << 8;
-         cpu_tick();
+        // cpu_tick();
          for (size_t i = 0; i < 256; ++i)
          {
             cpu_tick();
@@ -524,28 +524,34 @@ void transfer_t_vertical(void)
 
 void sprite_clear_secondary_oam(void)
 {
-   for (size_t i = 0; i < 32; ++i)
+   for (size_t i = 0; i < 8; ++i)
    {
-      secondary_oam_ram[i] = 0xFF;
+      secondary_oam_ram[i].sprite_id  = 0xFF;
+      secondary_oam_ram[i].tile_id    = 0xFF;
+      secondary_oam_ram[i].y_coord    = 0xFF;
+      secondary_oam_ram[i].attribute  = 0xFF;
+      secondary_oam_ram[i].x_position = 0xFF;
    }
 }
 
 static void sprite_evaluation(void)
 {
-   size_t secondary_oam_index = 0;
+   uint8_t secondary_oam_index = 0;
+   uint8_t sprite_id = 0;
    number_of_sprites = 0;
    while ( true )
    {
       uint8_t y_coord = oam_ram[oam_address];
-      if ( secondary_oam_index < 32 )
+      if ( secondary_oam_index < 8 )
       {
-         secondary_oam_ram[secondary_oam_index] = y_coord;
+         secondary_oam_ram[secondary_oam_index].sprite_id = sprite_id;
+         secondary_oam_ram[secondary_oam_index].y_coord = y_coord;
 
          if ( (scanline - y_coord) >= 0 && (scanline - y_coord) < 8 ) // if sprite is in y range, copy rest of sprite data into secondary oam
          {
-            secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 1]; // tile index
-            secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 2]; // attributes
-            secondary_oam_ram[++secondary_oam_index] = oam_ram[oam_address + 3]; // x position
+            secondary_oam_ram[secondary_oam_index].tile_id    = oam_ram[oam_address + 1]; // tile index
+            secondary_oam_ram[secondary_oam_index].attribute  = oam_ram[oam_address + 2]; // attributes
+            secondary_oam_ram[secondary_oam_index].x_position = oam_ram[oam_address + 3]; // x position
             secondary_oam_index += 1; // increment to next free location in secondary oam
             number_of_sprites += 1;
          }
@@ -558,6 +564,7 @@ static void sprite_evaluation(void)
       else
       {
          oam_address += 4;          // else increment oam_address by 4 bytes and continue evaluation
+         sprite_id += 1;
       }
    }
    // todo: sprite overflow detection
@@ -579,10 +586,11 @@ void fetch_sprites(void)
 
    for (size_t i = 0; i < 8; ++i)
    {
-      uint8_t sprite_fine_y        = scanline - secondary_oam_ram[(i * 4)]; // row within a sprite
-      uint8_t tile_number          = secondary_oam_ram[(i * 4) + 1];
-      output_sprites[i].attribute  = secondary_oam_ram[(i * 4) + 2];
-      output_sprites[i].x_position = secondary_oam_ram[(i * 4) + 3];
+      uint8_t sprite_fine_y        = scanline - secondary_oam_ram[i].y_coord; // row within a sprite
+      uint8_t tile_number          = secondary_oam_ram[i].tile_id;
+      output_sprites[i].sprite_id  = secondary_oam_ram[i].sprite_id;
+      output_sprites[i].attribute  = secondary_oam_ram[i].attribute;
+      output_sprites[i].x_position = secondary_oam_ram[i].x_position;
 
       // using 8 by 8 sprites
       if ((ppu_control & 0x20) == 0)
@@ -604,7 +612,7 @@ void fetch_sprites(void)
       // using 8 by 16 sprites
       else                           
       {
-         
+         printf("Using 8 by 16 sprites\n");
       }
 
       // sprite flipped horizontally

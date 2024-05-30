@@ -5,8 +5,18 @@
 #include <stdbool.h>
 #include "vec4.h"
 
+typedef struct input_sprite_t
+{
+   uint8_t sprite_id;
+   uint8_t y_coord;
+   uint8_t tile_id;
+   uint8_t attribute;
+   uint8_t x_position;
+} input_sprite_t;
+
 typedef struct output_sprite_t
 {
+   uint8_t sprite_id;
    uint8_t x_position;
    uint8_t lo_bitplane;
    uint8_t hi_bitplane;
