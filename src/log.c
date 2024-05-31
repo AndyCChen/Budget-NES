@@ -7,13 +7,12 @@
 
 #include "../includes/log.h"
 
-#define MAX_INSTR 11        // max number of disassembled instructions to store in ring buffer
 #define DISASSEM_LENGTH 64  // max size of the buffer used to store disassembled instruction c_strings
 
 FILE *log_file = NULL;
 static char ring_buffer[MAX_INSTR][DISASSEM_LENGTH]; // a ring buffer disassembled instruction c_strings
-static uint8_t buffer_head = 0;                      // position of head in ring buffer, this will generally be pointing to the most recently disassembled instruction a couple instructions ahead of the currently executed instruction
-static uint8_t current = 0;                          // index pointing to the disassembled instruction currently being executed
+static uint32_t buffer_head = 0;                      // position of head in ring buffer, this will generally be pointing to the most recently disassembled instruction a couple instructions ahead of the currently executed instruction
+static uint32_t current = 0;                          // index pointing to the disassembled instruction that will be executed
 
 static uint32_t modulo(int x, int m)
 {
@@ -21,11 +20,10 @@ static uint32_t modulo(int x, int m)
 }
 
 // opens/create file for nestest logs
-// does nothing if nestest_log_flag is set to false
 bool log_file_open(void)
 {
    log_file = fopen("nes.log", "w");
-   
+
    if (log_file == NULL)
    {
       printf("Failed to open/create log file!\n");
@@ -37,7 +35,8 @@ bool log_file_open(void)
 // closes nestest log file
 void log_file_close(void)
 {
-      fclose(log_file);
+   fclose(log_file);
+   log_file = NULL;
 }
 
 void log_write(const char* const format, ...)
@@ -47,7 +46,6 @@ void log_write(const char* const format, ...)
    
    uint32_t bytes_written = vsnprintf( ring_buffer[buffer_head], DISASSEM_LENGTH, format, args );
    assert( (bytes_written) < DISASSEM_LENGTH && "Buffer overflow in log buffer!\n" );
-   //vfprintf(log_file, format, args);
    
    va_end(args);
 
@@ -66,9 +64,21 @@ void log_update_current(void)
 }
 
 void log_to_file(void)
-{
+{  
+   printf("log to file\n");
    log_update_current();
-   fprintf(log_file, "%s", log_get_current_instruction());
+   log_file = freopen("nes.log", "w", log_file);
+
+   if (log_file == NULL)
+   {
+      printf("Error reopening log file!\n");
+      return;
+   }
+
+   for (int i = MAX_INSTR - MAX_NEXT - 1; i >= 0; --i)
+   {
+      fprintf(log_file, "%s", log_get_prev_instruction(i));
+   }
 }
 
 const char* log_get_current_instruction(void)
@@ -76,13 +86,13 @@ const char* log_get_current_instruction(void)
    return ring_buffer[current];
 }
 
-const char* log_get_next_instruction(uint8_t x)
+const char* log_get_next_instruction(uint32_t x)
 {
    return ring_buffer[ (current + x) % MAX_INSTR ];
 }
 
-const char* log_get_prev_instruction(uint8_t x)
+const char* log_get_prev_instruction(uint32_t x)
 {
-   uint8_t prev = modulo(current - x, MAX_INSTR);
+   size_t prev = modulo(current - x, MAX_INSTR);
    return ring_buffer[prev];
 }
