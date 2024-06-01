@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define MAX_NEXT 5   // max number of future instructions to disassemble
-#define MAX_INSTR 10000// max number of disassembled instructions to store in ring buffer
+#define MAX_NEXT 5     // max number of future instructions to disassemble
+#define MAX_INSTR 30000 // max number of disassembled instructions to store in ring buffer
 
 bool log_file_open(void);
 void log_file_close(void);
@@ -16,6 +16,11 @@ void log_to_file();
  * characters allowed to be written defined by DISASSEM_LENGTH.
 */
 void log_write(const char* const format, ...);
+
+/**
+ * Log state of cpu registers
+*/
+void log_cpu_state(const char* const format, ...);
 
 /**
  * Moves the head of the buffer back.
@@ -40,6 +45,8 @@ const char* log_get_next_instruction(uint32_t x);
  * @param x the x-th previous instruction to retrieve
 */
 const char* log_get_prev_instruction(uint32_t x);
+
+const char* log_get_prev_cpu_state(uint32_t x);
 
 /**
  * Updates the index that points to the disassembled instruction that is being executed by the emulator
