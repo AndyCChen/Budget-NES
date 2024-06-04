@@ -13,7 +13,7 @@ Learning how to write a emulator for the NES console.
 
 ## Current Progress
 
-![Alt text](/res/budgetNES.png?raw=true "corrupted nestest title")
+![Alt text](/res/budgetNES.png?raw=true "balloon fight title")
 ![Alt text](/res/superMarioBudgetNES.png?raw=true "super mario bros title")
 
 ## Initial attempts at PPU graphics rendering
