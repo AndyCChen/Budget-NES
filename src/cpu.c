@@ -1159,7 +1159,8 @@ static uint8_t ROL(void)
       cpu_bus_write(instruction_operand, shifted_value);
    }
 
-   cpu.status_flags |= carry_bit >> 7; // store carry bit into carry flag
+   carry_bit = carry_bit >> 7;
+   store_bit(cpu.status_flags, carry_bit, 0); // store carry bit into carry flag
 
    // set/reset negative flag
    if (shifted_value & 0x80)
@@ -1216,7 +1217,7 @@ static uint8_t ROR(void)
       cpu_bus_write(instruction_operand, shifted_value);
    }
 
-   cpu.status_flags |= carry_bit;            // store carry bit into carry flag
+   store_bit(cpu.status_flags, carry_bit, 0); // store carry bit into carry flag
 
    // set/reset negative flag
    if (shifted_value & 0x80)
