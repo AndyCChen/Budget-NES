@@ -5,15 +5,16 @@ Learning how to write a emulator for the NES console.
 - [X] 6502 cpu implementation
 - [X] Mapper 0 implementation
 - [X] basic ppu implementation that can draw background tiles
-- [ ] ppu sprite rendering/evaluation
-- [ ] input handling
+- [X] ppu sprite rendering/evaluation
+- [X] input handling
 - [ ] audio processing unit implementation to have sound
 - [ ] more mappers
-- [ ] debug gui
+- [X] debug gui
 
 ## Current Progress
 
 ![Alt text](/res/budgetNES.png?raw=true "corrupted nestest title")
+![Alt text](/res/superMarioBudgetNES.png?raw=true "super mario bros title")
 
 ## Initial attempts at PPU graphics rendering
 Here were my initial tries at trying to get the ppu to at least render
