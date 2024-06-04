@@ -55,7 +55,7 @@ static bool nmi_has_occured = false;
 
 // bus
 
-static uint8_t vram_buffer = 0;   // internal buffer that holds contents being read from vram
+static uint8_t read_buffer = 0;   // internal buffer that holds contents being read from vram
 static uint8_t open_bus = 0;
 
 // memory
@@ -68,7 +68,7 @@ static uint8_t number_of_sprites = 0;     // number of sprites to draw on the ne
 
 // track current scanline and cycles
 
-static uint16_t scanline = 261;
+static uint16_t scanline = 0;
 static uint16_t cycle = 0;
 
 // 64 rgb colors for system_palette
@@ -123,9 +123,9 @@ void ppu_cycle(void)
    }
 
    int active_sprite = -1;
-
+   //if (scanline == 30) ppu_status |= 0x40;
    // sprite rendering
-   if (cycle >= 1 && cycle <= 256) 
+   if (cycle >= 1 && cycle <= 256 && scanline <= 239) 
    {
       bool sprite_found = false;
 
@@ -215,11 +215,15 @@ void ppu_cycle(void)
             else                         output_pixel = (sp_priority) ? background_pixel : (0x10 | sprite_pixel);
 
             // check for sprite 0 hit
-            if ( active_sprite == 0 )
+            if ( output_sprites[active_sprite].sprite_id == 0 )
             {
-                
+               if ( sprite_pixel != 0 &&  background_pixel != 0 )
+               {
+                  ppu_status |= 0x40;
+               }
             }
          }
+         //output_pixel = 0x0 | (output_pixel & 0x3);
 
          uint8_t palette_index = palette_ram[ output_pixel ] ;
          set_viewport_pixel_color( scanline, cycle - 1, system_palette[palette_index & 0x3F] );
@@ -227,16 +231,13 @@ void ppu_cycle(void)
    }
    else if (scanline >= 240 && scanline <= 260) // vertical blank scanlines
    {
-      if (scanline == 240 && cycle == 0)
-      {
-         if (ppu_control & 0x80)
-         {
-            nmi_has_occured = true;
-         }
-      }
-
       if (scanline == 241 && cycle == 1)
       {  
+         if (ppu_control & 0x80)
+         {
+            get_cpu()->nmi_flip_flop = true;
+         }
+
          ppu_status |= 0x80; // set VBlank flag on cycle 1 of scanline 241  
       }
 
@@ -246,9 +247,8 @@ void ppu_cycle(void)
    {
       if (cycle == 1)
       {
-         nmi_has_occured = false;
          odd_even_flag = !odd_even_flag;
-         ppu_status &= ~0xC0; // clear VBlank and sprite 0 flag on cycle 1 of scanline 261
+         ppu_status &= ~0xE0; // clear VBlank and sprite 0 flag on cycle 1 of scanline 261
       }
 
       if (cycle >= 280 && cycle <= 304)
@@ -278,7 +278,6 @@ void ppu_port_write(uint16_t position, uint8_t data)
    {
       case PPUCTRL:
          ppu_control = data;
-         
          // transfer bits 0-1 of ppu_control to bits 10-11 of t_register
          uint16_t NN = (ppu_control & 0x3) << 10;
          t_register = t_register & ~(0x0C00); // clear bits 10-11 of t_register before transfering bits 0-1
@@ -297,15 +296,18 @@ void ppu_port_write(uint16_t position, uint8_t data)
 
             t_register = t_register & ~(0x001F); // clear bits 0-4 before transfer
             t_register = t_register | ( (data & 0xF8) >> 3 ); // bits 3-7 stored into bits 0-4 of t_register
+
+            write_toggle = true;
          }
          else // second write
          {
             t_register = t_register & ~(0x73E0); // clear bits 5-9 and bits 12-14 before transfer
             t_register = t_register | ( (data & 0x7) << 12 ); // bits 0-2 stored into bits 12-14 of t_register
             t_register = t_register | ( (data & 0xF8) << 2 ); // bits 3-7 stored into bits 5-9 of t_register
+
+            write_toggle = false;
          }
 
-         write_toggle = !write_toggle;
          break;
       case PPUADDR:
          if (!write_toggle)
@@ -313,6 +315,8 @@ void ppu_port_write(uint16_t position, uint8_t data)
             // writing high byte (first write)
             t_register = t_register & ~(0x7F00);
             t_register = t_register | (data & 0x3F) << 8; 
+            
+            write_toggle = true;
          }
          else
          {
@@ -320,14 +324,15 @@ void ppu_port_write(uint16_t position, uint8_t data)
             t_register = t_register & ~(0x00FF);
             t_register = t_register | data;
             v_register = t_register;
+
+            write_toggle = false;
          }
 
-         write_toggle = !write_toggle;
          break;
       case OAMDMA:
       {
          uint16_t read_address = data << 8;
-        // cpu_tick();
+         cpu_tick();
          for (size_t i = 0; i < 256; ++i)
          {
             cpu_tick();
@@ -353,7 +358,14 @@ void ppu_port_write(uint16_t position, uint8_t data)
             cartridge_ppu_write(v_register & 0x3FFF, data);
          }
 
-         v_register = ( v_register + ((ppu_control & 4) ? 32 : 1) ) & 0x7FFF; // increment vram address by 1 if bit 2 of control register is 0, else increment by 32
+         if (ppu_control & 0x4)
+         {
+            v_register += 32;
+         }
+         else
+         {
+            v_register += 1;
+         }
          break;
    }
 
@@ -369,8 +381,8 @@ uint8_t ppu_port_read(uint16_t position)
          open_bus = oam_data;
          break;
       case PPUDATA:
-         open_bus = vram_buffer;
-         vram_buffer = cartridge_ppu_read(v_register & 0x3FFF);
+         open_bus = read_buffer;
+         read_buffer = cartridge_ppu_read(v_register & 0x3FFF);
          
          // when reading palette, data is returned directly from palette ram rather than the internal read buffer
          if ( (v_register & 0x3FFF) >= PALETTE_START )
@@ -378,19 +390,27 @@ uint8_t ppu_port_read(uint16_t position)
             open_bus = palette_ram[ get_palette_index(v_register & 0x1F) ];
          }
 
-         v_register += (ppu_control & 4) ? 32 : 1; // increment vram address by 1 if bit 2 of control register is clear, else increment by 32
+         if (ppu_control & 0x4)
+         {
+            v_register += 32;
+         }
+         else
+         {
+            v_register += 1;
+         }
+
          break;
       case PPUSTATUS: // read only
          open_bus = (ppu_status & 0xE0) | (open_bus & 0x1F); // load ppu status onto bits 7-5 of the open bus
          write_toggle = false;
-         ppu_status = ppu_status & ~(0x80); // clear vertical blank flag after read
+         ppu_status &= ~0x80; // clear vertical blank flag after read
          break;
    }
 
    return open_bus;
 }
 
-void rest_cycle(void){} // function that does nothing to fill gaps inside the render event lookup table
+void rest_cycle(void){return;} // function that does nothing to fill gaps inside the render event lookup table
 
 
 void fetch_nametable(void)
@@ -424,7 +444,7 @@ void fetch_attribute()
 */
 void fetch_pattern_table_lo()
 {
-   uint16_t pattern_tile_address =  ( (ppu_control & 0x10) << 8 )  | (nametable_byte << 4) | (0 << 3) | ( (v_register >> 12) & 0x7 );
+   uint16_t pattern_tile_address =  ( (ppu_control & 0x10) << 8 )  | (nametable_byte << 4) | ( (v_register >> 12) & 0x7 );
    pattern_tile_lo_bits = cartridge_ppu_read(pattern_tile_address);
 }
 
@@ -456,7 +476,7 @@ void increment_v_horizontal(void)
    if ( (v_register & 0x1F) == 31 ) // coarse X are bits 0-4 which can represent values 0-31, so overflow will happen if coarse X == 31 when we increment
    {
       v_register = v_register & (~0x1F); // wrap back down to zero on overflow
-      v_register = v_register ^ 0x400; // toggle bit 10 on overflow
+      v_register = v_register ^ 0x400;   // toggle bit 10 on overflow to switch nametables
    }
    else
    {
@@ -481,7 +501,7 @@ void increment_v_vertical(void)
       if (coarse_y == 29) // toggle bit 11 on overflow
       {
          coarse_y = 0;
-         v_register ^= 0x800;
+         v_register ^= 0x800; // switch vertical nametables
       }
       else if (coarse_y == 31) // bit 11 does not get toggled when set out of bounds, nametable rows are only index 0-29 (30 rows)
       {
@@ -511,7 +531,7 @@ void increment_v_both(void)
 */
 void transfer_t_horizontal(void)
 {
-   v_register = (v_register & ~0x41F) | (t_register & 0x41F) ;
+   v_register = (v_register & ~0x41F) | (t_register & 0x41F);
 }
 
 /**
@@ -675,19 +695,16 @@ static uint8_t get_palette_index(uint8_t index)
 {
    switch (index)
    {
-      /* case 0x04:
-      case 0x08:
-      case 0x0C:
       case 0x10:
-         return index & 0x00; */
+         return 0x00;
       case 0x14:
-         return index & 0x04;
+         return 0x04;
       case 0x18:
-         return index & 0x08;
+         return 0x08;
       case 0x1C:
-         return index & 0x0C;
+         return 0x0C;
       default:
-         return index & 0x1F;
+         return index;
    }
 }
 

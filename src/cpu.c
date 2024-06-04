@@ -35,7 +35,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
 static void stack_push(uint8_t value);
 static uint8_t stack_pop(void);
 static bool check_opcode_access_mode(uint8_t opcode);
-static inline void update_disassembly(uint16_t pc);
+static inline void update_disassembly(uint16_t pc, uint8_t next);
 
 // current opcode of the current instruction
 static uint8_t current_opcode;
@@ -453,7 +453,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          // does not handle page crossing, i.e fetching at 0x02FF will read from 0x02FF and 0x0200
 
          uint8_t indirect_address_lo = cpu_bus_read(abs_address);
-         uint8_t indirect_address_hi = cpu_bus_read( ( hi << 8 ) | ( ( lo + 1 ) & 0xFF ) );
+         uint8_t indirect_address_hi = cpu_bus_read( ( hi << 8 ) | (uint8_t) (lo + 1) );
 
          instruction_operand = ( indirect_address_hi << 8 ) | indirect_address_lo;
 
@@ -470,7 +470,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint8_t zpg_address = cpu_fetch();
 
          cpu_bus_read(zpg_address); // dummy read while adding index
-         instruction_operand = ( zpg_address + cpu.X ) & 0x00FF;
+         instruction_operand = (uint8_t) ( zpg_address + cpu.X );
 
          break;
       }
@@ -479,14 +479,14 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
          uint8_t zpg_address = cpu_fetch();
 
          cpu_bus_read(zpg_address); // dummy read while adding index
-         instruction_operand = ( zpg_address + cpu.Y ) & 0x00FF;
+         instruction_operand = (uint8_t) ( zpg_address + cpu.Y );
 
          break;
       }
       case XZI:
       {
          uint8_t zpg_base_address  = cpu_fetch();
-         cpu_bus_read(zpg_base_address); // 1 cycle for dummy at fetched address and to add X offset
+         cpu_bus_read(zpg_base_address); // 1 cycle for dummy fetched at address and to add X offset
          uint8_t zpg_address = ( zpg_base_address + cpu.X ); // add X index offsest to base address to form zpg address 
 
          uint8_t lo = cpu_bus_read(zpg_address);
@@ -550,8 +550,7 @@ static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra
              * we need to treat the offset as a 16 bit value. The offset byte is negative value
              * in 2's complement, so the added extra 8 bits are all set to 1, hence the 0xFF00 bitmask.
             */
-            instruction_operand = cpu.pc + ( (uint16_t) offset_byte | 0xFF00 );
-            //instruction_operand = cpu.pc - offset_byte;
+            instruction_operand = cpu.pc + ( offset_byte | 0xFF00 );
          }
          else
          {
@@ -972,7 +971,7 @@ static uint8_t PHA(void)
 */
 static uint8_t PHP(void)
 {
-   stack_push(cpu.status_flags | 0x10);
+   stack_push(cpu.status_flags | 0x30);
    return 0;
 }
 
@@ -1015,14 +1014,12 @@ static uint8_t PLA(void)
  * when the status register is pushed onto the stack.
  * Whet the status register is poped, the break flag is
  * "discarded" by being reset to 0.
- * The 5th unused bit is always set to 1.
 */
 static uint8_t PLP(void)
 {
    cpu_tick(); // 1 cycle to increment stack pointer
    cpu.status_flags = stack_pop();
    clear_bit(cpu.status_flags, 4);
-   set_bit(cpu.status_flags, 5);
 
    return 0;
 }
@@ -1162,7 +1159,7 @@ static uint8_t ROL(void)
       cpu_bus_write(instruction_operand, shifted_value);
    }
 
-   cpu.status_flags |= carry_bit; // store carry bit into carry flag
+   cpu.status_flags |= carry_bit >> 7; // store carry bit into carry flag
 
    // set/reset negative flag
    if (shifted_value & 0x80)
@@ -2285,7 +2282,7 @@ static uint8_t BRK(void)
 {
    cpu_fetch(); // read next byte and ingore fetched result while incrementing pc
 
-   stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
+   stack_push( (cpu.pc & 0xFF00) >> 8 );
    stack_push( cpu.pc & 0x00FF );
 
    set_bit(cpu.status_flags, 4); // break flag pushed as 1
@@ -2296,7 +2293,7 @@ static uint8_t BRK(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   update_disassembly(cpu.pc);
+   update_disassembly(cpu.pc, MAX_NEXT);
 
    return 0;
 }
@@ -2308,7 +2305,7 @@ static uint8_t JMP(void)
 {
    cpu.pc = instruction_operand;
 
-   update_disassembly(cpu.pc);
+   update_disassembly(cpu.pc, MAX_NEXT);
    return 0;
 }
 
@@ -2331,7 +2328,7 @@ static uint8_t JSR(void)
 
    cpu.pc = instruction_operand;
 
-   update_disassembly(cpu.pc);
+   update_disassembly(cpu.pc, MAX_NEXT);
 
    return 0;
 }
@@ -2343,17 +2340,17 @@ static uint8_t JSR(void)
 */
 static uint8_t RTI(void)
 {
+   cpu_fetch_no_increment();
    cpu_tick(); // 1 cycle to increment stack pointer
    cpu.status_flags = stack_pop();
    uint8_t lo = stack_pop();
    uint8_t hi = stack_pop();
 
-   set_bit(cpu.status_flags, 5);   // unused bit 5 is always set
    clear_bit(cpu.status_flags, 4); // break flag is always reset when popped from stack
 
    cpu.pc = ( hi << 8) | lo;
 
-   update_disassembly(cpu.pc);
+   update_disassembly(cpu.pc, MAX_NEXT);
 
    return 0;
 }
@@ -2371,7 +2368,7 @@ static uint8_t RTS(void)
    ++cpu.pc;
    cpu_tick(); // 1 cycle used for incrementing pc
 
-   update_disassembly(cpu.pc);
+   update_disassembly(cpu.pc, MAX_NEXT);
 
    return 0;
 }
@@ -2553,13 +2550,13 @@ static uint8_t SEI(void)
  * Function that services hardware interrupts.
 */
 void cpu_IRQ(void)
-{
+{ 
    if (cpu.status_flags & 4) return;
 
    stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
    stack_push( cpu.pc & 0x00FF );
 
-   clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed, it should be cleared anyways
+   clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed
    stack_push(cpu.status_flags);
 
    set_bit(cpu.status_flags, 2);  // set interrupt flag to ignore further IRQs
@@ -2568,14 +2565,20 @@ void cpu_IRQ(void)
    uint8_t hi = cpu_bus_read(INTERRUPT_VECTOR + 1);
 
    cpu.pc = (hi << 8) | lo;
+
+   update_disassembly(cpu.pc, MAX_NEXT + 1);
 }
 
 void cpu_NMI(void)
 {
-   stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
-   stack_push( cpu.pc & 0x00FF );
+   cpu_fetch_no_increment(); // fetch opcode
+   cpu_fetch_no_increment(); // attempt to fetch next instruction by fail since pc increment is supressed
 
-   clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed, it should be cleared anyways
+   stack_push( (cpu.pc & 0xFF00) >> 8 );
+   stack_push(cpu.pc & 0x00FF);
+
+   clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed
+   set_bit(cpu.status_flags, 5);   // unused bit is pushed as set
    stack_push(cpu.status_flags);
 
    set_bit(cpu.status_flags, 2);  // set interrupt flag to ignore further IRQs
@@ -2584,6 +2587,8 @@ void cpu_NMI(void)
    uint8_t hi = cpu_bus_read(NMI_VECTOR + 1);
 
    cpu.pc = (hi << 8) | lo;
+
+   update_disassembly(cpu.pc, MAX_NEXT + 1);
 }
 
 /**
@@ -2601,7 +2606,7 @@ static uint8_t branch(void)
 
    cpu.pc = instruction_operand;
 
-   update_disassembly(cpu.pc);
+   update_disassembly(cpu.pc, MAX_NEXT);
 
    return extra_cycle;
 }
@@ -2683,26 +2688,22 @@ static uint8_t stack_pop(void)
  * and counts the number of cycles that the execution would have taken.
 */
 void cpu_emulate_instruction(void)
-{
+{  
+   //if (cpu.pc == 0x8082) get_emulator_state()->run_state = EMULATOR_PAUSED;
+   log_cpu_state("A:%02X X:%02X Y:%02X SP:%02X P:%02X", cpu.ac, cpu.X, cpu.Y, cpu.sp, cpu.status_flags);
+
    uint8_t opcode = cpu_fetch();
    cpu_decode(opcode);
    cpu_execute();
 
-   if ( get_nmi_status() )
-   {
-      if (cpu.is_processing_nmi == false)
-      {
-         cpu_NMI();
-         cpu.is_processing_nmi = true;
-      }  
-   }
-   else
-   {
-      cpu.is_processing_nmi = false;
-   }
-
    controller_reload_shift_registers(); // check if controller shifts registers need to be reloaded
    disassemble();
+
+   if (cpu.nmi_flip_flop)
+   {
+      cpu.nmi_flip_flop = false;
+      cpu_NMI();
+   }
 }
 
 /**
@@ -2712,8 +2713,9 @@ void cpu_run()
 {
    float refresh_rate = (float) display_get_refresh_rate();
    while ( cpu.cycle_count <= (size_t) (1789773 / refresh_rate) )
-   {
+   {  
       cpu_emulate_instruction();
+      if (get_emulator_state()->run_state == EMULATOR_PAUSED) break;
    }
 
    cpu.cycle_count = 0;
@@ -2749,19 +2751,18 @@ void cpu_reset(void)
 void cpu_init(void)
 {
    cpu.cycle_count = 0;
-   cpu.is_processing_nmi = false;
+   cpu.nmi_flip_flop = false;
    cpu.ac = 0;
    cpu.X = 0;
    cpu.Y = 0;
    cpu.sp = 0xFD;
-   cpu.status_flags = 0x24;
+   cpu.status_flags = 0x04;
    uint8_t lo = cpu_bus_read(RESET_VECTOR);
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
 
    disassemble_set_position(cpu.pc); // tell the disassembler to begin disassembling intructions at the current pc value
-   disassemble();
-   disassemble_next_x(MAX_NEXT);             // disassemble the next x instructions
+   disassemble_next_x(MAX_NEXT + 1);             // disassemble the next x instructions
 }
 
 /**
@@ -2844,11 +2845,11 @@ const instruction_t* get_instruction_lookup_entry(uint8_t position)
 
 /**
  * When ever program jumps to new location to begin execution such as when branches are taken
- * or during jmp instructions, we must update the disassembled instructions to reflect the jump.
+ * or during jmp instructions, we must update the future disassembled instructions to reflect the new execution starting point.
 */
-static inline void update_disassembly(uint16_t pc)
+static inline void update_disassembly(uint16_t pc, uint8_t next)
 {
-   log_rewind(MAX_NEXT);
+   log_rewind(next);
    disassemble_set_position(pc);
-   disassemble_next_x(MAX_NEXT);
+   disassemble_next_x(next);
 }

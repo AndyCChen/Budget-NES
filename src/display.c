@@ -250,6 +250,10 @@ void display_process_event(bool* done)
             case SDL_SCANCODE_P:
             {
                emulator_state.run_state = (emulator_state.run_state == EMULATOR_RUNNING) ? EMULATOR_PAUSED : EMULATOR_RUNNING;
+               if (emulator_state.run_state == EMULATOR_PAUSED)
+               {
+                  log_to_file();
+               }
                break;
             }
 
@@ -711,21 +715,20 @@ static void gui_cpu_debug(void)
          log_update_current();
 
          // log previous disassembled opcodes
-         igText("%s", log_get_prev_instruction(5));
-         igText("%s", log_get_prev_instruction(4));
-         igText("%s", log_get_prev_instruction(3));
-         igText("%s", log_get_prev_instruction(2));
-         igText("%s", log_get_prev_instruction(1));
+
+         for (size_t i = 5; i >= 1; --i)
+         {
+            igText("%s", log_get_prev_instruction(i));
+         }
 
          // log current opcode that will be executed
          igTextColored(red, "%s", log_get_current_instruction());
 
          // log future opcodes that will be executed
-         igText("%s", log_get_next_instruction(1));
-         igText("%s", log_get_next_instruction(2));
-         igText("%s", log_get_next_instruction(3));
-         igText("%s", log_get_next_instruction(4));
-         igText("%s", log_get_next_instruction(5));
+         for (uint8_t i = 1; i <= MAX_NEXT; ++i)
+         {
+            igText("%s", log_get_next_instruction(i));
+         }
 
          // pause, instruction and frame step buttons
          igTableSetColumnIndex(1);
@@ -746,6 +749,7 @@ static void gui_cpu_debug(void)
          {
             if ( igButton("Pause", zero_vec) )
             {
+               log_to_file();
                emulator_state.run_state = EMULATOR_PAUSED;
             }
          }

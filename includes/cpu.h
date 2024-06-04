@@ -5,7 +5,7 @@
 
 typedef struct cpu_6502_t
 {
-   bool is_processing_nmi;
+   bool nmi_flip_flop;
    size_t cycle_count;
 
    uint8_t ac;  // accumulator

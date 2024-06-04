@@ -45,12 +45,13 @@ int main(int argc, char *argv[])
             {
                cpu_emulate_instruction();
                emulator_state->instruction_step = false;
+               log_to_file();
             }
 
             break;
          }
       }
-
+      
       display_render(); 
       display_update();
    }
@@ -67,12 +68,14 @@ static bool budgetNES_init(const char* rom_path)
       return false;
    }
 
+   log_file_open();
    cpu_init();
    return true;
 }
 
 static void budgetNES_shutdown(void)
 {
+   log_file_close();
    cartridge_free_memory();
    display_shutdown();
 }
