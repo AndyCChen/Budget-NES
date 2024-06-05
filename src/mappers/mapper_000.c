@@ -50,7 +50,7 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
    }
    else
    {
-      position = position & 0x2FFF; // addresses 0x3000 - 0x3EFF are mirrors of 0x2000 - 0x2EFF
+      position = position & 0x2FFF; // addresses 0x3000 - 0x3FFF are mirrors of 0x2000 - 0x2FFF
 
       if ( header->nametable_arrangement )
       {
@@ -104,7 +104,7 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
    }
    else
    {
-      position = position & 0x2FFF; // addresses 0x3000 - 0x3EFF are mirrors of 0x2000 - 0x2EFF
+      position = position & 0x2FFF; // addresses 0x3000 - 0x3FFF are mirrors of 0x2000 - 0x2FFF
 
       if ( header->nametable_arrangement )
       {

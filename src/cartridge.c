@@ -137,7 +137,7 @@ bool cartridge_load(const char* const filepath)
    if ( !load_mapper(header.mapper_id, &mapper) )
    {
       fclose(file);
-      printf("Mapper does not exist or is not supported!\n");
+      printf("Mapper %d does not exist or is not supported!\n", header.mapper_id);
       return false;
    }
 
@@ -220,7 +220,7 @@ bool cartridge_load(const char* const filepath)
       }
    }
 
-   printf("prg-rom size: %zu chr-rom/ram size: %zu prg-ram size: %zu\n", prg_rom_size, chr_mem_size, prg_ram_size);
+   printf(" Mapper: %d\n prg-rom size: %zu\n chr-rom/ram size: %zu\n prg-ram size: %zu\n Mirroring: %s\n", header.mapper_id, prg_rom_size, chr_mem_size, prg_ram_size, (header.nametable_arrangement) ? "Vertical" : "Horizontal");
 
    fclose(file);
    return true;
