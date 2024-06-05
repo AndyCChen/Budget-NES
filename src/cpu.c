@@ -1019,7 +1019,7 @@ static uint8_t PLP(void)
 {
    cpu_tick(); // 1 cycle to increment stack pointer
    cpu.status_flags = stack_pop();
-   clear_bit(cpu.status_flags, 4);
+   clear_bit(cpu.status_flags, 4); // make sure break flag is cleared when retrieving cpu flags from stack
 
    return 0;
 }
@@ -2281,13 +2281,14 @@ static uint8_t INY(void)
 */
 static uint8_t BRK(void)
 {
-   cpu_fetch(); // read next byte and ingore fetched result while incrementing pc
-
+   //cpu_fetch(); // read next byte and ingore fetched result while incrementing pc
+   cpu.pc += 1;
    stack_push( (cpu.pc & 0xFF00) >> 8 );
    stack_push( cpu.pc & 0x00FF );
 
-   set_bit(cpu.status_flags, 4); // break flag pushed as 1
-   stack_push(cpu.status_flags);
+   stack_push(cpu.status_flags | 0x30); // break and unused flag pushed as 1
+
+   set_bit(cpu.status_flags, 2); // set interrupt disable flag
 
    uint8_t lo = cpu_bus_read(INTERRUPT_VECTOR);
    uint8_t hi = cpu_bus_read(INTERRUPT_VECTOR + 1);
@@ -2552,7 +2553,7 @@ static uint8_t SEI(void)
 */
 void cpu_IRQ(void)
 { 
-   if (cpu.status_flags & 4) return;
+   if (cpu.status_flags & 4) return; // ignore IRQ if interrupt disable flag is set
 
    stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
    stack_push( cpu.pc & 0x00FF );
@@ -2579,7 +2580,6 @@ void cpu_NMI(void)
    stack_push(cpu.pc & 0x00FF);
 
    clear_bit(cpu.status_flags, 4); // make sure the break flag is cleared when pushed
-   set_bit(cpu.status_flags, 5);   // unused bit is pushed as set
    stack_push(cpu.status_flags);
 
    set_bit(cpu.status_flags, 2);  // set interrupt flag to ignore further IRQs
@@ -2744,6 +2744,8 @@ void cpu_reset(void)
    uint8_t lo = cpu_bus_read(RESET_VECTOR);
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
+
+   update_disassembly(cpu.pc, MAX_NEXT + 1);
 }
 
 /**
@@ -2763,7 +2765,7 @@ void cpu_init(void)
    cpu.pc = (hi << 8) | lo;
 
    disassemble_set_position(cpu.pc); // tell the disassembler to begin disassembling intructions at the current pc value
-   disassemble_next_x(MAX_NEXT + 1);             // disassemble the next x instructions
+   disassemble_next_x(MAX_NEXT + 1); // disassemble the next x instructions
 }
 
 /**

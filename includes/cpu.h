@@ -17,7 +17,7 @@ typedef struct cpu_6502_t
    // cpu status flags
    // 7th bit - negative
    // 6th bit - overflow
-   // 5th bit - reserved flag 
+   // 5th bit - unused flag, no effects on cpu execution
    // 4th bit - break
    // 3rd bit - decimal
    // 2nd bit - interrupt

@@ -50,12 +50,11 @@ static uint8_t  attribute_shift_register_hi = 0;
 static uint8_t  attribute_1_bit_latch_x = 0;     // 1 bit value selected by bit 1 of coarse_x
 static uint8_t  attribute_1_bit_latch_y = 0;     // 1 bit value selected by bit 1 of coarse_y
 
-static bool odd_even_flag = false; // false: on a odd frame, true: on a even frame
-static bool nmi_has_occured = false;
+static bool odd_even_flag = true; // false: on a odd frame, true: on a even frame
 
 // bus
 
-static uint8_t read_buffer = 0;   // internal buffer that holds contents being read from vram
+static uint8_t read_buffer = 0;   // internal buffer that holds contents being read from port 2007 that are non-pallete addresses
 static uint8_t open_bus = 0;
 
 // memory
@@ -716,11 +715,6 @@ static uint8_t flip_bits_horizontally(uint8_t in)
    return in;
 }
 
-bool get_nmi_status(void)
-{
-   return nmi_has_occured;
-}
-
 void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1)
 {
    //const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
@@ -765,6 +759,15 @@ void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1)
          }
       }
    }
-   
+}
 
+void ppu_reset(void)
+{
+   ppu_control = 0;
+   ppu_mask = 0;
+   write_toggle = false;
+   read_buffer = 0;
+   odd_even_flag = true;
+   x_register = 0;
+   t_register = 0;
 }

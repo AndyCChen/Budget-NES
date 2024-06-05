@@ -762,6 +762,13 @@ static void gui_cpu_debug(void)
          igEndDisabled();
          gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
 
+         if ( igButton("Reset", zero_vec) )
+         {
+            cpu_reset();
+            ppu_reset();
+         }
+         gui_help_marker("Resets the emulator back to beginning of program execution.");
+
          igPopStyleColor(2);
          igEndTable();
       }
