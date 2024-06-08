@@ -2712,27 +2712,37 @@ void cpu_emulate_instruction(void)
 */
 void cpu_run()
 {
-   static float delta_time = 0;
-   static float previous_time = 0;
-   static float current_time = 0;
+   static uint64_t delta_time = 0;
+   static uint64_t previous_time = 0;
+   static uint64_t current_time = 0;
 
-   current_time = SDL_GetTicks64() / 1000.0f;
+   current_time = SDL_GetTicks64();
    delta_time += current_time - previous_time;
 
    
-   if ( delta_time >= (1.0f / 60.0f) )
+   if ( delta_time >= 17 )
    {
-      delta_time -= 1.0f / 60.0f;
+      delta_time -= 17;
 
       while ( !ppu_is_frame_complete() )
       {
          cpu_emulate_instruction();
       }
       ppu_set_is_frame_complete(false);
+
+      static int counter = 0;
+      if (counter++ == 59)
+      {
+         counter = 0;
+         static int i = 0;
+         printf("%d %lld\n", i++, fc());
+      }
+
    }
 
-   cpu.cycle_count = 0;
+   //cpu.cycle_count = 0;
    previous_time = current_time;
+   //printf("%lld\n", fc());
 }
 
 /**

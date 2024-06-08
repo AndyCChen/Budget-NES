@@ -52,6 +52,7 @@ static uint8_t  attribute_1_bit_latch_y = 0;     // 1 bit value selected by bit 
 
 static bool odd_even_flag = true; // false: on a odd frame, true: on a even frame
 static bool is_frame_complete = false;
+static size_t frame_counter = 0;
 
 // bus
 
@@ -234,6 +235,7 @@ void ppu_cycle(void)
       if (scanline == 241 && cycle == 1)
       {  
          is_frame_complete = true;
+         frame_counter += 1;
 
          if (ppu_control & 0x80)
          {
@@ -783,4 +785,11 @@ bool ppu_is_frame_complete(void)
 void ppu_set_is_frame_complete(bool status)
 {
    is_frame_complete = status;
+}
+
+size_t fc(void)
+{
+   size_t i = frame_counter;
+   frame_counter =0;
+   return i;
 }
