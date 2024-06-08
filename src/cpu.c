@@ -2719,18 +2719,16 @@ void cpu_run()
    current_time = SDL_GetTicks64();
    delta_time += current_time - previous_time;
 
-   
    if ( delta_time >= 17 )
    {
       delta_time -= 17;
 
-      while ( !ppu_is_frame_complete() )
+      while ( cpu.cycle_count <= 1789773 / 60.0f  )
       {
          cpu_emulate_instruction();
       }
-      ppu_set_is_frame_complete(false);
-
-      static int counter = 0;
+      cpu.cycle_count = 0;
+       static int counter = 0;
       if (counter++ == 59)
       {
          counter = 0;
@@ -2740,7 +2738,14 @@ void cpu_run()
 
    }
 
-   //cpu.cycle_count = 0;
+/*    int i = 0;
+   while ( i < 2000 )
+   {
+      ++i;
+      cpu_emulate_instruction();
+   } */
+
+   
    previous_time = current_time;
    //printf("%lld\n", fc());
 }
