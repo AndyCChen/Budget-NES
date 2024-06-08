@@ -51,6 +51,7 @@ static uint8_t  attribute_1_bit_latch_x = 0;     // 1 bit value selected by bit 
 static uint8_t  attribute_1_bit_latch_y = 0;     // 1 bit value selected by bit 1 of coarse_y
 
 static bool odd_even_flag = true; // false: on a odd frame, true: on a even frame
+static bool is_frame_complete = false;
 
 // bus
 
@@ -67,7 +68,7 @@ static uint8_t number_of_sprites = 0;     // number of sprites to draw on the ne
 
 // track current scanline and cycles
 
-static uint16_t scanline = 0;
+static uint16_t scanline = 261;
 static uint16_t cycle = 0;
 
 // 64 rgb colors for system_palette
@@ -232,6 +233,8 @@ void ppu_cycle(void)
    {
       if (scanline == 241 && cycle == 1)
       {  
+         is_frame_complete = true;
+
          if (ppu_control & 0x80)
          {
             get_cpu()->nmi_flip_flop = true;
@@ -381,7 +384,7 @@ uint8_t ppu_port_read(uint16_t position)
          break;
       case PPUDATA:
          open_bus = read_buffer;
-         read_buffer = cartridge_ppu_read(v_register & 0x3FFF);
+         read_buffer = cartridge_ppu_read(v_register);
          
          // when reading palette, data is returned directly from palette ram rather than the internal read buffer
          if ( (v_register & 0x3FFF) >= PALETTE_START )
@@ -770,4 +773,14 @@ void ppu_reset(void)
    odd_even_flag = true;
    x_register = 0;
    t_register = 0;
+}
+
+bool ppu_is_frame_complete(void)
+{
+   return is_frame_complete;
+}
+
+void ppu_set_is_frame_complete(bool status)
+{
+   is_frame_complete = status;
 }

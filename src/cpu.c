@@ -2706,20 +2706,33 @@ void cpu_emulate_instruction(void)
       cpu_NMI();
    }
 }
-
+#include "SDL_timer.h"
 /**
  * Run the cpu for an x amount of clock cycles per frame depending refresh rate
 */
 void cpu_run()
 {
-   float refresh_rate = (float) display_get_refresh_rate();
-   while ( cpu.cycle_count <= (size_t) (1789773 / refresh_rate) )
-   {  
-      cpu_emulate_instruction();
-      if (get_emulator_state()->run_state == EMULATOR_PAUSED) break;
+   static float delta_time = 0;
+   static float previous_time = 0;
+   static float current_time = 0;
+
+   current_time = SDL_GetTicks64() / 1000.0f;
+   delta_time += current_time - previous_time;
+
+   
+   if ( delta_time >= (1.0f / 60.0f) )
+   {
+      delta_time -= 1.0f / 60.0f;
+
+      while ( !ppu_is_frame_complete() )
+      {
+         cpu_emulate_instruction();
+      }
+      ppu_set_is_frame_complete(false);
    }
 
    cpu.cycle_count = 0;
+   previous_time = current_time;
 }
 
 /**
