@@ -77,9 +77,4 @@ void sprite_clear_secondary_oam(void);
 */
 void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1);
 
-// returns status of if a frame is complete.
-bool ppu_is_frame_complete(void);
-void ppu_set_is_frame_complete(bool status);
-size_t fc(void);
-
 #endif

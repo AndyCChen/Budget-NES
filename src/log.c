@@ -7,6 +7,7 @@
 
 #include "../includes/log.h"
 
+#define MAX_INSTR 100 // max number of disassembled instructions to store in ring buffer
 #define DISASSEM_LENGTH 64  // max size of the buffer used to store disassembled instruction c_strings
 #define CPU_STATE_BUFFER_LENGTH 32
 #define CPU_STATE_COUNT MAX_INSTR - MAX_NEXT
@@ -25,9 +26,9 @@ static uint32_t modulo(int x, int m)
 }
 
 // opens/create file for nestest logs
-bool log_file_open(void)
+static bool log_file_open(void)
 {
-   log_file = fopen("nes.log", "w");
+   log_file = fopen("BudgetNES.log", "w");
 
    if (log_file == NULL)
    {
@@ -38,10 +39,28 @@ bool log_file_open(void)
 }
 
 // closes nestest log file
-void log_file_close(void)
+static void log_file_close(void)
 {
    fclose(log_file);
    log_file = NULL;
+}
+
+// outputs instruction logs to a file
+void dump_log_to_file(void)
+{  
+   log_update_current();
+
+   if (!log_file_open())
+   {
+      return;
+   }
+
+   for (int i = MAX_INSTR - MAX_NEXT - 1; i > 0; --i)
+   {
+      fprintf(log_file, "%s \t $%s", log_get_prev_cpu_state(i), log_get_prev_instruction(i));
+   }
+
+   log_file_close();
 }
 
 void log_write(const char* const format, ...)
@@ -80,23 +99,6 @@ void log_rewind(uint8_t r)
 void log_update_current(void)
 {
    current = modulo(buffer_head - MAX_NEXT - 1, MAX_INSTR);
-}
-
-void log_to_file(void)
-{  
-   log_update_current();
-   log_file = freopen("nes.log", "w", log_file);
-
-   if (log_file == NULL)
-   {
-      printf("Error reopening log file!\n");
-      return;
-   }
-
-   for (int i = MAX_INSTR - MAX_NEXT - 1; i > 0; --i)
-   {
-      fprintf(log_file, "%s \t $%s", log_get_prev_cpu_state(i), log_get_prev_instruction(i));
-   }
 }
 
 const char* log_get_current_instruction(void)

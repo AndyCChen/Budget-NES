@@ -5,11 +5,8 @@
 #include <stdio.h>
 
 #define MAX_NEXT 5     // max number of future instructions to disassemble
-#define MAX_INSTR 11 // max number of disassembled instructions to store in ring buffer
 
-bool log_file_open(void);
-void log_file_close(void);
-void log_to_file();
+void dump_log_to_file();
 
 /**
  * Start writing to the ring buffer with a max

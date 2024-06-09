@@ -60,5 +60,6 @@ void cpu_NMI(void);
 void cpu_tick(void);
 cpu_6502_t* get_cpu(void);
 const instruction_t* get_instruction_lookup_entry(uint8_t position);
+void update_disassembly(uint8_t next);
 
 #endif

@@ -41,11 +41,11 @@ int main(int argc, char *argv[])
          }
          case EMULATOR_PAUSED:
          {
-            if (emulator_state->instruction_step)
+            if (emulator_state->is_instruction_step)
             {
                cpu_emulate_instruction();
-               emulator_state->instruction_step = false;
-               log_to_file();
+               emulator_state->is_instruction_step = false;
+               
             }
 
             break;
@@ -68,14 +68,12 @@ static bool budgetNES_init(const char* rom_path)
       return false;
    }
 
-   log_file_open();
    cpu_init();
    return true;
 }
 
 static void budgetNES_shutdown(void)
 {
-   log_file_close();
    cartridge_free_memory();
    display_shutdown();
 }

@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "SDL_timer.h"
+
 #include "../includes/cpu.h"
 #include "../includes/log.h"
 #include "../includes/bus.h"
@@ -25,17 +27,17 @@
 #define CPU_STACK_ADDRESS 0x0100
 
 static cpu_6502_t cpu;
+static Emulator_State_t* emu_state = NULL;
 
 static uint8_t cpu_fetch(void);
 static uint8_t cpu_fetch_no_increment(void);
-static uint8_t cpu_execute(void);
-static void cpu_decode(uint8_t opcode);
+static inline void cpu_execute(void);
+static inline void cpu_decode(uint8_t opcode);
 static uint8_t branch(void);
 static void set_instruction_operand(address_modes_t address_mode, uint8_t *extra_cycle);
 static void stack_push(uint8_t value);
 static uint8_t stack_pop(void);
 static bool check_opcode_access_mode(uint8_t opcode);
-static inline void update_disassembly(uint16_t pc, uint8_t next);
 
 // current opcode of the current instruction
 static uint8_t current_opcode;
@@ -2295,7 +2297,7 @@ static uint8_t BRK(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   update_disassembly(cpu.pc, MAX_NEXT);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT);
 
    return 0;
 }
@@ -2307,7 +2309,7 @@ static uint8_t JMP(void)
 {
    cpu.pc = instruction_operand;
 
-   update_disassembly(cpu.pc, MAX_NEXT);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT);
    return 0;
 }
 
@@ -2330,7 +2332,7 @@ static uint8_t JSR(void)
 
    cpu.pc = instruction_operand;
 
-   update_disassembly(cpu.pc, MAX_NEXT);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT);
 
    return 0;
 }
@@ -2352,7 +2354,7 @@ static uint8_t RTI(void)
 
    cpu.pc = ( hi << 8) | lo;
 
-   update_disassembly(cpu.pc, MAX_NEXT);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT);
 
    return 0;
 }
@@ -2370,7 +2372,7 @@ static uint8_t RTS(void)
    ++cpu.pc;
    cpu_tick(); // 1 cycle used for incrementing pc
 
-   update_disassembly(cpu.pc, MAX_NEXT);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT);
 
    return 0;
 }
@@ -2568,7 +2570,7 @@ void cpu_IRQ(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   update_disassembly(cpu.pc, MAX_NEXT + 1);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
 }
 
 void cpu_NMI(void)
@@ -2589,7 +2591,7 @@ void cpu_NMI(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   update_disassembly(cpu.pc, MAX_NEXT + 1);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
 }
 
 /**
@@ -2607,7 +2609,7 @@ static uint8_t branch(void)
 
    cpu.pc = instruction_operand;
 
-   update_disassembly(cpu.pc, MAX_NEXT);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT);
 
    return extra_cycle;
 }
@@ -2644,7 +2646,7 @@ static uint8_t cpu_fetch_no_increment(void)
  * Call this function before calling cpu_execute.
  * @param opcode the opcode to decode
 */
-static void cpu_decode(uint8_t opcode)
+static inline void cpu_decode(uint8_t opcode)
 {
    current_instruction = &instruction_lookup_table[opcode];
    current_opcode = opcode;
@@ -2655,13 +2657,11 @@ static void cpu_decode(uint8_t opcode)
  * Only call this function after cpu_decode() has been called.
  * @returns the number of cycles the executed instruction takes
 */
-static uint8_t cpu_execute(void)
+static  inline void cpu_execute(void)
 {
    uint8_t extra_cycles = 0;
    set_instruction_operand(current_instruction->mode, &extra_cycles);
-   extra_cycles += current_instruction->opcode_function(); // execute the current instruction
-
-   return current_instruction->cycles + extra_cycles;
+   current_instruction->opcode_function(); // execute the current instruction
 }
 
 /**
@@ -2690,15 +2690,14 @@ static uint8_t stack_pop(void)
 */
 void cpu_emulate_instruction(void)
 {  
-   //if (cpu.pc == 0x8082) get_emulator_state()->run_state = EMULATOR_PAUSED;
-   log_cpu_state("A:%02X X:%02X Y:%02X SP:%02X P:%02X", cpu.ac, cpu.X, cpu.Y, cpu.sp, cpu.status_flags);
+   if (emu_state->is_cpu_intr_log) log_cpu_state("A:%02X X:%02X Y:%02X SP:%02X P:%02X", cpu.ac, cpu.X, cpu.Y, cpu.sp, cpu.status_flags);
 
    uint8_t opcode = cpu_fetch();
    cpu_decode(opcode);
    cpu_execute();
 
    controller_reload_shift_registers(); // check if controller shifts registers need to be reloaded
-   disassemble();
+   if (emu_state->is_cpu_intr_log) disassemble();
 
    if (cpu.nmi_flip_flop)
    {
@@ -2706,48 +2705,40 @@ void cpu_emulate_instruction(void)
       cpu_NMI();
    }
 }
-#include "SDL_timer.h"
+
 /**
  * Run the cpu for an x amount of clock cycles per frame depending refresh rate
 */
 void cpu_run()
 {
-   static uint64_t delta_time = 0;
-   static uint64_t previous_time = 0;
-   static uint64_t current_time = 0;
+   static float delta_time = 0;
+   static float previous_time = 0;
+   static float current_time = 0;
 
-   current_time = SDL_GetTicks64();
+   current_time = SDL_GetTicks64() / 1000.0f;
    delta_time += current_time - previous_time;
 
-   if ( delta_time >= 17 )
+   if ( delta_time >= 1.0f / 60.0f )
    {
-      delta_time -= 17;
+      delta_time = 0;
 
-      while ( cpu.cycle_count <= 1789773 / 60.0f  )
+      while ( cpu.cycle_count <= 29780 )
       {
          cpu_emulate_instruction();
       }
+      //printf("%zu\n", cpu.cycle_count);
       cpu.cycle_count = 0;
-       static int counter = 0;
-      if (counter++ == 59)
-      {
-         counter = 0;
-         static int i = 0;
-         printf("%d %lld\n", i++, fc());
-      }
-
+      
    }
 
-/*    int i = 0;
-   while ( i < 2000 )
+   previous_time = current_time; 
+
+/*     int i = 0;
+   while (i < 8000)
    {
       ++i;
       cpu_emulate_instruction();
-   } */
-
-   
-   previous_time = current_time;
-   //printf("%lld\n", fc());
+   } display_update_color_buffer(); */
 }
 
 /**
@@ -2773,14 +2764,16 @@ void cpu_reset(void)
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
 
-   update_disassembly(cpu.pc, MAX_NEXT + 1);
+   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
 }
 
 /**
  * Initilize cpu state at power up
 */
 void cpu_init(void)
-{
+{  
+   emu_state = get_emulator_state();
+
    cpu.cycle_count = 0;
    cpu.nmi_flip_flop = false;
    cpu.ac = 0;
@@ -2876,11 +2869,12 @@ const instruction_t* get_instruction_lookup_entry(uint8_t position)
 
 /**
  * When ever program jumps to new location to begin execution such as when branches are taken
- * or during jmp instructions, we must update the future disassembled instructions to reflect the new execution starting point.
+ * or during jmp instructions, we must update the future disassembled instructions to reflect the new execution starting point
+ * which will be the current cpu program counter value.
 */
-static inline void update_disassembly(uint16_t pc, uint8_t next)
+void update_disassembly(uint8_t next)
 {
    log_rewind(next);
-   disassemble_set_position(pc);
+   disassemble_set_position(cpu.pc);
    disassemble_next_x(next);
 }

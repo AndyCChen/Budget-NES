@@ -92,10 +92,11 @@ static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_
 static Emulator_State_t emulator_state = 
 {
    .display_size = 4,
-   .cpu_debug = false,
-   .pattern_table_viewer = false,
-   .run_state = EMULATOR_RUNNING,
-   .instruction_step = false,
+   .is_cpu_debug = false,
+   .is_cpu_intr_log = false,
+   .is_pattern_table_open = false,
+   .run_state = EMULATOR_PAUSED,
+   .is_instruction_step = false,
 }; 
 
 /**
@@ -193,8 +194,6 @@ bool display_init(void)
       printf("Failed getting display information! %s\n", SDL_GetError());
    }
 
-   emulator_state.refresh_rate = mode.refresh_rate;
-
    return true;
 }
 
@@ -237,12 +236,12 @@ void display_process_event(bool* done)
       {
          switch (event.key.keysym.scancode)
          {
-            // step through single instruction when period keypad is pressed and only when emulator is paused
-            case SDL_SCANCODE_PERIOD:
+            // step through single instruction when spacebar is pressed and only when emulator is paused
+            case SDL_SCANCODE_SPACE:
             {
                if ( emulator_state.run_state == EMULATOR_PAUSED )
                {
-                  emulator_state.instruction_step = true;
+                  emulator_state.is_instruction_step = true;
                }
                break;
             }
@@ -250,10 +249,6 @@ void display_process_event(bool* done)
             case SDL_SCANCODE_P:
             {
                emulator_state.run_state = (emulator_state.run_state == EMULATOR_RUNNING) ? EMULATOR_PAUSED : EMULATOR_RUNNING;
-               if (emulator_state.run_state == EMULATOR_PAUSED)
-               {
-                  log_to_file();
-               }
                break;
             }
 
@@ -375,13 +370,8 @@ void display_render(void)
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   if (emulator_state.cpu_debug) gui_cpu_debug();
+   if (emulator_state.is_cpu_debug) gui_cpu_debug();
    gui_demo();
-   
-   // update color buffer of main display every frame
-   glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
-   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &viewport_pixel_colors);
-   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
    gui_main_viewport();
 
@@ -390,7 +380,7 @@ void display_render(void)
    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, 0, NES_PIXELS_W * NES_PIXELS_H);
    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-   if (emulator_state.pattern_table_viewer) 
+   if (emulator_state.is_pattern_table_open) 
    {
       gui_pattern_table_viewer();
 
@@ -513,14 +503,14 @@ static void gui_main_viewport(void)
 
          if (igBeginMenu("Tools", true))
          {
-            if ( igMenuItem_Bool("CPU Debug", "", emulator_state.cpu_debug, true) )
+            if ( igMenuItem_Bool("CPU Debug", "", emulator_state.is_cpu_debug, true) )
             {
-               emulator_state.cpu_debug = !emulator_state.cpu_debug;
+               emulator_state.is_cpu_debug = !emulator_state.is_cpu_debug;
             }
 
-            if ( igMenuItem_Bool("Pattern Table Viewer", "", emulator_state.pattern_table_viewer, true) )
+            if ( igMenuItem_Bool("Pattern Table Viewer", "", emulator_state.is_pattern_table_open, true) )
             {
-               if (!emulator_state.pattern_table_viewer)
+               if (!emulator_state.is_pattern_table_open)
                {
                   if ( !display_init_pattern_table_buffers() )
                   {
@@ -533,7 +523,7 @@ static void gui_main_viewport(void)
                   display_free_pattern_table_buffers();
                }
 
-               emulator_state.pattern_table_viewer = !emulator_state.pattern_table_viewer;
+               emulator_state.is_pattern_table_open = !emulator_state.is_pattern_table_open;
             }
 
             igEndMenu();
@@ -621,7 +611,7 @@ static void gui_cpu_debug(void)
    ImGuiTableFlags flags = ImGuiTableFlags_BordersInnerV;
    ImVec2 zero_vec = {0.0f, 0.0f};
 
-   igBegin("CPU Debug", &emulator_state.cpu_debug, ImGuiWindowFlags_None);
+   igBegin("CPU Debug", &emulator_state.is_cpu_debug, ImGuiWindowFlags_None);
       igText("CPU Registers");
       if ( igBeginTable("CPU registers table", 2, flags, zero_vec, 0.0f) )
       {
@@ -749,7 +739,6 @@ static void gui_cpu_debug(void)
          {
             if ( igButton("Pause", zero_vec) )
             {
-               log_to_file();
                emulator_state.run_state = EMULATOR_PAUSED;
             }
          }
@@ -757,7 +746,7 @@ static void gui_cpu_debug(void)
          igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
             if ( igButton("Intruction Step", zero_vec) )
             {
-               emulator_state.instruction_step = true;
+               emulator_state.is_instruction_step = true;
             }
          igEndDisabled();
          gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
@@ -769,6 +758,35 @@ static void gui_cpu_debug(void)
          }
          gui_help_marker("Resets the emulator back to beginning of program execution.");
 
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
+            if (emulator_state.is_cpu_intr_log)
+            {
+               igPushStyleColor_Vec4(ImGuiCol_Button, red);
+               if ( igButton("Start Logging", zero_vec) )
+               {
+                  emulator_state.is_cpu_intr_log = false;
+               }
+               igPopStyleColor(1);
+            }
+            else
+            {
+               if ( igButton("Start Logging", zero_vec) )
+               {
+                  emulator_state.is_cpu_intr_log = true;
+                  update_disassembly(MAX_NEXT + 1);
+               }
+            }
+         igEndDisabled();
+         gui_help_marker("Start logging cpu instructions.");
+
+         igBeginDisabled(!emulator_state.is_cpu_intr_log || emulator_state.run_state == EMULATOR_RUNNING);
+            if( igButton("Log Dump", zero_vec) )
+            {
+               dump_log_to_file();
+            }
+         igEndDisabled();
+         gui_help_marker("Dump logs to a file.");
+
          igPopStyleColor(2);
          igEndTable();
       }
@@ -777,7 +795,7 @@ static void gui_cpu_debug(void)
 
 static void gui_pattern_table_viewer(void)
 {
-   igBegin("Pattern Tables", &emulator_state.pattern_table_viewer, ImGuiWindowFlags_None);
+   igBegin("Pattern Tables", &emulator_state.is_pattern_table_open, ImGuiWindowFlags_None);
       ImVec2 zero_vec = {0, 0};
       ImVec2 size; 
       igGetWindowSize(&size);
@@ -810,7 +828,7 @@ static void gui_pattern_table_viewer(void)
          igEndChild();
       igEndChild();
 
-      if (!emulator_state.pattern_table_viewer)
+      if (!emulator_state.is_pattern_table_open)
       {
          display_free_pattern_table_buffers();
       }
@@ -1228,7 +1246,9 @@ static void gui_help_marker(const char* desc)
    }
 }
 
-uint8_t display_get_refresh_rate(void)
+void display_update_color_buffer(void)
 {
-   return emulator_state.refresh_rate;
+   glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &viewport_pixel_colors);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
