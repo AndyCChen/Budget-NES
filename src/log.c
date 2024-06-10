@@ -162,6 +162,9 @@ bool log_allocate_buffers(void)
       return false;
    }
 
+   buffer_head = 0;
+   register_buffer_head = 0;
+
    printf("\n%zu bytes allocated.\n", sizeof( char[max_instructions][REGISTER_BUFFER_LENGTH] ) + sizeof( char[instruction_ring_buffer_size][INSTRUCTION_BUFFER_LENGTH] ));
 
    // initialize buffers to empty string
