@@ -6,13 +6,16 @@
 
 #define MAX_NEXT 5     // max number of future instructions to disassemble
 
+extern const char* log_size_options[];
+extern const size_t log_size_options_count;
+
 void dump_log_to_file();
 
 /**
  * Start writing to the ring buffer with a max
  * characters allowed to be written defined by DISASSEM_LENGTH.
 */
-void log_write(const char* const format, ...);
+void log_write_instruction(const char* const format, ...);
 
 /**
  * Log state of cpu registers
@@ -49,5 +52,17 @@ const char* log_get_prev_cpu_state(uint32_t x);
  * Updates the index that points to the disassembled instruction that is being executed by the emulator
 */
 void log_update_current(void);
+
+/**
+ * Set the number of instructions to log.
+ * @param select index representing a log_max_instructions_t enum
+ */
+void log_set_size(uint32_t select);
+
+/**
+ * Allocates memory for log buffers, will internally free the log buffers
+ * if they are not NULL before allocating new memory.
+ */
+bool log_allocate_buffers(void);
 
 #endif

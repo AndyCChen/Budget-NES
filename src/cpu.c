@@ -2718,7 +2718,7 @@ void cpu_run()
    current_time = SDL_GetTicks64() / 1000.0f;
    delta_time += current_time - previous_time;
 
-   if ( delta_time >= 1.0f / 60.0f )
+   if ( delta_time >= 1.0f / 60.0988f )
    {
       delta_time = 0;
 
@@ -2785,8 +2785,7 @@ void cpu_init(void)
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
 
-   disassemble_set_position(cpu.pc); // tell the disassembler to begin disassembling intructions at the current pc value
-   disassemble_next_x(MAX_NEXT + 1); // disassemble the next x instructions
+   //disassemble_next_x(MAX_NEXT + 1); // disassemble the next x instructions
 }
 
 /**

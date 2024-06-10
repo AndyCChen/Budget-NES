@@ -720,7 +720,7 @@ static void gui_cpu_debug(void)
             igText("%s", log_get_next_instruction(i));
          }
 
-         // pause, instruction and frame step buttons
+         // pause buttons
          igTableSetColumnIndex(1);
 
          igPushStyleColor_Vec4(ImGuiCol_ButtonHovered, red);
@@ -743,6 +743,7 @@ static void gui_cpu_debug(void)
             }
          }
 
+         // step through single instruction button
          igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
             if ( igButton("Intruction Step", zero_vec) )
             {
@@ -751,6 +752,7 @@ static void gui_cpu_debug(void)
          igEndDisabled();
          gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
 
+         // reset button
          if ( igButton("Reset", zero_vec) )
          {
             cpu_reset();
@@ -758,6 +760,34 @@ static void gui_cpu_debug(void)
          }
          gui_help_marker("Resets the emulator back to beginning of program execution.");
 
+         static size_t current_option_index = 0;
+         const char* current_option = log_size_options[current_option_index];
+
+         igNewLine();
+         igText("Lines to Log");
+         gui_help_marker("Select the last X number of instructions to log");
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || emulator_state.is_cpu_intr_log);
+            if ( igBeginCombo("", current_option, ImGuiComboFlags_None) )
+            {
+               for (size_t n = 0; n < log_size_options_count; ++n)
+               {
+                  const bool is_selected = current_option_index == n;
+                  if ( igSelectable_Bool(log_size_options[n], is_selected, ImGuiSelectableFlags_None, zero_vec) )
+                  {
+                     current_option_index = n;
+                     log_set_size(current_option_index);
+                  }
+
+                  if (is_selected)
+                  {
+                     igSetItemDefaultFocus();
+                  }
+               }
+               igEndCombo();
+            }
+         igEndDisabled();
+
+         // enable logging button
          igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
             if (emulator_state.is_cpu_intr_log)
             {
@@ -772,13 +802,17 @@ static void gui_cpu_debug(void)
             {
                if ( igButton("Start Logging", zero_vec) )
                {
-                  emulator_state.is_cpu_intr_log = true;
-                  update_disassembly(MAX_NEXT + 1);
+                  if ( log_allocate_buffers() )
+                  {
+                     emulator_state.is_cpu_intr_log = true;
+                     update_disassembly(MAX_NEXT + 1);
+                  }
                }
             }
          igEndDisabled();
          gui_help_marker("Start logging cpu instructions.");
 
+         // output logs to file button
          igBeginDisabled(!emulator_state.is_cpu_intr_log || emulator_state.run_state == EMULATOR_RUNNING);
             if( igButton("Log Dump", zero_vec) )
             {
