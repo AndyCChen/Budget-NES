@@ -74,6 +74,7 @@ static bool budgetNES_init(const char* rom_path)
 
 static void budgetNES_shutdown(void)
 {
+   log_free();
    cartridge_free_memory();
    display_shutdown();
 }

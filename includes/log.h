@@ -4,11 +4,15 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define MAX_NEXT 5     // max number of future instructions to disassemble
+#define MAX_PREV 5 // max number of previous instructions to display in cpu debug gui
+#define MAX_NEXT 5 // max number of future instructions to disassemble
 
 extern const char* log_size_options[];
 extern const size_t log_size_options_count;
 
+/**
+ * Outputs logs to log file
+ */
 void dump_log_to_file();
 
 /**
@@ -46,6 +50,10 @@ const char* log_get_next_instruction(uint32_t x);
 */
 const char* log_get_prev_instruction(uint32_t x);
 
+/**
+ * Get the previous x-th cpu registers starting from the instruction currently being executed
+ * @param x the x-th previous instruction to retrieve
+*/
 const char* log_get_prev_cpu_state(uint32_t x);
 
 /**
@@ -60,9 +68,14 @@ void log_update_current(void);
 void log_set_size(uint32_t select);
 
 /**
- * Allocates memory for log buffers, will internally free the log buffers
- * if they are not NULL before allocating new memory.
+ * Allocates memory for log buffers, will internally free the log buffers first
+ * before allocation.
  */
 bool log_allocate_buffers(void);
+
+/**
+ * Call this to explicitly free log buffers.
+ */
+void log_free(void);
 
 #endif

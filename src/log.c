@@ -8,15 +8,16 @@
 
 #include "../includes/log.h"
 
-#define DEFAULT_MAX_INTR 100
+#define DEFAULT_MAX_INTR      100  // default number of lines to log, must be equivalent to DEFAULT_MAX_INTR_STR
+#define DEFAULT_MAX_INTR_STR "100" // string option of the default number of lines to log
 #define INSTRUCTION_BUFFER_LENGTH 64  // max size of the buffer used to store disassembled instruction c_strings
-#define REGISTER_BUFFER_LENGTH 32
+#define REGISTER_BUFFER_LENGTH    32
 
 static uint32_t max_instructions_input       = DEFAULT_MAX_INTR;
 static uint32_t max_instructions             = DEFAULT_MAX_INTR;
 static uint32_t instruction_ring_buffer_size = DEFAULT_MAX_INTR + MAX_NEXT + 1;
 
-const char* log_size_options[] = {"100", "500", "1000", "5000", "10000"};
+const char* log_size_options[] = {DEFAULT_MAX_INTR_STR, "500", "1000", "5000", "10000"};
 const size_t log_size_options_count = sizeof(log_size_options) / sizeof(log_size_options[0]);
 
 FILE *log_file = NULL;
@@ -29,13 +30,12 @@ static uint32_t register_buffer_head = 0;
 // cpu instruction logs
 
 static char (*instruction_ring_buffer)[INSTRUCTION_BUFFER_LENGTH];  // a ring buffer disassembled instruction c_strings
-static uint32_t buffer_head = 0;                      // position of head in ring buffer, this will generally be pointing to the most recently disassembled instruction a couple instructions ahead of the currently executed instruction
+static uint32_t buffer_head = 0; // position of head in ring buffer, this will generally be pointing to the most recently disassembled instruction a couple instructions ahead of the currently executed instruction
 
-static uint32_t current = 0;                          // index pointing to the disassembled instruction that will be executed
+static uint32_t current = 0; // index pointing to the disassembled instruction that will be executed
 
 static uint32_t modulo(int x, int m);
 
-// outputs instruction logs to a file
 void dump_log_to_file(void)
 {  
    log_update_current();
@@ -138,17 +138,8 @@ void log_set_size(uint32_t select)
 
 bool log_allocate_buffers(void)
 {
-   if (register_ring_buffer != NULL)
-   {
-      free(register_ring_buffer);
-      register_ring_buffer = NULL;
-   }
-
-   if (instruction_ring_buffer != NULL)
-   {
-      free(instruction_ring_buffer);
-      instruction_ring_buffer = NULL;
-   }
+   // free buffers before allocating new memory
+   log_free();
    
    max_instructions             = max_instructions_input;
    instruction_ring_buffer_size = max_instructions_input + MAX_NEXT + 1;
@@ -162,10 +153,9 @@ bool log_allocate_buffers(void)
       return false;
    }
 
-   buffer_head = 0;
-   register_buffer_head = 0;
-
-   printf("\n%zu bytes allocated.\n", sizeof( char[max_instructions][REGISTER_BUFFER_LENGTH] ) + sizeof( char[instruction_ring_buffer_size][INSTRUCTION_BUFFER_LENGTH] ));
+   printf("\n%zu bytes allocated.\n", 
+      sizeof( char[max_instructions][REGISTER_BUFFER_LENGTH] ) + 
+      sizeof( char[instruction_ring_buffer_size][INSTRUCTION_BUFFER_LENGTH] ));
 
    // initialize buffers to empty string
    for (uint32_t i = 0; i < max_instructions; ++i)
@@ -174,13 +164,27 @@ bool log_allocate_buffers(void)
       snprintf(instruction_ring_buffer[i], INSTRUCTION_BUFFER_LENGTH, " ");
    }
 
-   // initialize remaining space
+   // initialize remaining space since the instruction ring buffer is slightly larger to hold
+   // the next MAX_NEXT future disassembled instructions
    for (uint32_t i = max_instructions; i < instruction_ring_buffer_size; ++i)
    {
       snprintf(instruction_ring_buffer[i], INSTRUCTION_BUFFER_LENGTH, " ");
    }
 
    return true;
+}
+
+void log_free(void)
+{
+   free(register_ring_buffer);
+   free(instruction_ring_buffer);
+
+   register_ring_buffer = NULL;
+   instruction_ring_buffer = NULL;
+
+   current              = 0;
+   buffer_head          = 0;
+   register_buffer_head = 0;
 }
 
 static uint32_t modulo(int x, int m)

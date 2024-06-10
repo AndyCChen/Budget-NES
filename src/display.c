@@ -704,9 +704,9 @@ static void gui_cpu_debug(void)
 
          log_update_current();
 
-         // log previous disassembled opcodes
+         // log previous 5 disassembled opcodes
 
-         for (size_t i = 5; i >= 1; --i)
+         for (size_t i = MAX_PREV; i >= 1; --i)
          {
             igText("%s", log_get_prev_instruction(i));
          }
@@ -714,18 +714,18 @@ static void gui_cpu_debug(void)
          // log current opcode that will be executed
          igTextColored(red, "%s", log_get_current_instruction());
 
-         // log future opcodes that will be executed
+         // log future opcodes that may be executed
          for (uint8_t i = 1; i <= MAX_NEXT; ++i)
          {
             igText("%s", log_get_next_instruction(i));
          }
 
-         // pause buttons
          igTableSetColumnIndex(1);
 
          igPushStyleColor_Vec4(ImGuiCol_ButtonHovered, red);
          igPushStyleColor_Vec4(ImGuiCol_ButtonActive, red);
 
+         // pause buttons
          if (emulator_state.run_state == EMULATOR_PAUSED) 
          {
             igPushStyleColor_Vec4(ImGuiCol_Button, red);
@@ -814,7 +814,7 @@ static void gui_cpu_debug(void)
 
          // output logs to file button
          igBeginDisabled(!emulator_state.is_cpu_intr_log || emulator_state.run_state == EMULATOR_RUNNING);
-            if( igButton("Log Dump", zero_vec) )
+            if( igButton("Dump Logs", zero_vec) )
             {
                dump_log_to_file();
             }
