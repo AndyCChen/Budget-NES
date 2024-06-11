@@ -45,14 +45,14 @@ uint8_t cpu_bus_read(uint16_t position)
    // reading controller 1 input state
    else if ( position == 0x4016 )
    {
-      data = controller1_read();
+      data = 0x40 | controller1_read();
    }
    // reading controller 2 input state, CONTROLLER 2 NOT SUPPORTED!
    else if ( position == 0x4017 )
    {
-      data = controller2_read();
+      data = 0x40 | controller2_read();
    }
-   
+
    return data;
 }
 

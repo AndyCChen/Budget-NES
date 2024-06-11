@@ -25,10 +25,8 @@ typedef struct nes_header_t
 } nes_header_t;
 
 /**
- * Loads program rom in cartridge into memory and
- * determines cartridge mapper that is to be used.
- * Also allocates memory for program rom/ram and chr rom/ram.
- */ 
+ * Allocates memory for cartridge data and loads data into allocated memory.
+ */
 bool cartridge_load(const char* const romPath);
 
 /**

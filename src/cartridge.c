@@ -12,6 +12,7 @@
 #define TRAINER_SIZE 512
 
 static mapper_t mapper;
+static void* mapper_registers = NULL; // void pointer to struct containing a mapper's registers
 static nes_header_t header;
 
 static uint8_t ppu_vram[1024 * 2];
@@ -19,12 +20,13 @@ static uint8_t *prg_rom = NULL;
 static uint8_t *prg_ram = NULL;
 static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom
 
-static bool load_iNES(uint8_t *iNES_header, nes_header_t *header );
+static bool load_iNES10(uint8_t *iNES_header, nes_header_t *header);
+static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header);
 
 uint8_t cartridge_cpu_read(uint16_t position)
 {
    uint16_t mapped_addr = 0;
-   cartridge_access_mode_t mode = mapper.cpu_read(&header, position, &mapped_addr);
+   cartridge_access_mode_t mode = mapper.cpu_read(&header, position, &mapped_addr, mapper_registers);
 
    static uint8_t data = 0;
    switch ( mode )
@@ -36,8 +38,8 @@ uint8_t cartridge_cpu_read(uint16_t position)
          data = prg_ram[mapped_addr];
          break;
       case NO_CARTRIDGE_DEVICE: // when addressed location has no attached device, return value from previous read in static data
-      default: // default case should never happen here
-      printf("no device\n");
+      default:
+         break;
    }
 
    return data;
@@ -46,7 +48,7 @@ uint8_t cartridge_cpu_read(uint16_t position)
 void cartridge_cpu_write(uint16_t position, uint8_t data)
 {
    uint16_t mapped_addr = 0;
-   cartridge_access_mode_t mode = mapper.cpu_write(&header, position, &mapped_addr);
+   cartridge_access_mode_t mode = mapper.cpu_write(&header, position, data, &mapped_addr, mapper_registers);
 
    switch ( mode )
    {
@@ -54,14 +56,17 @@ void cartridge_cpu_write(uint16_t position, uint8_t data)
          prg_ram[mapped_addr] = data;
          break;
       default:
-         printf("Attempting to write to cartridge that is not program ram!\n");
+         break;
    }
 }
 
 uint8_t cartridge_ppu_read(uint16_t position)
 {
    uint16_t mapped_addr = 0;
-   cartridge_access_mode_t mode = mapper.ppu_read(&header, position, &mapped_addr);
+
+   // ppu address space is only 14 bits, hence the 0x3FFF bitmask
+
+   cartridge_access_mode_t mode = mapper.ppu_read(&header, position & 0x3FFF, &mapped_addr, mapper_registers);
 
    uint8_t data = 0;
    switch ( mode )
@@ -84,7 +89,10 @@ uint8_t cartridge_ppu_read(uint16_t position)
 void cartridge_ppu_write(uint16_t position, uint8_t data)
 {  
    uint16_t mapped_addr = 0;
-   cartridge_access_mode_t mode = mapper.ppu_write(&header, position, &mapped_addr);
+
+   // ppu address space is only 14 bits, hence the 0x3FFF bitmask
+
+   cartridge_access_mode_t mode = mapper.ppu_write(&header, position & 0x3FFF, &mapped_addr, mapper_registers);
    
    switch ( mode )
    {
@@ -120,26 +128,45 @@ bool cartridge_load(const char* const filepath)
       return false;
    }
 
-   if ( (iNES_header[7] & 0x0C) == 0x08 )
+   // check if .nes file is a valid rom file
+   if ( (iNES_header[0]=='N' && iNES_header[1]=='E' && iNES_header[2]=='S' && iNES_header[3]==0x1A) )
    {
-      // implement iNES 2.0 in future, for now return false and exit
-      printf("iNES 2.0 not supported!\n");
+      // iNES 2.0
+      if ( (iNES_header[7] & 0x0C) == 0x08 )
+      {
+         printf("iNES 2.0\n");
+         if ( !load_iNES20(iNES_header, &header) )
+         {
+            fclose(file);
+            return false;
+         }
+      }
+      // iNES 1.0
+      else
+      {
+         printf("iNES 1.0\n");
+         if ( !load_iNES10(iNES_header, &header) )
+         {
+            fclose(file);
+            return false;
+         }
+      }
+   }
+   else
+   {
+      printf("Invalid nes file!\n");
       fclose(file);
       return false;
    }
 
-   if ( !load_iNES(iNES_header, &header) )
-   {
-      fclose(file);
-      return false;
-   }
-
-   if ( !load_mapper(header.mapper_id, &mapper) )
+   if ( !load_mapper(header.mapper_id, &mapper, (void**) &mapper_registers) )
    {
       fclose(file);
       printf("Mapper %d does not exist or is not supported!\n", header.mapper_id);
       return false;
    }
+
+   mapper.init(&header, mapper_registers);
 
    // determine sizes of prg rom/ram and chr rom/ram in bytes
 
@@ -194,9 +221,9 @@ bool cartridge_load(const char* const filepath)
    // read nes file contents into corresponding allocated memory blocks
 
    if ( header.trainer != 0 )
-   {
-      fclose(file);
+   {     
       // ignore trainer data in nes file
+      printf("Trainer data present.\n");
       fseek(file, TRAINER_SIZE, SEEK_CUR);
    }
 
@@ -220,7 +247,13 @@ bool cartridge_load(const char* const filepath)
       }
    }
 
-   printf(" Mapper: %d\n prg-rom size: %zu\n chr-rom/ram size: %zu\n prg-ram size: %zu\n Mirroring: %s\n", header.mapper_id, prg_rom_size, chr_mem_size, prg_ram_size, (header.nametable_arrangement) ? "Vertical" : "Horizontal");
+   printf("%-13s %d\n%-13s %zu\n%-13s %zu\n%-13s %zu\n%-13s %s\n", 
+      "Mapper:", header.mapper_id, 
+      "Prg-ROM size:", prg_rom_size, 
+      "CHR-ROM/RAM", chr_mem_size, 
+      "PRG_RAM size:", prg_ram_size, 
+      "Mirroring:", (header.nametable_arrangement) ? "Vertical" : "Horizontal"
+   );
 
    fclose(file);
    return true;
@@ -231,22 +264,17 @@ void cartridge_free_memory(void)
    free(prg_rom);
    free(prg_ram);
    free(chr_memory);
+   free(mapper_registers);
 }
 
 /**
- * Loads data in iNES header into a struct. Does not handle iNES 2.0 headers!
+ * Loads data in iNES in 1.0 format into a struct.
  * @param iNES_header array container 16 header
  * @param header struct to contain header information
  * @return false on fail and true on success
 */
-static bool load_iNES(uint8_t *iNES_header, nes_header_t *header )
+static bool load_iNES10(uint8_t *iNES_header, nes_header_t *header)
 {
-   if ( !(iNES_header[0]=='N' && iNES_header[1]=='E' && iNES_header[2]=='S' && iNES_header[3]==0x1A) )
-   {
-      printf("Invalid nes file!\n");
-      return false;
-   }
-
    header->trainer = iNES_header[6] & 0x04;
    header->nametable_arrangement = iNES_header[6] & 0x1;
    header->prg_rom_size = iNES_header[4];
@@ -264,4 +292,20 @@ static bool load_iNES(uint8_t *iNES_header, nes_header_t *header )
    header->mapper_id = mapper_id_hi | mapper_id_lo;
 
    return true;
+}
+
+/**
+ * Loads data in iNES in 2.0 format into a struct.
+ * @param iNES_header array container 16 header
+ * @param header struct to contain header information
+ * @return false on fail and true on success
+*/
+static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header)
+{
+   (void) iNES_header;
+   (void) header;
+   // todo: iNES 2.0
+   printf("iNES 2.0 not implemented yet.\n");
+
+   return false;
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(nes_emulator)
+project(BudgetNES_Emulator)
 
 set (CMAKE_CXX_STANDARD 11)
 
@@ -77,7 +77,7 @@ target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 
 #using library
 include_directories(cimgui/generator/output/)
-add_executable(nes
+add_executable(BudgetNES
    main.c
    src/bus.c
    src/cartridge.c
@@ -91,6 +91,7 @@ add_executable(nes
    src/mapper.c
    src/mappers/mirror_config.c
    src/mappers/mapper_000.c
+   src/mappers/mapper_001.c
 )
 
 if (DEFINED CGLM_PATH)
@@ -99,10 +100,10 @@ else (DEFINED CGLM_PATH)
    message(FATAL_ERROR "Please define CGLM_PATH")
 endif(DEFINED CGLM_PATH)
 
-target_include_directories(nes PRIVATE includes/ glad_loader/include/glad ${CGLM_PATH})
-target_compile_definitions(nes PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
+target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad ${CGLM_PATH})
+target_compile_definitions(BudgetNES PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
-   target_link_options(nes PRIVATE "-mconsole")
+   target_link_options(BudgetNES PRIVATE "-mconsole")
 endif()
 
 find_library(
@@ -120,6 +121,6 @@ endif(NOT CGLM_LIB)
 add_library(glad_loader SHARED glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
-target_link_libraries(nes ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader)
+target_link_libraries(BudgetNES ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader)
 
-target_compile_options(nes PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)

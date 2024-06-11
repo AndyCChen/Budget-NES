@@ -7,17 +7,9 @@
 
 #define PPU_CARTRIDGE_PATTERN_TABLE_END 0x1FFF
 
-#define NAMETABLE_0_END   0x23FF
-#define NAMETABLE_1_START 0x2400
-#define NAMETABLE_1_END   0x27FF
-#define NAMETABLE_2_START 0x2800
-#define NAMETABLE_2_END   0x2BFF
-#define NAMETABLE_3_START 0x2C00
-#define NAMETABLE_3_END   0x2FFF
-
-
-cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
+cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, void* internal_registers)
 {
+   (void) internal_registers;
    cartridge_access_mode_t mode;
 
    if ( position >= CPU_CARTRIDGE_PRG_ROM_START )
@@ -38,10 +30,30 @@ cartridge_access_mode_t mapper000_cpu_read(nes_header_t *header, uint16_t positi
    return mode;
 }
 
-cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
+cartridge_access_mode_t mapper000_cpu_write(nes_header_t *header, uint16_t position, uint8_t data, uint16_t *mapped_addr, void* internal_registers)
 {
+   (void) data;
+   (void) header;
+   (void) internal_registers;
    cartridge_access_mode_t mode;
-   position = position & 0x3FFF; // ppu addresses only a 14 bit address space
+
+   if ( position >= CPU_CARTRIDGE_PRG_RAM_START && position <= CPU_CARTRIDGE_PRG_RAM_END )
+   {
+      *mapped_addr = position & 0x1FFF;
+      mode = ACCESS_PRG_RAM;
+   }
+   else
+   {
+      mode = NO_CARTRIDGE_DEVICE;
+   }
+
+   return mode;
+}
+
+cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, void* internal_registers)
+{
+   (void) internal_registers;
+   cartridge_access_mode_t mode;
 
    if ( position <= PPU_CARTRIDGE_PATTERN_TABLE_END )
    {
@@ -68,28 +80,11 @@ cartridge_access_mode_t mapper000_ppu_read(nes_header_t *header, uint16_t positi
    return mode;
 }
 
-cartridge_access_mode_t mapper000_cpu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
+cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, void* internal_registers)
 {
+   (void) internal_registers;
    cartridge_access_mode_t mode;
-   (void) header;
-
-   if ( position >= CPU_CARTRIDGE_PRG_RAM_START && position <= CPU_CARTRIDGE_PRG_RAM_END )
-   {
-      *mapped_addr = position & 0x1FFF;
-      mode = ACCESS_PRG_RAM;
-   }
-   else
-   {
-      mode = NO_CARTRIDGE_DEVICE;
-   }
-
-   return mode;
-}
-
-cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr)
-{
-   cartridge_access_mode_t mode;
-   position = position & 0x3FFF; // ppu addresses only a 14 bit address space
+   
    if ( position <= PPU_CARTRIDGE_PATTERN_TABLE_END )
    {  
       if ( header->chr_rom_size == 0 ) // 0 size chr-rom means chr-ram is used instead so writes are allowed
@@ -120,4 +115,10 @@ cartridge_access_mode_t mapper000_ppu_write(nes_header_t *header, uint16_t posit
    }
 
    return mode;
+}
+
+// mapper 0 has no internal registers so it's init function does nothing
+void mapper000_init(nes_header_t* header, void* internal_registers)
+{
+   (void) internal_registers;
 }
