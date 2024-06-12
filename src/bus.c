@@ -81,6 +81,10 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    {  
       ppu_port_write(position, data);
    }
+   else if (position >= 0x8000)
+   {
+      cartridge_cpu_write(position, data);
+   }
    // writing to cartridge (i.e. program RAM, NOT ROM)
    else if ( position >= 0x6000 && position <= 0x7FFF )
    {

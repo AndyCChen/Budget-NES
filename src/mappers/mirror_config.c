@@ -16,3 +16,11 @@ void mirror_config_horizontal(uint16_t* position)
       *position = ( *position & ~(0x0C00) ) | 0x400;
    }
 }
+
+void mirror_config_single_screen(uint16_t* position, uint16_t bank_number)
+{
+   // select banks 0 - 3
+   uint8_t bank_select = bank_number & 0x3;
+
+   *position = ( *position & ~(0xC00) ) | (bank_select << 10);
+}
