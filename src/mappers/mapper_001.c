@@ -1,7 +1,7 @@
 #include "../includes/mappers/mapper_001.h"
 #include "../includes/mappers/mirror_config.h"
 
-cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, void* internal_registers)
+cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t position, size_t *mapped_addr, void* internal_registers)
 {
    Registers_001* mapper = (Registers_001*) internal_registers;
    cartridge_access_mode_t mode;
@@ -17,7 +17,7 @@ cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t positi
          // reading bank at 0x8000
          if (position >= 0x8000 && position <= 0xBFFF)
          {
-            *mapped_addr = (position & 0x3FFF) + (mapper->PRG_bank & 0xF) * 0x4000;
+            *mapped_addr = (position & 0x3FFF) + ((mapper->PRG_bank & 0xF) * 0x4000);
          }
          // reading bank at 0xC000
          else
@@ -36,19 +36,19 @@ cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t positi
          // reading bank at 0xC000
          else
          {
-            *mapped_addr = (position & 0x3FFF) + (mapper->PRG_bank & 0xF) * 0x4000;
+            *mapped_addr = (position & 0x3FFF) + ((mapper->PRG_bank & 0xF) * 0x4000);
          }
       }
       // switch 32 KB at $8000, ignoring low bit of bank number
       else
       {
-         *mapped_addr = (position & 0x7FFF) + (((mapper->PRG_bank & 0xE) >> 1) * 0x8000);
+         *mapped_addr = (position & 0x7FFF) + ( ((mapper->PRG_bank >> 1) & 0x3) * 0x8000) ;
       }
 
       *mapped_addr &= (header->prg_rom_size * 0x4000) - 1;
    }
    // reading program ram
-   else if (position >= 0x6000 && position <= 0x7FFF && mapper->PRG_bank & (mapper->PRG_bank & 0x10))
+   else if (position >= 0x6000 && position <= 0x7FFF && !(mapper->PRG_bank & 0x10))
    {
       mode = ACCESS_PRG_RAM;
       *mapped_addr = position & 0x1FFF;
@@ -61,7 +61,7 @@ cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t positi
    return mode;
 }
 
-cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t position, uint8_t data, uint16_t *mapped_addr, void* internal_registers)
+cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t position, uint8_t data, size_t *mapped_addr, void* internal_registers)
 {
    (void) header;
    Registers_001* mapper = (Registers_001*) internal_registers;
@@ -81,7 +81,7 @@ cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t posit
       // bit 0 being set means shift register is full
       else if (mapper->shift_register & 0x1)
       {
-         uint8_t dest = ( (data & 0x1) << 4 ) | ( (mapper->shift_register & 0x1E) >> 1 );
+         uint8_t dest = ( (data & 0x1) << 4 ) | ( (mapper->shift_register >> 1) & 0xF );
          mapper->shift_register = 0x10;
 
          // chr bank 0
@@ -109,13 +109,11 @@ cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t posit
       // and shift the register right 1 bit
       else
       {
-         mapper->shift_register = mapper->shift_register >> 1;
-         mapper->shift_register |= (data & 0x1) << 4;
-         
+         mapper->shift_register = (mapper->shift_register >> 1) | ( (data & 0x1) << 4 );
       }
    }
    // writing to program ram if program ram enabled
-   else if (position >= 0x6000 && position <= 0x7FFF && (mapper->PRG_bank & 0x10))
+   else if (position >= 0x6000 && position <= 0x7FFF && !(mapper->PRG_bank & 0x10))
    {
       mode = ACCESS_PRG_RAM;
       *mapped_addr = position & 0x1FFF;
@@ -129,7 +127,7 @@ cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t posit
    return mode;
 }
 
-cartridge_access_mode_t mapper001_ppu_read(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, void* internal_registers)
+cartridge_access_mode_t mapper001_ppu_read(nes_header_t *header, uint16_t position, size_t *mapped_addr, void* internal_registers)
 {
    (void) header;
    Registers_001* mapper = (Registers_001*) internal_registers;
@@ -146,12 +144,12 @@ cartridge_access_mode_t mapper001_ppu_read(nes_header_t *header, uint16_t positi
          // reading bank at 0x0000
          if (position <= 0xFFF)
          {
-            *mapped_addr = position + ((mapper->CHR_bank_0 & 0x1F) * 0x1000);
+            *mapped_addr = (position & 0xFFF) + ((mapper->CHR_bank_0 & 0x1F) * 0x1000);
          }
          // reading bank at 0x1000
          else
          {
-            *mapped_addr = position + ((mapper->CHR_bank_1 & 0x1F) * 0x1000);
+            *mapped_addr = (position & 0xFFF) + ((mapper->CHR_bank_1 & 0x1F) * 0x1000);
          }
       }
       // switch one 8kb bank
@@ -159,6 +157,8 @@ cartridge_access_mode_t mapper001_ppu_read(nes_header_t *header, uint16_t positi
       {
          *mapped_addr = (position & 0x1FFF) + ( ((mapper->CHR_bank_0 & 0x1E) >> 1) * 0x2000 );
       }
+
+      // todo mask mapped_addr to prevent possible out of bounds array access
    }
    // reading ppu nametable vram
    else
@@ -195,7 +195,7 @@ cartridge_access_mode_t mapper001_ppu_read(nes_header_t *header, uint16_t positi
    return mode;
 }
 
-cartridge_access_mode_t mapper001_ppu_write(nes_header_t *header, uint16_t position, uint16_t *mapped_addr, void* internal_registers)
+cartridge_access_mode_t mapper001_ppu_write(nes_header_t *header, uint16_t position, size_t *mapped_addr, void* internal_registers)
 {
    Registers_001* mapper = (Registers_001*) internal_registers;
    cartridge_access_mode_t mode;
@@ -214,12 +214,12 @@ cartridge_access_mode_t mapper001_ppu_write(nes_header_t *header, uint16_t posit
             // reading bank at 0x0000
             if (position <= 0xFFF)
             {
-               *mapped_addr = position + ((mapper->CHR_bank_0 & 0x1F) * 0x1000);
+               *mapped_addr = (position & 0xFFF) + ((mapper->CHR_bank_0 & 0x1F) * 0x1000);
             }
             // reading bank at 0x1000
             else
             {
-               *mapped_addr = position + ((mapper->CHR_bank_1 & 0x1F) * 0x1000);
+               *mapped_addr = (position & 0xFFF) + ((mapper->CHR_bank_1 & 0x1F) * 0x1000);
             }
          }
          // switch one 8kb bank
@@ -227,6 +227,8 @@ cartridge_access_mode_t mapper001_ppu_write(nes_header_t *header, uint16_t posit
          {
             *mapped_addr = (position & 0x1FFF) + ( ((mapper->CHR_bank_0 & 0x1E) >> 1) * 0x2000 );
          }
+
+         // todo mask mapped_addr to prevent possible out of bounds array access
       }
       else
       {
@@ -272,4 +274,7 @@ void mapper001_init(nes_header_t* header, void* internal_registers)
 
    data->control = 0xC | (header->nametable_arrangement ? 0x2 : 0x3); // initalize mirroring configuration
    data->shift_register = 0x10;
+   data->PRG_bank   = 0;
+   data->CHR_bank_0 = 0;
+   data->CHR_bank_1 = 0;
 }

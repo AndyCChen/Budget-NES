@@ -17,10 +17,7 @@ void mirror_config_horizontal(uint16_t* position)
    }
 }
 
-void mirror_config_single_screen(uint16_t* position, uint16_t bank_number)
+void mirror_config_single_screen(uint16_t* position, uint16_t bank_select)
 {
-   // select banks 0 - 3
-   uint8_t bank_select = bank_number & 0x3;
-
-   *position = ( *position & ~(0xC00) ) | (bank_select << 10);
+   *position = ( *position & ~(0xC00) ) | ( (bank_select & 0x3) << 10 );
 }

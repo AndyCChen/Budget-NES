@@ -25,7 +25,7 @@ static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header);
 
 uint8_t cartridge_cpu_read(uint16_t position)
 {
-   uint16_t mapped_addr = 0;
+   size_t mapped_addr = 0;
    cartridge_access_mode_t mode = mapper.cpu_read(&header, position, &mapped_addr, mapper_registers);
 
    static uint8_t data = 0;
@@ -47,7 +47,7 @@ uint8_t cartridge_cpu_read(uint16_t position)
 
 void cartridge_cpu_write(uint16_t position, uint8_t data)
 {
-   uint16_t mapped_addr = 0;
+   size_t mapped_addr = 0;
    cartridge_access_mode_t mode = mapper.cpu_write(&header, position, data, &mapped_addr, mapper_registers);
 
    switch ( mode )
@@ -62,7 +62,7 @@ void cartridge_cpu_write(uint16_t position, uint8_t data)
 
 uint8_t cartridge_ppu_read(uint16_t position)
 {
-   uint16_t mapped_addr = 0;
+   size_t mapped_addr = 0;
 
    // ppu address space is only 14 bits, hence the 0x3FFF bitmask
 
@@ -88,7 +88,7 @@ uint8_t cartridge_ppu_read(uint16_t position)
 
 void cartridge_ppu_write(uint16_t position, uint8_t data)
 {  
-   uint16_t mapped_addr = 0;
+   size_t mapped_addr = 0;
 
    // ppu address space is only 14 bits, hence the 0x3FFF bitmask
 
@@ -165,8 +165,11 @@ bool cartridge_load(const char* const filepath)
       printf("Mapper %d does not exist or is not supported!\n", header.mapper_id);
       return false;
    }
-
-   mapper.init(&header, mapper_registers);
+   else
+   {
+      mapper.init(&header, mapper_registers);
+   }
+   
 
    // determine sizes of prg rom/ram and chr rom/ram in bytes
 

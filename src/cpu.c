@@ -1041,7 +1041,7 @@ static uint8_t ASL(void)
 
    if (current_instruction->mode == ACC)
    {
-      carry_bit = cpu.ac >> 7; 
+      carry_bit = (cpu.ac & 0x80) >> 7; 
       shifted_value = cpu.ac << 1;
 
       cpu.ac = shifted_value;
@@ -1051,13 +1051,13 @@ static uint8_t ASL(void)
       uint8_t value_to_shift = cpu_bus_read(instruction_operand);
       cpu_bus_write(instruction_operand, value_to_shift); // dummy write
 
-      carry_bit |= value_to_shift >> 7;
+      carry_bit = (value_to_shift & 0x80) >> 7;
       shifted_value = value_to_shift << 1;
 
       cpu_bus_write(instruction_operand, shifted_value);
    }
 
-   store_bit(cpu.status_flags, carry_bit, 0); // move bit 7 into carry flag
+   store_bit(cpu.status_flags, carry_bit, 0); // carry bit into carry flag
 
    // set/reset negative flag
    if (shifted_value & 0x80)
@@ -1105,7 +1105,7 @@ static uint8_t LSR(void)
       uint8_t value_to_shift = cpu_bus_read(instruction_operand);
       cpu_bus_write(instruction_operand, value_to_shift); // dummy write
 
-      carry_bit |= value_to_shift & 0x01;
+      carry_bit = value_to_shift & 0x01;
       shifted_value = value_to_shift >> 1;
 
       cpu_bus_write(instruction_operand, shifted_value);
@@ -1138,7 +1138,7 @@ static uint8_t LSR(void)
 */
 static uint8_t ROL(void)
 {
-   uint8_t shifted_value, carry_bit;
+   uint8_t shifted_value = 0, carry_bit = 0;
    uint8_t carry_flag = cpu.status_flags & 0x01;
 
    if (current_instruction->mode == ACC)
@@ -1196,7 +1196,7 @@ static uint8_t ROL(void)
 */
 static uint8_t ROR(void)
 {
-   uint8_t shifted_value, carry_bit;
+   uint8_t shifted_value = 0, carry_bit = 0;
    uint8_t carry_flag = cpu.status_flags & 0x01;
 
    if (current_instruction->mode == ACC)
@@ -2725,6 +2725,7 @@ void cpu_run()
       while ( cpu.cycle_count <= 29780 )
       {
          cpu_emulate_instruction();
+         if (get_emulator_state()->run_state == EMULATOR_PAUSED) break;
       }
       //printf("%zu\n", cpu.cycle_count);
       cpu.cycle_count = 0;
