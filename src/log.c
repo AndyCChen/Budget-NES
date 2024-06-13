@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../includes/log.h"
 
@@ -17,7 +18,7 @@ static uint32_t max_instructions_input       = DEFAULT_MAX_INTR;
 static uint32_t max_instructions             = DEFAULT_MAX_INTR;
 static uint32_t instruction_ring_buffer_size = DEFAULT_MAX_INTR + MAX_NEXT + 1;
 
-const char* log_size_options[] = {DEFAULT_MAX_INTR_STR, "500", "1000", "5000", "10000"};
+const char* log_size_options[] = {DEFAULT_MAX_INTR_STR, "500", "1000", "5000", "10000", "30000"};
 const size_t log_size_options_count = sizeof(log_size_options) / sizeof(log_size_options[0]);
 
 FILE *log_file = NULL;
@@ -50,7 +51,12 @@ void dump_log_to_file(void)
 
    for (int i = max_instructions; i > 0; --i)
    {
-      fprintf(log_file, "%s \t $%s", log_get_prev_cpu_state(i), log_get_prev_instruction(i));
+      const char* cpu_state_str = log_get_prev_cpu_state(i);
+      const char* prev_instruction_str = log_get_prev_instruction(i);
+      if ( !(strcmp(" ", cpu_state_str) == 0 || strcmp(" ", prev_instruction_str) == 0) )
+      {
+         fprintf(log_file, "%s \t $%s", log_get_prev_cpu_state(i), log_get_prev_instruction(i));
+      }
    }
 
    fclose(log_file);
