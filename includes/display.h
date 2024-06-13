@@ -30,7 +30,8 @@ typedef struct Emulator_State_t
    bool is_cpu_debug;              // toggle cpu debug widget
    bool is_cpu_intr_log;           // toggle instruction logging
    bool is_pattern_table_open;     // toggle pattern table viewer
-   Emulator_Run_State_t run_state; 
+   Emulator_Run_State_t run_state;
+   bool was_paused;                // was emulator paused on previous frame
    bool is_instruction_step;       // true: steps the emulator forward by 1 instruction, false: do nothing
 } Emulator_State_t;
 
@@ -43,5 +44,13 @@ void display_update_color_buffer(void);
 void display_process_event(bool* done);
 void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color);
 Emulator_State_t* get_emulator_state(void);
+
+/**
+ * Check if window was recently moved.
+ * On windows 10 moving a window blocks the execution of the program
+ * so we need to adjust delta times for the emulation speed and ingnore accumulated
+ * time during this period.
+ */
+bool display_is_window_moved(void);
 
 #endif

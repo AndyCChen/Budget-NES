@@ -34,6 +34,7 @@
                             2, 3, 0}; \
 
 static SDL_Window* window = NULL;
+static bool is_window_moved = false;
 static SDL_GLContext gContext = NULL;
 static ImGuiIO* io = NULL;
 
@@ -91,12 +92,13 @@ static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_
 // global state of emulator
 static Emulator_State_t emulator_state = 
 {
-   .display_size = 4,
-   .is_cpu_debug = false,
-   .is_cpu_intr_log = false,
+   .display_size          = 4,
+   .is_cpu_debug          = false,
+   .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
-   .run_state = EMULATOR_PAUSED,
-   .is_instruction_step = false,
+   .run_state             = EMULATOR_PAUSED,
+   .was_paused            = false,
+   .is_instruction_step   = false,
 }; 
 
 /**
@@ -227,9 +229,19 @@ void display_process_event(bool* done)
          *done = true;
       }
 
-      if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+      if (event.type == SDL_WINDOWEVENT && event.window.windowID == SDL_GetWindowID(window))
       {
-         *done = true;
+         #ifndef __APPLE_
+            if (event.window.event == SDL_WINDOWEVENT_MOVED)
+            {
+               is_window_moved = true;
+            }
+          #endif
+
+         if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+         {
+            *done = true;
+         }
       }
 
       if ( event.type == SDL_KEYUP )
@@ -1285,4 +1297,11 @@ void display_update_color_buffer(void)
    glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &viewport_pixel_colors);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+bool display_is_window_moved(void)
+{
+   bool flag = is_window_moved;
+   is_window_moved = false;
+   return flag;
 }

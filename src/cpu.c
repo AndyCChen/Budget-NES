@@ -2720,26 +2720,25 @@ void cpu_run()
 
    if ( delta_time >= 1.0f / 60.0988f )
    {
-      delta_time = 0;
+      if ( display_is_window_moved() || get_emulator_state()->was_paused )
+      {
+         delta_time = 0;
+         get_emulator_state()->was_paused = false;
+      }
+      else
+      {
+         delta_time -= 1.0f / 60.0988f;
+      }
+      
 
       while ( cpu.cycle_count <= 29780 )
       {
          cpu_emulate_instruction();
-         if (get_emulator_state()->run_state == EMULATOR_PAUSED) break;
       }
-      //printf("%zu\n", cpu.cycle_count);
       cpu.cycle_count = 0;
-      
    }
 
    previous_time = current_time; 
-
-/*     int i = 0;
-   while (i < 8000)
-   {
-      ++i;
-      cpu_emulate_instruction();
-   } display_update_color_buffer(); */
 }
 
 /**

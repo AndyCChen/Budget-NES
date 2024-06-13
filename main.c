@@ -45,9 +45,9 @@ int main(int argc, char *argv[])
             {
                cpu_emulate_instruction();
                emulator_state->is_instruction_step = false;
-               
             }
 
+            emulator_state->was_paused = true;
             break;
          }
       }
