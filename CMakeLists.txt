@@ -93,6 +93,7 @@ add_executable(BudgetNES
    src/mappers/mirror_config.c
    src/mappers/mapper_000.c
    src/mappers/mapper_001.c
+   src/mappers/mapper_002.c
 )
 
 if (DEFINED CGLM_PATH)
