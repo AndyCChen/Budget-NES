@@ -1,5 +1,5 @@
 #ifndef MAPPER_002_H
-#define MAPPER_002_h
+#define MAPPER_002_H
 
 #include <stdint.h>
 #include <stdbool.h>
