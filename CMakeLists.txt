@@ -88,6 +88,7 @@ add_executable(BudgetNES
    src/ppu_renderer_lookup.c
    src/disassembler.c
    src/controllers.c
+   src/util.c
    src/mapper.c
    src/mappers/mirror_config.c
    src/mappers/mapper_000.c

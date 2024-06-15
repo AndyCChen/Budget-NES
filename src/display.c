@@ -5,8 +5,11 @@
 #include "SDL.h"
 #include "SDL_opengl.h"
 #include "cglm.h"
-#include <stdint.h>
 
+#include <stdint.h>
+#include <stdlib.h>
+
+#include "../includes/util.h"
 #include "../includes/display.h"
 #include "../includes/cpu.h"
 #include "../includes/log.h"
@@ -188,12 +191,6 @@ bool display_init(void)
    if ( !display_create_shaders() || !display_init_main_viewport_buffers() )
    {
       return false;
-   }
-
-   SDL_DisplayMode mode;
-   if ( SDL_GetDesktopDisplayMode(0, &mode) != 0)
-   {
-      printf("Failed getting display information! %s\n", SDL_GetError());
    }
 
    return true;
@@ -495,13 +492,19 @@ static void gui_main_viewport(void)
          {
             if ( igMenuItem_Bool("Load Rom", "Ctrl-L", false, true) )
             {
-               // todo
+               #ifdef _WIN32
+                  
+               #elif __APPLE__
+
+               #elif __linux__
+
+               #endif
             }
 
-            if ( igMenuItem_Bool("Unload Rom", "Ctrl-U", false, true) )
+/*             if ( igMenuItem_Bool("Unload Rom", "Ctrl-U", false, true) )
             {
                // todo
-            }
+            } */
 
             if ( igMenuItem_Bool("Exit", "Esc", false, true) )
             {

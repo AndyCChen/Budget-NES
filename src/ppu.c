@@ -131,7 +131,7 @@ void ppu_cycle(void)
       // search for the first in range opaque sprite pixel on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
-         if ( cycle >= output_sprites[i].x_position + 1 && cycle - (output_sprites[i].x_position + 1) <= 8 )
+         if ( cycle >= output_sprites[i].x_position + 1 && cycle - (output_sprites[i].x_position + 1) <= 8 && scanline != 0 )
          {
             if (!sprite_found)
             {
@@ -568,7 +568,7 @@ static void sprite_evaluation(void)
          secondary_oam_ram[secondary_oam_index].sprite_id = sprite_id;
          secondary_oam_ram[secondary_oam_index].y_coord = y_coord;
 
-         if ( (scanline - y_coord) >= 0 && (scanline - y_coord) < 8 ) // if sprite is in y range, copy rest of sprite data into secondary oam
+         if ( (scanline - y_coord) >= 0 && (scanline - y_coord) < ((ppu_control & 0x20) ? 16 : 8) ) // if sprite is in y range, copy rest of sprite data into secondary oam
          {
             secondary_oam_ram[secondary_oam_index].tile_id    = oam_ram[oam_address + 1]; // tile index
             secondary_oam_ram[secondary_oam_index].attribute  = oam_ram[oam_address + 2]; // attributes
@@ -623,17 +623,51 @@ void fetch_sprites(void)
          }
 
          // fetching lo bitplane
-         uint16_t pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (0 << 3) | (sprite_fine_y & 0x7);
+         uint16_t pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (sprite_fine_y & 0x7);
          output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address);
 
          // fetching hi bitplane
-         pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (1 << 3) | (sprite_fine_y & 0x7);
-         output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address);
+         output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address + 8);
       }
       // using 8 by 16 sprites
       else                           
       {
-         printf("Using 8 by 16 sprites\n");
+         uint16_t pattern_tile_address_lo = 0;
+
+         // sprite flipped vertically
+         if (output_sprites[i].attribute & 0x80)
+         {
+            // fetching upper tile
+            if (sprite_fine_y < 8)
+            {
+               sprite_fine_y = 7 - sprite_fine_y;
+               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
+            }
+            // fetching bottom tile
+            else
+            {
+               sprite_fine_y = 7 - sprite_fine_y;
+               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFF) ) << 4) | (sprite_fine_y & 0x7);
+            }
+         }
+         // sprite is NOT flipped vertically
+         else
+         {
+            // fetching upper tile
+            if (sprite_fine_y < 8)
+            {
+               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( tile_number & 0xFE ) << 4) | (sprite_fine_y & 0x7);
+            }
+            // fetching bottom tile
+            else
+            {
+               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
+            }
+         }
+         
+
+         output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address_lo);
+         output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address_lo + 8);
       }
 
       // sprite flipped horizontally
