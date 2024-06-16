@@ -137,6 +137,10 @@ endif(NOT CGLM_LIB)
 add_library(glad_loader SHARED glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
-target_link_libraries(BudgetNES ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader ${NFD})
+target_link_libraries(BudgetNES ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader ${NFD} )
+
+if (UNIX)
+   target_link_libraries(BudgetNES "-framework Foundation -framework AppKit")
+endif(UNIX)
 
 target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
