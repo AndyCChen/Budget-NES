@@ -11,7 +11,7 @@
 #include "includes/log.h"
 #include "includes/display.h"
 
-static bool budgetNES_init(const char* rom_path);
+static bool budgetNES_init(int argc, char *rom_path[]);
 static void budgetNES_shutdown(void);
 
 int main(int argc, char *argv[])
@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
    (void) argc;
    (void) argv;
 
-   if ( !budgetNES_init( argv[1] ) )
+   if ( !budgetNES_init( argc, argv ) )
    {
       return EXIT_FAILURE;
    }
@@ -50,6 +50,8 @@ int main(int argc, char *argv[])
             emulator_state->was_paused = true;
             break;
          }
+         default:
+            break;
       }
       
       display_render(); 
@@ -61,14 +63,26 @@ int main(int argc, char *argv[])
    return 0;
 }
 
-static bool budgetNES_init(const char* rom_path)
+static bool budgetNES_init(int argc, char *rom_path[])
 {
-   if ( !cartridge_load( rom_path ) || !ppu_load_palettes("./ntscpalette.pal") || !display_init() )
+   // try loading rom from command line argument if possible
+   if (argc > 1)
+   {
+      if ( !cartridge_load(rom_path[1]) || !ppu_load_palettes("./ntscpalette.pal") )
+      {
+         return false; 
+      }
+
+      // set emulator to running if loading cartridge and color pallete is successful
+      get_emulator_state()->run_state = EMULATOR_RUNNING;
+      cpu_init();
+   }
+   
+   if ( !display_init() )
    {
       return false;
    }
 
-   cpu_init();
    return true;
 }
 

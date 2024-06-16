@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <vec4.h>
+#include <SDL.h>
 
 /**
  * display.h handles setting up and shutting down all sdl
@@ -14,8 +15,9 @@
 // enum for setting the emulator to be running normally or paused for single stepping through instructions or a frame
 typedef enum Emulator_Run_State_t
 {
-   EMULATOR_PAUSED = 0,
-   EMULATOR_RUNNING = 1,
+   EMULATOR_PAUSED,
+   EMULATOR_RUNNING,
+   EMULATOR_IDLE, // waiting for user to load rom file
 } Emulator_Run_State_t;
 
 typedef struct Emulator_State_t 
@@ -44,6 +46,7 @@ void display_update_color_buffer(void);
 void display_process_event(bool* done);
 void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color);
 Emulator_State_t* get_emulator_state(void);
+SDL_Window* display_get_window(void);
 
 /**
  * Check if window was recently moved.

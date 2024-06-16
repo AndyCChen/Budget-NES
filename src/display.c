@@ -15,6 +15,7 @@
 #include "../includes/log.h"
 #include "../includes/controllers.h"
 #include "../includes/ppu.h"
+#include "../includes/cartridge.h"
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
@@ -99,7 +100,7 @@ static Emulator_State_t emulator_state =
    .is_cpu_debug          = false,
    .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
-   .run_state             = EMULATOR_PAUSED,
+   .run_state             = EMULATOR_IDLE,
    .was_paused            = false,
    .is_instruction_step   = false,
 }; 
@@ -245,7 +246,7 @@ void display_process_event(bool* done)
       {
          switch (event.key.keysym.scancode)
          {
-            // step through single instruction when spacebar is pressed and only when emulator is paused
+            // step through single instruction when spacebar is pressed and only when emulator is paused and not idle
             case SDL_SCANCODE_SPACE:
             {
                if ( emulator_state.run_state == EMULATOR_PAUSED )
@@ -257,7 +258,15 @@ void display_process_event(bool* done)
             // press P to pause emulator
             case SDL_SCANCODE_P:
             {
-               emulator_state.run_state = (emulator_state.run_state == EMULATOR_RUNNING) ? EMULATOR_PAUSED : EMULATOR_RUNNING;
+               if ( (emulator_state.run_state & 0x1) == EMULATOR_RUNNING )
+               {
+                  emulator_state.run_state &= ~EMULATOR_RUNNING; // pause emulator
+               }
+               else
+               {
+                  emulator_state.run_state |= EMULATOR_RUNNING; // unpause emulator
+               }
+
                break;
             }
 
@@ -490,23 +499,34 @@ static void gui_main_viewport(void)
       {
          if (igBeginMenu("File", true))
          {
-            if ( igMenuItem_Bool("Load Rom", "Ctrl-L", false, true) )
+            if ( igMenuItem_Bool("Load Rom...", "Ctrl-L", false, true) )
             {
-               #ifdef _WIN32
+               emulator_state.was_paused = true;
+
+               char rom_path[256];
+               strcpy(rom_path, UTILS_open_file("Rom Files (*.nes)\0*.nes\0")) ;
+               
+               if (strcmp(rom_path, " ") != 0)
+               {
+                  // attempt to load rom file
+                  cartridge_free_memory();
                   
-               #elif __APPLE__
+                  if (cartridge_load(rom_path))
+                  {
+                     emulator_state.is_cpu_intr_log = false;
+                     cpu_init();
+                     log_free();
 
-               #elif __linux__
-
-               #endif
+                     emulator_state.run_state &= ~EMULATOR_IDLE;
+                  }
+                  else
+                  {
+                     emulator_state.run_state |= EMULATOR_IDLE;
+                  }
+               }
             }
 
-/*             if ( igMenuItem_Bool("Unload Rom", "Ctrl-U", false, true) )
-            {
-               // todo
-            } */
-
-            if ( igMenuItem_Bool("Exit", "Esc", false, true) )
+            if ( igMenuItem_Bool("Exit", "", false, true) )
             {
                SDL_Event event;
                event.type = (SDL_EventType) SDL_QUIT;
@@ -518,11 +538,12 @@ static void gui_main_viewport(void)
 
          if (igBeginMenu("Tools", true))
          {
-            if ( igMenuItem_Bool("CPU Debug", "", emulator_state.is_cpu_debug, true) )
+            if ( igMenuItem_Bool("CPU Viewer", "", emulator_state.is_cpu_debug, true) )
             {
                emulator_state.is_cpu_debug = !emulator_state.is_cpu_debug;
-            }
+            } 
 
+            igBeginDisabled((emulator_state.run_state & EMULATOR_IDLE) == EMULATOR_IDLE);
             if ( igMenuItem_Bool("Pattern Table Viewer", "", emulator_state.is_pattern_table_open, true) )
             {
                if (!emulator_state.is_pattern_table_open)
@@ -540,6 +561,7 @@ static void gui_main_viewport(void)
 
                emulator_state.is_pattern_table_open = !emulator_state.is_pattern_table_open;
             }
+            igEndDisabled();
 
             igEndMenu();
          }
@@ -741,12 +763,12 @@ static void gui_cpu_debug(void)
          igPushStyleColor_Vec4(ImGuiCol_ButtonActive, red);
 
          // pause buttons
-         if (emulator_state.run_state == EMULATOR_PAUSED) 
+         if ((emulator_state.run_state & 0x1) == EMULATOR_PAUSED) 
          {
             igPushStyleColor_Vec4(ImGuiCol_Button, red);
             if ( igButton("Pause", zero_vec) )
             {
-               emulator_state.run_state = EMULATOR_RUNNING;
+               emulator_state.run_state |= EMULATOR_RUNNING;
             }
             igPopStyleColor(1);
          }
@@ -754,12 +776,12 @@ static void gui_cpu_debug(void)
          {
             if ( igButton("Pause", zero_vec) )
             {
-               emulator_state.run_state = EMULATOR_PAUSED;
+               emulator_state.run_state &= ~EMULATOR_RUNNING;
             }
          }
 
          // step through single instruction button
-         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
+         igBeginDisabled((emulator_state.run_state & 0x1) == EMULATOR_RUNNING || (emulator_state.run_state & 0x2) == EMULATOR_IDLE);
             if ( igButton("Intruction Step", zero_vec) )
             {
                emulator_state.is_instruction_step = true;
@@ -767,12 +789,14 @@ static void gui_cpu_debug(void)
          igEndDisabled();
          gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
 
+         igBeginDisabled((emulator_state.run_state & 0x2) == EMULATOR_IDLE);
          // reset button
          if ( igButton("Reset", zero_vec) )
          {
             cpu_reset();
             ppu_reset();
          }
+         igEndDisabled();
          gui_help_marker("Resets the emulator back to beginning of program execution.");
 
          static size_t current_option_index = 0;
@@ -781,7 +805,7 @@ static void gui_cpu_debug(void)
          igNewLine();
          igText("Lines to Log");
          gui_help_marker("Select the last X number of instructions to log");
-         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || emulator_state.is_cpu_intr_log);
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || emulator_state.is_cpu_intr_log || (emulator_state.run_state & 0x2) == EMULATOR_IDLE);
             if ( igBeginCombo("", current_option, ImGuiComboFlags_None) )
             {
                for (size_t n = 0; n < log_size_options_count; ++n)
@@ -803,7 +827,7 @@ static void gui_cpu_debug(void)
          igEndDisabled();
 
          // enable logging button
-         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING);
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || (emulator_state.run_state & 0x2) == EMULATOR_IDLE);
             if (emulator_state.is_cpu_intr_log)
             {
                igPushStyleColor_Vec4(ImGuiCol_Button, red);
@@ -1307,4 +1331,9 @@ bool display_is_window_moved(void)
    bool flag = is_window_moved;
    is_window_moved = false;
    return flag;
+}
+
+SDL_Window* display_get_window(void)
+{
+   return window;
 }

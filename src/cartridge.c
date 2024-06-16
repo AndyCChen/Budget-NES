@@ -268,6 +268,11 @@ void cartridge_free_memory(void)
    free(prg_ram);
    free(chr_memory);
    free(mapper_registers);
+   
+   prg_rom = NULL;
+   prg_ram = NULL;
+   chr_memory = NULL;
+   mapper_registers = NULL;
 }
 
 /**

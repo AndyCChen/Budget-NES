@@ -23,6 +23,6 @@
 */
 #define store_bit(target, bit, position) target = ( target & ~( 1 << position ) ) | ( bit << position )
 
-void UTILS_open_file(void);
+char* UTILS_open_file(const char* filter);
 
 #endif
