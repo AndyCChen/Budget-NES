@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
 project(BudgetNES_Emulator)
 
+set (CMAKE_CXX_STANDARD 11)
+
 if(WIN32) #to mingw work as all the others
    set(CMAKE_SHARED_LIBRARY_PREFIX "")
 endif(WIN32)
@@ -125,7 +127,7 @@ add_subdirectory(nativefiledialog-extended)
 target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader nfd)
 
 if (UNIX)
-   target_link_libraries(BudgetNES "-framework UniformTypeIdentifier -framework AppKit")
+  target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
 target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
