@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../includes/cartridge.h"
 #include "../includes/cpu.h"
@@ -264,6 +265,8 @@ bool cartridge_load(const char* const filepath)
 
 void cartridge_free_memory(void)
 {
+   memset(&header, 0, sizeof(nes_header_t));
+
    free(prg_rom);
    free(prg_ram);
    free(chr_memory);

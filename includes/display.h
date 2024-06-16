@@ -17,7 +17,7 @@ typedef enum Emulator_Run_State_t
 {
    EMULATOR_PAUSED,
    EMULATOR_RUNNING,
-   EMULATOR_IDLE, // waiting for user to load rom file
+   EMULATOR_UNLOADED, // waiting for user to load rom file
 } Emulator_Run_State_t;
 
 typedef struct Emulator_State_t 

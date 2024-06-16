@@ -2765,6 +2765,8 @@ void cpu_reset(void)
    cpu.pc = (hi << 8) | lo;
 
    if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
+
+   ppu_reset();
 }
 
 /**
@@ -2785,7 +2787,7 @@ void cpu_init(void)
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
 
-   //disassemble_next_x(MAX_NEXT + 1); // disassemble the next x instructions
+   ppu_init();
 }
 
 /**

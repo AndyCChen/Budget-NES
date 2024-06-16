@@ -100,7 +100,7 @@ static Emulator_State_t emulator_state =
    .is_cpu_debug          = false,
    .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
-   .run_state             = EMULATOR_IDLE,
+   .run_state             = EMULATOR_UNLOADED | EMULATOR_RUNNING,
    .was_paused            = false,
    .is_instruction_step   = false,
 }; 
@@ -389,7 +389,7 @@ void display_render(void)
    igNewFrame();
 
    if (emulator_state.is_cpu_debug) gui_cpu_debug();
-   gui_demo();
+   //gui_demo();
 
    gui_main_viewport();
 
@@ -517,11 +517,11 @@ static void gui_main_viewport(void)
                      cpu_init();
                      log_free();
 
-                     emulator_state.run_state &= ~EMULATOR_IDLE;
+                     emulator_state.run_state &= ~EMULATOR_UNLOADED;
                   }
                   else
                   {
-                     emulator_state.run_state |= EMULATOR_IDLE;
+                     emulator_state.run_state |= EMULATOR_UNLOADED;
                   }
                }
             }
@@ -543,7 +543,7 @@ static void gui_main_viewport(void)
                emulator_state.is_cpu_debug = !emulator_state.is_cpu_debug;
             } 
 
-            igBeginDisabled((emulator_state.run_state & EMULATOR_IDLE) == EMULATOR_IDLE);
+            igBeginDisabled((emulator_state.run_state & EMULATOR_UNLOADED) == EMULATOR_UNLOADED);
             if ( igMenuItem_Bool("Pattern Table Viewer", "", emulator_state.is_pattern_table_open, true) )
             {
                if (!emulator_state.is_pattern_table_open)
@@ -781,7 +781,7 @@ static void gui_cpu_debug(void)
          }
 
          // step through single instruction button
-         igBeginDisabled((emulator_state.run_state & 0x1) == EMULATOR_RUNNING || (emulator_state.run_state & 0x2) == EMULATOR_IDLE);
+         igBeginDisabled( (emulator_state.run_state & (EMULATOR_RUNNING | EMULATOR_UNLOADED) ));
             if ( igButton("Intruction Step", zero_vec) )
             {
                emulator_state.is_instruction_step = true;
@@ -789,12 +789,11 @@ static void gui_cpu_debug(void)
          igEndDisabled();
          gui_help_marker("Step through a single instruction while the emulator is paused. Has no effect when emulator is not paused.");
 
-         igBeginDisabled((emulator_state.run_state & 0x2) == EMULATOR_IDLE);
+         igBeginDisabled((emulator_state.run_state & 0x2) == EMULATOR_UNLOADED);
          // reset button
          if ( igButton("Reset", zero_vec) )
          {
             cpu_reset();
-            ppu_reset();
          }
          igEndDisabled();
          gui_help_marker("Resets the emulator back to beginning of program execution.");
@@ -805,7 +804,7 @@ static void gui_cpu_debug(void)
          igNewLine();
          igText("Lines to Log");
          gui_help_marker("Select the last X number of instructions to log");
-         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || emulator_state.is_cpu_intr_log || (emulator_state.run_state & 0x2) == EMULATOR_IDLE);
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || emulator_state.is_cpu_intr_log || (emulator_state.run_state & 0x2) == EMULATOR_UNLOADED);
             if ( igBeginCombo("", current_option, ImGuiComboFlags_None) )
             {
                for (size_t n = 0; n < log_size_options_count; ++n)
@@ -827,7 +826,7 @@ static void gui_cpu_debug(void)
          igEndDisabled();
 
          // enable logging button
-         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || (emulator_state.run_state & 0x2) == EMULATOR_IDLE);
+         igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || (emulator_state.run_state & 0x2) == EMULATOR_UNLOADED);
             if (emulator_state.is_cpu_intr_log)
             {
                igPushStyleColor_Vec4(ImGuiCol_Button, red);

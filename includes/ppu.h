@@ -29,6 +29,11 @@ typedef struct output_sprite_t
 void ppu_reset(void);
 
 /**
+ * Init ppu state, useful when loading in new rom file
+ */
+void ppu_init(void);
+
+/**
  * Loads .pal file into system colors for ppu.
  * @param path path to the .pal file
 */

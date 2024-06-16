@@ -807,3 +807,32 @@ void ppu_reset(void)
    x_register = 0;
    t_register = 0;
 }
+
+void ppu_init(void)
+{
+   ppu_control = 0;
+   ppu_mask = 0;
+   ppu_status = 0;
+   oam_address = 0;
+   oam_data = 0;
+   write_toggle = false;
+   x_register = 0;
+   t_register = 0;
+   v_register = 0;
+   nametable_byte = 0;
+   pattern_tile_lo_bits = 0;
+   pattern_tile_hi_bits = 0;
+   attribute_byte = 0;
+   tile_shift_register_hi = 0;
+   tile_shift_register_lo = 0;
+   attribute_shift_register_hi = 0;
+   attribute_shift_register_lo = 0;
+   attribute_1_bit_latch_x = 0;
+   attribute_1_bit_latch_y = 0;
+   odd_even_flag = true;
+   read_buffer = 0;
+   open_bus = 0;
+   number_of_sprites = 0;
+   scanline = 261;
+   cycle = 0;
+}

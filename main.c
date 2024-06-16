@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
          default:
             break;
       }
-      
+
       display_render(); 
       display_update();
    }
