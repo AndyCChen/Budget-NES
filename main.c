@@ -68,7 +68,7 @@ static bool budgetNES_init(int argc, char *rom_path[])
    // try loading rom from command line argument if possible
    if (argc > 1)
    {
-      if ( !cartridge_load(rom_path[1]) || !ppu_load_palettes("./ntscpalette.pal") )
+      if ( !cartridge_load(rom_path[1]) )
       {
          return false; 
       }
@@ -78,7 +78,7 @@ static bool budgetNES_init(int argc, char *rom_path[])
       cpu_init();
    }
    
-   if ( !display_init() )
+   if ( !display_init() || !ppu_load_palettes("./ntscpalette.pal") )
    {
       return false;
    }
