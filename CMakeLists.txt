@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 project(BudgetNES_Emulator)
 
-set (CMAKE_CXX_STANDARD 11)
-
 if(WIN32) #to mingw work as all the others
    set(CMAKE_SHARED_LIBRARY_PREFIX "")
 endif(WIN32)
@@ -114,20 +112,6 @@ find_library(
    HINTS /usr/local/lib
 )
 
-#set(CMAKE_FIND_DEBUG_MODE TRUE)
-find_library(
-   NFD
-   NAMES nfd
-   HINTS ${CMAKE_CURRENT_SOURCE_DIR}/nativefiledialog/build/lib/Release/x64
-)
-#set(CMAKE_FIND_DEBUG_MODE FALSE)
-
-if (NOT NFD)
-   message(STATUS "Did not find library path for native file dialog")
-else(NOT NFD)
-   message(STATUS "native file dialog library at: " ${NFD})
-endif(NOT NFD)
-
 if (NOT CGLM_LIB)
    message(FATAL_ERROR "Did not find library path for cglm")
 else(NOT CGLM_LIB)
@@ -137,10 +121,11 @@ endif(NOT CGLM_LIB)
 add_library(glad_loader SHARED glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
-target_link_libraries(BudgetNES ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader ${NFD} )
+add_subdirectory(nativefiledialog-extended)
+target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader nfd)
 
 if (UNIX)
-   target_link_libraries(BudgetNES "-framework Foundation -framework AppKit")
+   target_link_libraries(BudgetNES "-framework UniformTypeIdentifier -framework AppKit")
 endif(UNIX)
 
 target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)

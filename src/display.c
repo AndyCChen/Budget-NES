@@ -5,8 +5,7 @@
 #include "SDL.h"
 #include "SDL_opengl.h"
 #include "cglm.h"
-
-#include "../nativefiledialog/src/include/nfd.h"
+#include "nfd.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -196,6 +195,12 @@ bool display_init(void)
       return false;
    }
 
+   if ( NFD_Init() != NFD_OKAY)
+   {
+      printf("File dialog init failed: %s\n", NFD_GetError());
+      return false;
+   }
+
    return true;
 }
 
@@ -204,6 +209,7 @@ bool display_init(void)
 */
 void display_shutdown(void)
 {
+   NFD_Quit();
    ImGui_ImplOpenGL3_Shutdown();
    ImGui_ImplSDL2_Shutdown();
    igDestroyContext(NULL);
@@ -505,11 +511,12 @@ static void gui_main_viewport(void)
             {
                emulator_state.was_paused = true;
 
-               nfdchar_t* rom_path = NULL;
-               nfdresult_t status = NFD_OpenDialog("nes", NULL, &rom_path);
+               nfdchar_t* rom_path;
+               nfdfilteritem_t filters[1] = { {"NES rom", "nes"} };
+               nfdresult_t result = NFD_OpenDialog(&rom_path, filters, 1, NULL);
 
                // attempt to load rom file
-               if (status == NFD_OKAY)
+               if (result == NFD_OKAY)
                {
                   cartridge_free_memory();
                   if (cartridge_load(rom_path))
@@ -525,12 +532,14 @@ static void gui_main_viewport(void)
                      emulator_state.run_state |= EMULATOR_UNLOADED;
                   }
 
-                  free(rom_path);
+                  NFD_FreePath(rom_path);
                }
-               else if (status == NFD_ERROR)
+               // error getting rom path
+               else if (result == NFD_ERROR)
                {
                   printf("File open error: %s\n", NFD_GetError());
                }
+               // else user canceled loading rom file so no changes happen
             }
 
             if ( igMenuItem_Bool("Exit", "", false, true) )
