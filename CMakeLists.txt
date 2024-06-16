@@ -101,9 +101,13 @@ find_package(cglm CONFIG)
 if (cglm_FOUND)
    get_target_property(cglm_include cglm::cglm INTERFACE_INCLUDE_DIRECTORIES)
    set(cglm_library cglm::cglm)
-   message(STATUS "cglm package found.")
+   message(STATUS " cglm package found.")
 else(cglm_FOUND)
-   message(FATAL ERROR "cglm packge not found")
+   message(STATUS " cglm packge not found, provide path to cglm include with -Dcglm_include=path_to_include/include")
+   find_library(cglm_library
+      NAMES cglm
+      HINTS /usr/local/lib
+   )
 endif(cglm_FOUND)
 
 target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad ${cglm_include}/cglm)
