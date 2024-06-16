@@ -114,8 +114,22 @@ find_library(
    HINTS /usr/local/lib
 )
 
+#set(CMAKE_FIND_DEBUG_MODE TRUE)
+find_library(
+   NFD
+   NAMES nfd
+   HINTS ${CMAKE_CURRENT_SOURCE_DIR}/nativefiledialog/build/lib/Release/x64
+)
+#set(CMAKE_FIND_DEBUG_MODE FALSE)
+
+if (NOT NFD)
+   message(STATUS "Did not find library path for native file dialog")
+else(NOT NFD)
+   message(STATUS "native file dialog library at: " ${NFD})
+endif(NOT NFD)
+
 if (NOT CGLM_LIB)
-   message(STATUS "Did not find library path for cglm")
+   message(FATAL_ERROR "Did not find library path for cglm")
 else(NOT CGLM_LIB)
    message(STATUS "CGLM library at: " ${CGLM_LIB})
 endif(NOT CGLM_LIB)
@@ -123,6 +137,6 @@ endif(NOT CGLM_LIB)
 add_library(glad_loader SHARED glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
-target_link_libraries(BudgetNES ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader)
+target_link_libraries(BudgetNES ${SDL_MAIN} cimgui_sdl ${CGLM_LIB} glad_loader ${NFD})
 
 target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)

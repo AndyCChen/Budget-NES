@@ -6,6 +6,8 @@
 #include "SDL_opengl.h"
 #include "cglm.h"
 
+#include "../nativefiledialog/src/include/nfd.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -503,14 +505,13 @@ static void gui_main_viewport(void)
             {
                emulator_state.was_paused = true;
 
-               char rom_path[256];
-               strcpy(rom_path, UTILS_open_file("Rom Files (*.nes)\0*.nes\0")) ;
-               
-               if (strcmp(rom_path, " ") != 0)
+               nfdchar_t* rom_path = NULL;
+               nfdresult_t status = NFD_OpenDialog("nes", NULL, &rom_path);
+
+               // attempt to load rom file
+               if (status == NFD_OKAY)
                {
-                  // attempt to load rom file
                   cartridge_free_memory();
-                  
                   if (cartridge_load(rom_path))
                   {
                      emulator_state.is_cpu_intr_log = false;
@@ -523,6 +524,12 @@ static void gui_main_viewport(void)
                   {
                      emulator_state.run_state |= EMULATOR_UNLOADED;
                   }
+
+                  free(rom_path);
+               }
+               else if (status == NFD_ERROR)
+               {
+                  printf("File open error: %s\n", NFD_GetError());
                }
             }
 
