@@ -131,7 +131,7 @@ void ppu_cycle(void)
       // search for the first in range opaque sprite pixel on the horizontal axis
       for (size_t i = 0; i < 8; ++i)
       {
-         if ( cycle >= output_sprites[i].x_position + 1 && cycle - (output_sprites[i].x_position + 1) <= 8 && scanline != 0 )
+         if ( cycle >= output_sprites[i].x_position + 1 && cycle - (output_sprites[i].x_position + 1) <= 8 /*&& scanline != 0*/ )
          {
             if (!sprite_found)
             {
@@ -186,6 +186,15 @@ void ppu_cycle(void)
 
       if (cycle >= 1 && cycle <= 256)
       {
+         if (cycle <= 8)
+         {
+            // hide background pixels on leftmost 8 pixels of screen
+            if ((ppu_mask & 0x2) == 0)
+            {
+               background_pixel &= 0xC;
+            }
+         }
+
          // no active sprite for this pixel so we just choose from the background
          if (active_sprite == -1)
          {
@@ -201,6 +210,15 @@ void ppu_cycle(void)
          // active sprite present so we must determine whether to render the background or sprite
          else
          {
+            if (cycle <= 8)
+            {
+               // hide sprite pixels on leftmost 8 pixels of screen
+               if ((ppu_mask & 0x4) == 0)
+               {
+                  sprite_pixel &= 0xC;
+               }
+            }
+
             // bg and sp are background and sprite color indices within a palette, 0 means that color is the transparent background color
             uint8_t bg = background_pixel & 0x3;
             uint8_t sp = sprite_pixel & 0x3;
@@ -224,7 +242,7 @@ void ppu_cycle(void)
          }
          //output_pixel = 0x0 | (output_pixel & 0x3);
 
-         uint8_t palette_index = palette_ram[ output_pixel ] ;
+         uint8_t palette_index = palette_ram[ output_pixel & 0x1F ] ;
          set_viewport_pixel_color( scanline, cycle - 1, system_palette[palette_index & 0x3F] );
       }
    }

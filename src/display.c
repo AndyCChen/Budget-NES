@@ -646,8 +646,15 @@ static void gui_main_viewport(void)
       igBeginChild_Str("Child NES Viewport", zero_vec, ImGuiChildFlags_None, ImGuiWindowFlags_None);
          ImVec2 size;
          igGetWindowSize(&size);
-         glViewport(0, 0, (int) size.x, (int) size.y);
-         display_resize_texture((int) size.x, (int) size.y, viewport.textureID, viewport.RBO);
+
+         float border_offset = 0;
+         if (emulator_state.display_size & 0x1)
+         {
+            border_offset = size.y / 3.5f;
+         }
+
+         glViewport(border_offset, 0, size.x - (border_offset * 2), size.y);
+         display_resize_texture(size.x, size.y, viewport.textureID, viewport.RBO);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
@@ -1315,10 +1322,20 @@ void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color)
 {
    uint32_t index = row * NES_PIXELS_W + col;
 
-   viewport_pixel_colors[index][0] = color[0];
-   viewport_pixel_colors[index][1] = color[1];
-   viewport_pixel_colors[index][2] = color[2];
-   viewport_pixel_colors[index][3] = 1.0f;
+   if (row < 8 || row > 231)
+   {
+      viewport_pixel_colors[index][0] = 0;
+      viewport_pixel_colors[index][1] = 0;
+      viewport_pixel_colors[index][2] = 0;
+      viewport_pixel_colors[index][3] = 1.0f;
+   }
+   else
+   {
+      viewport_pixel_colors[index][0] = color[0];
+      viewport_pixel_colors[index][1] = color[1];
+      viewport_pixel_colors[index][2] = color[2];
+      viewport_pixel_colors[index][3] = 1.0f;
+   }
 }
 
 static void gui_help_marker(const char* desc)
