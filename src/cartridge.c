@@ -251,7 +251,7 @@ bool cartridge_load(const char* const filepath)
       }
    }
 
-   printf("%-13s %d\n%-13s %zu\n%-13s %zu\n%-13s %zu\n%-13s %s\n", 
+   printf("%-13s %d\n%-13s %zu\n%-13s %zu\n%-13s %zu\n%-13s %s\n\n", 
       "Mapper:", header.mapper_id, 
       "Prg-ROM size:", prg_rom_size, 
       "CHR-ROM/RAM", chr_mem_size, 

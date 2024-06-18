@@ -19,7 +19,7 @@
 #include "../includes/cartridge.h"
 
 #define NES_PIXELS_W 256
-#define NES_PIXELS_H 240
+#define NES_PIXELS_H (240 - 16) // the nes displays 240 vertical scanlines but when rendered to a tv the top and bottom 8 scanlines are cut off, hence the minus 16
 
 /**
  * row 0: top left
@@ -188,7 +188,7 @@ bool display_init(void)
 
    SDL_GL_MakeCurrent(window, gContext);
    SDL_GL_SetSwapInterval(-1); // enable vsync
-   SDL_Log("opengl version: %s", (char*)glGetString(GL_VERSION));
+   SDL_Log("OpenGl version: %s\n\n", (char*)glGetString(GL_VERSION));
 
    // setup imgui context
    igCreateContext(NULL);
@@ -607,7 +607,7 @@ static void gui_main_viewport(void)
                if ( SDL_GetCurrentDisplayMode( SDL_GetWindowDisplayIndex(window), &display_mode) == 0 )
                {
                   SDL_SetWindowDisplayMode(window, &display_mode);
-                  SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                  SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
                   
                   emulator_state.display_scale_factor = DISPLAY_FULLSCREEN;
                   io->ConfigFlags ^= ImGuiConfigFlags_ViewportsEnable; // disable multiviewports when in fullscreen
@@ -660,13 +660,26 @@ static void gui_main_viewport(void)
          ImVec2 size;
          igGetWindowSize(&size);
 
-         float border_offset = 0;
+         float border_offset_x = 0;
+         float border_offset_y = 0;
          if (emulator_state.display_scale_factor == DISPLAY_FULLSCREEN)
          {
-            border_offset = size.y / 3.5f;
+            int x = size.x / NES_PIXELS_W;
+            int y = size.y / NES_PIXELS_H;
+
+            if (x < y)
+            {
+               border_offset_x = (size.x - (NES_PIXELS_W * x)) / 2;
+               border_offset_y = (size.y - (NES_PIXELS_H * x)) / 2;
+            }
+            else
+            {
+               border_offset_x = (size.x - (NES_PIXELS_W * y)) / 2;
+               border_offset_y = (size.y - (NES_PIXELS_H * y)) / 2;
+            }
          }
 
-         glViewport(border_offset, 0, size.x - (border_offset * 2), size.y);
+         glViewport(border_offset_x, border_offset_y, size.x - (border_offset_x * 2), size.y - (border_offset_y * 2));
          display_resize_texture(size.x, size.y, viewport.textureID, viewport.RBO);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
@@ -1333,17 +1346,9 @@ static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_
 */
 void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color)
 {
-   uint32_t index = row * NES_PIXELS_W + col;
-
-   if (row < 8 || row > 231)
+   if (row >= 8 && row < 232)
    {
-      viewport_pixel_colors[index][0] = 0;
-      viewport_pixel_colors[index][1] = 0;
-      viewport_pixel_colors[index][2] = 0;
-      viewport_pixel_colors[index][3] = 1.0f;
-   }
-   else
-   {
+      uint32_t index = (row - 8) * NES_PIXELS_W + col;
       viewport_pixel_colors[index][0] = color[0];
       viewport_pixel_colors[index][1] = color[1];
       viewport_pixel_colors[index][2] = color[2];
