@@ -20,15 +20,17 @@ typedef enum Emulator_Run_State_t
    EMULATOR_UNLOADED, // waiting for user to load rom file
 } Emulator_Run_State_t;
 
+typedef enum DISPLAY_SIZE_CONFIG_t
+{
+   DISPLAY_FULLSCREEN = 0,
+   DISPLAY_2X = 2,
+   DISPLAY_3X = 3,
+   DISPLAY_4X = 4,
+} DISPLAY_SIZE_CONFIG_t;
+
 typedef struct Emulator_State_t 
 {
-   /**
-    * bit 0: fullscreen
-    * bit 1: screen size 1x
-    * bit 2: screen size 2x
-    * bit 3: screen size 3x
-   */
-   uint8_t display_size;
+   DISPLAY_SIZE_CONFIG_t display_scale_factor;
    bool is_cpu_debug;              // toggle cpu debug widget
    bool is_cpu_intr_log;           // toggle instruction logging
    bool is_pattern_table_open;     // toggle pattern table viewer

@@ -20,8 +20,6 @@
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H 240
-#define DISPLAY_W_INIT 256.0f * 3
-#define DISPLAY_H_INIT 240.0f * 3
 
 /**
  * row 0: top left
@@ -42,6 +40,7 @@ static SDL_Window* window = NULL;
 static bool is_window_moved = false;
 static SDL_GLContext gContext = NULL;
 static ImGuiIO* io = NULL;
+static GLuint display_shader_id = 0;
 
 static ImVec4 clear_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
@@ -63,6 +62,8 @@ struct Viewport_buffers {
    GLuint RBO;
    GLuint VAO;
    GLuint color_VBO;
+   GLuint translation_VBO;
+   GLuint vertex_VBO;
 };
 
 /**
@@ -97,14 +98,16 @@ static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_
 // global state of emulator
 static Emulator_State_t emulator_state = 
 {
-   .display_size          = 4,
+   .display_scale_factor  = DISPLAY_FULLSCREEN,
    .is_cpu_debug          = false,
    .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
    .run_state             = EMULATOR_UNLOADED | EMULATOR_RUNNING,
    .was_paused            = false,
    .is_instruction_step   = false,
-}; 
+};
+
+static DISPLAY_SIZE_CONFIG_t initial_display_size = DISPLAY_3X;
 
 /**
  * Returns pointer to the emulator state struct
@@ -148,7 +151,18 @@ bool display_init(void)
    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
    SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN);
-   window = SDL_CreateWindow("Budget NES Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, DISPLAY_W_INIT, DISPLAY_H_INIT, window_flags);
+
+   if (emulator_state.display_scale_factor == DISPLAY_FULLSCREEN)
+   {
+      emulator_state.display_scale_factor = DISPLAY_3X;
+   }
+
+   window = SDL_CreateWindow(
+      "Budget NES Emulator", 
+      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+      NES_PIXELS_W * emulator_state.display_scale_factor, 
+      NES_PIXELS_H * emulator_state.display_scale_factor, window_flags
+   );
 
    if (window == NULL)
    {
@@ -200,6 +214,8 @@ bool display_init(void)
       printf("File dialog init failed: %s\n", NFD_GetError());
       return false;
    }
+
+   initial_display_size = emulator_state.display_scale_factor;
 
    return true;
 }
@@ -585,58 +601,55 @@ static void gui_main_viewport(void)
          if (igBeginMenu("Window", true))
          {
             // use bit masking to toggle display size settings
-            if ( igMenuItem_Bool("Fullscreen", "", emulator_state.display_size & 1, true) )
+            if ( igMenuItem_Bool("Fullscreen", "", emulator_state.display_scale_factor == DISPLAY_FULLSCREEN, true) && emulator_state.display_scale_factor != DISPLAY_FULLSCREEN )
             {
                SDL_DisplayMode display_mode;
-               if ( SDL_GetDesktopDisplayMode(0, &display_mode) != 0 )
+               if ( SDL_GetCurrentDisplayMode( SDL_GetWindowDisplayIndex(window), &display_mode) == 0 )
+               {
+                  SDL_SetWindowDisplayMode(window, &display_mode);
+                  SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                  
+                  emulator_state.display_scale_factor = DISPLAY_FULLSCREEN;
+                  io->ConfigFlags ^= ImGuiConfigFlags_ViewportsEnable; // disable multiviewports when in fullscreen
+               }
+               else
                {
                   printf("Error in getting desktop display mode: %s\n", SDL_GetError());
                }
-
-               SDL_SetWindowDisplayMode(window, &display_mode);
-               SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-               
-               printf("%d %d\n", display_mode.w, display_mode.h);
-               emulator_state.display_size = (uint8_t) ~0xFE;
-               io->ConfigFlags ^= ImGuiConfigFlags_ViewportsEnable; // disable multiviewports when in fullscreen
             }
 
-            if ( igMenuItem_Bool("1x", "", emulator_state.display_size & 2, true) )
+            if ( igMenuItem_Bool("2x", "", emulator_state.display_scale_factor == DISPLAY_2X, true)  && emulator_state.display_scale_factor != DISPLAY_2X )
             {
-               float w = DISPLAY_W_INIT - (NES_PIXELS_W);
-               float h = DISPLAY_H_INIT - (NES_PIXELS_H);
-
+               emulator_state.display_scale_factor = DISPLAY_2X;
+               float w = NES_PIXELS_W * emulator_state.display_scale_factor;
+               float h = NES_PIXELS_H * emulator_state.display_scale_factor;
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               emulator_state.display_size = (uint8_t) ~0xFD;
                io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
             }
 
-            if ( igMenuItem_Bool("2x", "", emulator_state.display_size & 4, true) )
+            if ( igMenuItem_Bool("3x", "", emulator_state.display_scale_factor == DISPLAY_3X, true) && emulator_state.display_scale_factor != DISPLAY_3X )
             {
-               float w = DISPLAY_W_INIT;
-               float h = DISPLAY_H_INIT;
-
+               emulator_state.display_scale_factor = DISPLAY_3X;
+               float w = NES_PIXELS_W * emulator_state.display_scale_factor;
+               float h = NES_PIXELS_H * emulator_state.display_scale_factor;
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               emulator_state.display_size = (uint8_t) ~0xFB;
                io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
             }
 
-            if ( igMenuItem_Bool("3x", "", emulator_state.display_size & 8, true) )
+            if ( igMenuItem_Bool("4x", "", emulator_state.display_scale_factor == DISPLAY_4X, true) && emulator_state.display_scale_factor != DISPLAY_4X )
             {
-               float w = DISPLAY_W_INIT + (NES_PIXELS_W);
-               float h = DISPLAY_H_INIT + (NES_PIXELS_H);
-
+               emulator_state.display_scale_factor = DISPLAY_4X;
+               float w = NES_PIXELS_W * emulator_state.display_scale_factor;
+               float h = NES_PIXELS_H * emulator_state.display_scale_factor;
                SDL_SetWindowFullscreen(window, 0);
                SDL_SetWindowSize( window, w, h );
                SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               emulator_state.display_size = (uint8_t) ~0xF7;
                io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
             }
-
             igEndMenu();
          }
       
@@ -648,7 +661,7 @@ static void gui_main_viewport(void)
          igGetWindowSize(&size);
 
          float border_offset = 0;
-         if (emulator_state.display_size & 0x1)
+         if (emulator_state.display_scale_factor == DISPLAY_FULLSCREEN)
          {
             border_offset = size.y / 3.5f;
          }
@@ -948,13 +961,13 @@ static bool display_init_main_viewport_buffers(void)
    GLubyte indices[] = PIXEL_INDICES_INIT;
 
    // send vertex data for pixels
-   GLuint vertex_VBO, vertex_IBO;
+   GLuint vertex_IBO;
    glGenVertexArrays(1, &viewport.VAO);
-   glGenBuffers(1, &vertex_VBO);
+   glGenBuffers(1, &viewport.vertex_VBO);
    glGenBuffers(1, &vertex_IBO);
 
    glBindVertexArray(viewport.VAO);
-   glBindBuffer(GL_ARRAY_BUFFER, vertex_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, viewport.vertex_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(pixel_vertices), pixel_vertices, GL_STATIC_DRAW);
 
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_IBO);
@@ -964,10 +977,9 @@ static bool display_init_main_viewport_buffers(void)
    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
 
    // send instanced transformation data for pixels
-   GLuint transformation_VBO;
-   glGenBuffers(1, &transformation_VBO);
+   glGenBuffers(1, &viewport.translation_VBO);
 
-   glBindBuffer(GL_ARRAY_BUFFER, transformation_VBO);
+   glBindBuffer(GL_ARRAY_BUFFER, viewport.translation_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * NES_PIXELS_W * NES_PIXELS_H, pixel_pos, GL_STATIC_DRAW);
    free(pixel_pos);
 
@@ -1005,9 +1017,8 @@ static bool display_init_main_viewport_buffers(void)
 
 static bool display_init_pattern_table_buffers(void)
 {
-   printf("initialize buffer!\n");
-   int width, height;
-   SDL_GetWindowSize(window, &width, &height);
+   float width = NES_PIXELS_W * initial_display_size;
+   float height = NES_PIXELS_H * initial_display_size;
 
    mat4* pixel_pos = malloc(128 * 128 * sizeof(mat4));
 
@@ -1028,8 +1039,8 @@ static bool display_init_pattern_table_buffers(void)
 
    DEBUG_ppu_init_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
 
-   float pixel_w = (float) DISPLAY_W_INIT / 128;
-   float pixel_h = (float) DISPLAY_H_INIT / 128;
+   float pixel_w = (width) / 128.0f;
+   float pixel_h = (height) / 128.0f;
    display_set_pixel_position(pixel_w, pixel_h, pixel_pos, 128, 128);
 
    float pixel_vertices[] = PIXEL_VERTICES_INIT(pixel_w, pixel_h);
@@ -1140,7 +1151,6 @@ static bool display_init_pattern_table_buffers(void)
 
 static void display_free_pattern_table_buffers(void)
 {
-   printf("free buffer!\n");
    glBindVertexArray(0);
 
    glDeleteTextures(2, pattern_tables.textureID);
@@ -1223,40 +1233,43 @@ static bool display_create_shaders(void)
       "  fragColor = color;\n"
       "}\0";
 
-   GLuint shader_program = glCreateProgram();
-   if (shader_program == 0)
+   display_shader_id = glCreateProgram();
+   if (display_shader_id == 0)
    {
       printf("Error creating shader program!\n");
       return false;
    }
 
-   display_add_shader(shader_program, vertex_shader_code, GL_VERTEX_SHADER);
-   display_add_shader(shader_program, fragment_shader_code, GL_FRAGMENT_SHADER);
+   display_add_shader(display_shader_id, vertex_shader_code, GL_VERTEX_SHADER);
+   display_add_shader(display_shader_id, fragment_shader_code, GL_FRAGMENT_SHADER);
 
-   glLinkProgram(shader_program);
+   glLinkProgram(display_shader_id);
 
    int success;
    char shader_prog_log[512];
 
-   glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
+   glGetProgramiv(display_shader_id, GL_LINK_STATUS, &success);
    if (success == 0) // shader program linking failure
    {
-      glGetProgramInfoLog(shader_program, sizeof(shader_prog_log), NULL, shader_prog_log);
+      glGetProgramInfoLog(display_shader_id, sizeof(shader_prog_log), NULL, shader_prog_log);
       printf("shader program linker error: %s\n", shader_prog_log);
       return false;
    }
 
-   glUseProgram(shader_program);
+   glUseProgram(display_shader_id);
 
    mat4 view = GLM_MAT4_IDENTITY_INIT;
    vec3 translate = {0.0f, 0.0f, 0.0f};
    glm_translate(view, translate);
-   GLuint viewLoc = glGetUniformLocation(shader_program, "view");
+   GLuint viewLoc = glGetUniformLocation(display_shader_id, "view");
    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, (GLfloat*) view);
 
+   int width = NES_PIXELS_W * emulator_state.display_scale_factor;
+   int height = NES_PIXELS_H * emulator_state.display_scale_factor;
+
    mat4 ortho_projection = GLM_MAT4_IDENTITY_INIT;
-   glm_ortho(0.0f, DISPLAY_W_INIT, DISPLAY_H_INIT, 0.0f, -1.0f, 1.0f, ortho_projection);
-   GLuint projectionLoc = glGetUniformLocation(shader_program, "projection");
+   glm_ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f, ortho_projection);
+   GLuint projectionLoc = glGetUniformLocation(display_shader_id, "projection");
    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
 
    return true;
