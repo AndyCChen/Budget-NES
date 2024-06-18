@@ -52,6 +52,7 @@ static void gui_main_viewport(void);
 static void gui_cpu_debug(void);
 static void gui_pattern_table_viewer(void);
 static void gui_help_marker(const char* desc);
+static void gui_popup_modal(const char* title, const char* desc, bool p_open);
 
 // opengl graphics
 // ---------------------------------------------------------------
@@ -94,11 +95,13 @@ static bool display_create_shaders(void);
 static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height);
 static void display_resize_texture(int width, int height, GLuint textureID, GLuint RBO_ID);
 static void display_set_pixel_position(float pixel_w, float pixel_h, mat4 pixel_pos[], uint32_t width, uint32_t height);
+static void display_resize(DISPLAY_SIZE_CONFIG_t display_size);
+static void display_clear(void);
 
 // global state of emulator
 static Emulator_State_t emulator_state = 
 {
-   .display_scale_factor  = DISPLAY_FULLSCREEN,
+   .display_scale_factor  = DISPLAY_BORDERLESS_FULLSCREEN,
    .is_cpu_debug          = false,
    .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
@@ -152,7 +155,7 @@ bool display_init(void)
 
    SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN);
 
-   if (emulator_state.display_scale_factor == DISPLAY_FULLSCREEN)
+   if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
    {
       emulator_state.display_scale_factor = DISPLAY_3X;
    }
@@ -203,7 +206,6 @@ bool display_init(void)
    ImGui_ImplSDL2_InitForOpenGL(window, gContext);
    ImGui_ImplOpenGL3_Init(glsl_version);
 
-   
    if ( !display_create_shaders() || !display_init_main_viewport_buffers() )
    {
       return false;
@@ -216,6 +218,7 @@ bool display_init(void)
    }
 
    initial_display_size = emulator_state.display_scale_factor;
+   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
    return true;
 }
@@ -395,18 +398,13 @@ void display_process_event(bool* done)
    }
 }
 
-void display_clear(void)
-{
-   //glViewport(0, 0, (int) io->DisplaySize.x, (int) io->DisplaySize.y);
-   glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-   glClear(GL_COLOR_BUFFER_BIT);
-}
-
 /**
  * render graphics
 */
 void display_render(void)
 {
+   glClear(GL_COLOR_BUFFER_BIT);
+
    // begin frame
    ImGui_ImplOpenGL3_NewFrame();
    ImGui_ImplSDL2_NewFrame();
@@ -519,6 +517,7 @@ static void gui_main_viewport(void)
    igBegin("NES", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking);
       igPopStyleVar(3);
 
+      bool rom_load_failed = false;
       if (igBeginMenuBar())
       {
          if (igBeginMenu("File", true))
@@ -527,7 +526,12 @@ static void gui_main_viewport(void)
             {
                emulator_state.was_paused = true;
 
-               nfdchar_t* rom_path;
+               if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
+               {
+                  SDL_MinimizeWindow(window);
+               }
+
+               nfdchar_t* rom_path = NULL;
                nfdfilteritem_t filters[1] = { {"NES rom", "nes"} };
                nfdresult_t result = NFD_OpenDialog(&rom_path, filters, 1, NULL);
 
@@ -540,11 +544,12 @@ static void gui_main_viewport(void)
                      emulator_state.is_cpu_intr_log = false;
                      cpu_init();
                      log_free();
-
-                     emulator_state.run_state &= ~EMULATOR_UNLOADED;
+                     emulator_state.run_state &= ~EMULATOR_UNLOADED; 
                   }
+                  // loading rom failed
                   else
                   {
+                     rom_load_failed = true;
                      emulator_state.run_state |= EMULATOR_UNLOADED;
                   }
 
@@ -553,9 +558,16 @@ static void gui_main_viewport(void)
                // error getting rom path
                else if (result == NFD_ERROR)
                {
+                  rom_load_failed = true;
                   printf("File open error: %s\n", NFD_GetError());
                }
-               // else user canceled loading rom file so no changes happen
+               
+               if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
+               {
+                  SDL_RestoreWindow(window);
+               }
+
+               display_clear(); // clear the display after loading new rom file regardless of success or fail
             }
 
             if ( igMenuItem_Bool("Exit", "", false, true) )
@@ -567,6 +579,8 @@ static void gui_main_viewport(void)
 
             igEndMenu();
          }
+ 
+         gui_popup_modal("Error", "Failed to load rom...", rom_load_failed);
 
          if (igBeginMenu("Tools", true))
          {
@@ -601,54 +615,24 @@ static void gui_main_viewport(void)
          if (igBeginMenu("Window", true))
          {
             // use bit masking to toggle display size settings
-            if ( igMenuItem_Bool("Fullscreen", "", emulator_state.display_scale_factor == DISPLAY_FULLSCREEN, true) && emulator_state.display_scale_factor != DISPLAY_FULLSCREEN )
+            if ( igMenuItem_Bool("Fullscreen", "", emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN, true) && emulator_state.display_scale_factor != DISPLAY_BORDERLESS_FULLSCREEN )
             {
-               SDL_DisplayMode display_mode;
-               if ( SDL_GetCurrentDisplayMode( SDL_GetWindowDisplayIndex(window), &display_mode) == 0 )
-               {
-                  SDL_SetWindowDisplayMode(window, &display_mode);
-                  SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-                  
-                  emulator_state.display_scale_factor = DISPLAY_FULLSCREEN;
-                  io->ConfigFlags ^= ImGuiConfigFlags_ViewportsEnable; // disable multiviewports when in fullscreen
-               }
-               else
-               {
-                  printf("Error in getting desktop display mode: %s\n", SDL_GetError());
-               }
+               display_resize(DISPLAY_BORDERLESS_FULLSCREEN);
             }
 
             if ( igMenuItem_Bool("2x", "", emulator_state.display_scale_factor == DISPLAY_2X, true)  && emulator_state.display_scale_factor != DISPLAY_2X )
             {
-               emulator_state.display_scale_factor = DISPLAY_2X;
-               float w = NES_PIXELS_W * emulator_state.display_scale_factor;
-               float h = NES_PIXELS_H * emulator_state.display_scale_factor;
-               SDL_SetWindowFullscreen(window, 0);
-               SDL_SetWindowSize( window, w, h );
-               SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+               display_resize(DISPLAY_2X);
             }
 
             if ( igMenuItem_Bool("3x", "", emulator_state.display_scale_factor == DISPLAY_3X, true) && emulator_state.display_scale_factor != DISPLAY_3X )
             {
-               emulator_state.display_scale_factor = DISPLAY_3X;
-               float w = NES_PIXELS_W * emulator_state.display_scale_factor;
-               float h = NES_PIXELS_H * emulator_state.display_scale_factor;
-               SDL_SetWindowFullscreen(window, 0);
-               SDL_SetWindowSize( window, w, h );
-               SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+               display_resize(DISPLAY_3X);
             }
 
             if ( igMenuItem_Bool("4x", "", emulator_state.display_scale_factor == DISPLAY_4X, true) && emulator_state.display_scale_factor != DISPLAY_4X )
             {
-               emulator_state.display_scale_factor = DISPLAY_4X;
-               float w = NES_PIXELS_W * emulator_state.display_scale_factor;
-               float h = NES_PIXELS_H * emulator_state.display_scale_factor;
-               SDL_SetWindowFullscreen(window, 0);
-               SDL_SetWindowSize( window, w, h );
-               SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-               io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+               display_resize(DISPLAY_4X);
             }
             igEndMenu();
          }
@@ -662,7 +646,7 @@ static void gui_main_viewport(void)
 
          float border_offset_x = 0;
          float border_offset_y = 0;
-         if (emulator_state.display_scale_factor == DISPLAY_FULLSCREEN)
+         if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
          {
             int x = size.x / NES_PIXELS_W;
             int y = size.y / NES_PIXELS_H;
@@ -688,6 +672,34 @@ static void gui_main_viewport(void)
          igImage( (void*) (uintptr_t) viewport.textureID, size, uv_min, uv_max, col, border); 
       igEndChild();
    igEnd();
+}
+
+static void display_resize(DISPLAY_SIZE_CONFIG_t display_size)
+{
+   emulator_state.display_scale_factor = display_size;
+   if (emulator_state.display_scale_factor != DISPLAY_BORDERLESS_FULLSCREEN)
+   {
+      float w = NES_PIXELS_W * emulator_state.display_scale_factor;
+      float h = NES_PIXELS_H * emulator_state.display_scale_factor;
+      SDL_SetWindowFullscreen(window, 0);
+      SDL_SetWindowSize( window, w, h );
+      SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+      io->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+   }
+   else
+   {
+      SDL_DisplayMode display_mode;
+      if ( SDL_GetCurrentDisplayMode( SDL_GetWindowDisplayIndex(window), &display_mode) == 0 )
+      {
+         SDL_SetWindowDisplayMode(window, &display_mode);
+         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+         io->ConfigFlags ^= ImGuiConfigFlags_ViewportsEnable; // disable multiviewports when in fullscreen
+      }
+      else
+      {
+         printf("Error in getting desktop display mode: %s\n", SDL_GetError());
+      }
+   }
 }
 
 static void gui_cpu_debug(void)
@@ -1369,6 +1381,30 @@ static void gui_help_marker(const char* desc)
    }
 }
 
+static void gui_popup_modal(const char* title, const char* desc, bool p_open)
+{
+   ImVec2 pivot = {0.5f, 0.5f};
+   ImVec2 center;
+   ImGuiViewport* viewport = igGetMainViewport();
+   ImGuiViewport_GetCenter(&center, viewport);
+   igSetNextWindowPos(center, ImGuiCond_Appearing, pivot);
+
+   if (p_open) igOpenPopup_Str(title, ImGuiPopupFlags_NoOpenOverExistingPopup);
+   if (igBeginPopupModal(title, NULL, ImGuiWindowFlags_AlwaysAutoResize))
+   {
+      igText("%s\n", desc);
+      ImVec2 size = {0, 0};
+      if (igButton("Close", size))
+      {
+         igCloseCurrentPopup();
+      }
+      igEndPopup();
+   }
+}
+
+/**
+ * Update pixel colors of main display
+ */
 void display_update_color_buffer(void)
 {
    glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
@@ -1386,4 +1422,20 @@ bool display_is_window_moved(void)
 SDL_Window* display_get_window(void)
 {
    return window;
+}
+
+/**
+ * Set pixels colors of main display to black.
+ */
+static void display_clear(void)
+{
+   for (int i = 0; i < NES_PIXELS_H * NES_PIXELS_W; ++i)
+   {
+      viewport_pixel_colors[i][0] = 0.0f;
+      viewport_pixel_colors[i][1] = 0.0f;
+      viewport_pixel_colors[i][2] = 0.0f;
+      viewport_pixel_colors[i][3] = 1.0f;
+   }
+
+   display_update_color_buffer();
 }

@@ -22,7 +22,7 @@ typedef enum Emulator_Run_State_t
 
 typedef enum DISPLAY_SIZE_CONFIG_t
 {
-   DISPLAY_FULLSCREEN = 0,
+   DISPLAY_BORDERLESS_FULLSCREEN = 0,
    DISPLAY_2X = 2,
    DISPLAY_3X = 3,
    DISPLAY_4X = 4,
@@ -40,7 +40,6 @@ typedef struct Emulator_State_t
 } Emulator_State_t;
 
 bool display_init(void);
-void display_clear(void);
 void display_render(void);
 void display_update(void);
 void display_shutdown(void);

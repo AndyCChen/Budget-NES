@@ -29,7 +29,6 @@ int main(int argc, char *argv[])
    bool done = false;
    while (!done)
    {
-      display_clear();
       display_process_event(&done); 
 
       switch (emulator_state->run_state)
