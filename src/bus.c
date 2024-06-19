@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../includes/bus.h"
 #include "../includes/cartridge.h"
@@ -90,6 +91,11 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    {
       cartridge_cpu_write(position, data);
    }
+}
+
+void cpu_clear_ram(void)
+{
+   memset(cpu_ram, 0, sizeof(cpu_ram));
 }
 
 /**

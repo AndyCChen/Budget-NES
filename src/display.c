@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "../includes/bus.h"
 #include "../includes/util.h"
 #include "../includes/display.h"
 #include "../includes/cpu.h"
@@ -113,7 +114,7 @@ static Emulator_State_t emulator_state =
    .is_instruction_step   = false,
 };
 
-static DISPLAY_SIZE_CONFIG_t initial_display_size = DISPLAY_3X;
+static DISPLAY_SIZE_CONFIG_t pattern_tables_viewport_scale = DISPLAY_3X; // have the pattern table viewer be set to whatever the initial display size is
 
 /**
  * Returns pointer to the emulator state struct
@@ -220,7 +221,7 @@ bool display_init(void)
       return false;
    }
 
-   initial_display_size = emulator_state.display_scale_factor;
+   pattern_tables_viewport_scale = emulator_state.display_scale_factor;
    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
    return true;
@@ -545,6 +546,7 @@ static void gui_main_viewport(void)
                   cartridge_free_memory();
                   if (cartridge_load(rom_path))
                   {
+                     cpu_clear_ram(); // init cpu ram to zero when loading in new rom
                      emulator_state.is_cpu_intr_log = false;
                      cpu_init();
                      log_free();
@@ -1057,8 +1059,8 @@ static bool display_init_pattern_table_buffers(void)
       return false;
    }
 
-   float width = NES_PIXELS_W * initial_display_size;
-   float height = NES_PIXELS_H * initial_display_size;
+   float width = NES_PIXELS_W * pattern_tables_viewport_scale;
+   float height = NES_PIXELS_H * pattern_tables_viewport_scale;
 
    mat4* pixel_pos = malloc(128 * 128 * sizeof(mat4));
 
