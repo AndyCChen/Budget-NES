@@ -370,13 +370,7 @@ void ppu_port_write(uint16_t position, uint8_t data)
          if ( (v_register & 0x3FFF) >= PALETTE_START )
          {
             // writing to palette ram
-            uint8_t index = get_palette_index( v_register & 0x1F );
-            palette_ram[index] = data;
-
-            if ( (index & 0x1C) == 0 )
-            {
-               DEBUG_trigger_pattern_table_update();
-            }
+            palette_ram[get_palette_index( v_register & 0x1F )] = data;
          }
          else
          {

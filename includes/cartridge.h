@@ -65,14 +65,4 @@ void cartridge_ppu_write(uint16_t position, uint8_t data);
 */
 void cartridge_free_memory(void);
 
-/**
- * Returns status of if pattern table viewer in debug gui should be updated.
- */
-bool DEBUG_is_pattern_updated(void);
-
-/**
- * Set status of if pattern table viewer display should be updated
- */
-void DEBUG_trigger_pattern_table_update(void);
-
 #endif

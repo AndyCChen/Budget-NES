@@ -549,15 +549,17 @@ static void gui_main_viewport(void)
                      cpu_init();
                      log_free();
                      emulator_state.run_state &= ~EMULATOR_UNLOADED; // no longer waiting for rom file to be loaded
-                     display_update_pattern_table_color_buffers();
                   }
                   // loading rom failed
                   else
                   {
                      rom_load_failed = true;
                      emulator_state.run_state |= EMULATOR_UNLOADED; // fail to load rom so we continue waiting for user to load rom
-                     emulator_state.is_pattern_table_open = false;
-                     display_free_pattern_table_buffers();
+                     if (emulator_state.is_pattern_table_open) // close pattern table viewer when loading new rom fails
+                     {
+                        emulator_state.is_pattern_table_open = false;
+                        display_free_pattern_table_buffers();
+                     }
                   }
 
                   NFD_FreePath(rom_path);
@@ -1048,7 +1050,7 @@ static bool display_init_main_viewport_buffers(void)
 }
 
 static bool display_init_pattern_table_buffers(void)
-{printf("init");
+{
    if (pattern_table_0_pixel_colors != NULL || pattern_table_1_pixel_colors != NULL)
    {
       printf("Must free pattern tables first before initializing!\n");
@@ -1187,20 +1189,13 @@ static bool display_init_pattern_table_buffers(void)
 
 static void display_update_pattern_table_color_buffers(void)
 {
-   if ( !emulator_state.is_pattern_table_open )
-   {
-      return;
-   }
-
-   if ( DEBUG_is_pattern_updated() )
-   {
-      DEBUG_ppu_update_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
-      glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[0]);
-      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * 128 * 128, pattern_table_0_pixel_colors);
-      glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[1]);
-      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * 128 * 128, pattern_table_1_pixel_colors);
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-   }
+   DEBUG_ppu_update_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[0]);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * 128 * 128, pattern_table_0_pixel_colors);
+   glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[1]);
+   glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * 128 * 128, pattern_table_1_pixel_colors);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+   
 }
 
 static void display_free_pattern_table_buffers(void)
