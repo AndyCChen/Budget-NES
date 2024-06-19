@@ -86,11 +86,14 @@ static struct Viewport_buffers viewport;
 static struct Pattern_tables_buffers pattern_tables;
 
 static vec4 viewport_pixel_colors[NES_PIXELS_H * NES_PIXELS_W];
+static vec4* pattern_table_0_pixel_colors = NULL;
+static vec4* pattern_table_1_pixel_colors = NULL;
 
 static void display_add_shader(GLuint program, const GLchar* shader_code, GLenum type);
 static bool display_init_main_viewport_buffers(void);
 static bool display_init_pattern_table_buffers(void);
 static void display_free_pattern_table_buffers(void);
+static void display_update_pattern_table_color_buffers(void);
 static bool display_create_shaders(void);
 static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height);
 static void display_resize_texture(int width, int height, GLuint textureID, GLuint RBO_ID);
@@ -106,7 +109,7 @@ static Emulator_State_t emulator_state =
    .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
    .run_state             = EMULATOR_UNLOADED | EMULATOR_RUNNING,
-   .was_paused            = false,
+   .reset_delta_timers            = false,
    .is_instruction_step   = false,
 };
 
@@ -422,6 +425,7 @@ void display_render(void)
 
    if (emulator_state.is_pattern_table_open) 
    {
+      display_update_pattern_table_color_buffers();
       gui_pattern_table_viewer();
 
       glBindFramebuffer(GL_FRAMEBUFFER, pattern_tables.FBO[0]);
@@ -524,7 +528,7 @@ static void gui_main_viewport(void)
          {
             if ( igMenuItem_Bool("Load Rom...", "Ctrl-L", false, true) )
             {
-               emulator_state.was_paused = true;
+               emulator_state.reset_delta_timers = true; // opening file dialogue will block program execution so we need to reset delta timers to zero when execution resumes
 
                if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
                {
@@ -544,13 +548,16 @@ static void gui_main_viewport(void)
                      emulator_state.is_cpu_intr_log = false;
                      cpu_init();
                      log_free();
-                     emulator_state.run_state &= ~EMULATOR_UNLOADED; 
+                     emulator_state.run_state &= ~EMULATOR_UNLOADED; // no longer waiting for rom file to be loaded
+                     display_update_pattern_table_color_buffers();
                   }
                   // loading rom failed
                   else
                   {
                      rom_load_failed = true;
-                     emulator_state.run_state |= EMULATOR_UNLOADED;
+                     emulator_state.run_state |= EMULATOR_UNLOADED; // fail to load rom so we continue waiting for user to load rom
+                     emulator_state.is_pattern_table_open = false;
+                     display_free_pattern_table_buffers();
                   }
 
                   NFD_FreePath(rom_path);
@@ -1025,7 +1032,7 @@ static bool display_init_main_viewport_buffers(void)
    // send instanced color data for pixels
    glGenBuffers(1, &viewport.color_VBO);
    glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, viewport_pixel_colors, GL_DYNAMIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(viewport_pixel_colors), viewport_pixel_colors, GL_DYNAMIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
    
@@ -1041,7 +1048,13 @@ static bool display_init_main_viewport_buffers(void)
 }
 
 static bool display_init_pattern_table_buffers(void)
-{
+{printf("init");
+   if (pattern_table_0_pixel_colors != NULL || pattern_table_1_pixel_colors != NULL)
+   {
+      printf("Must free pattern tables first before initializing!\n");
+      return false;
+   }
+
    float width = NES_PIXELS_W * initial_display_size;
    float height = NES_PIXELS_H * initial_display_size;
 
@@ -1053,8 +1066,8 @@ static bool display_init_pattern_table_buffers(void)
       return false;
    }
 
-   vec4* pattern_table_0_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
-   vec4* pattern_table_1_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
+   pattern_table_0_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
+   pattern_table_1_pixel_colors = malloc(sizeof(vec4) * 128 * 128);
 
    if (pattern_table_0_pixel_colors == NULL || pattern_table_1_pixel_colors == NULL)
    {
@@ -1062,7 +1075,7 @@ static bool display_init_pattern_table_buffers(void)
       return false;
    }
 
-   DEBUG_ppu_init_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
+   DEBUG_ppu_update_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
 
    float pixel_w = (width) / 128.0f;
    float pixel_h = (height) / 128.0f;
@@ -1113,7 +1126,7 @@ static bool display_init_pattern_table_buffers(void)
 
    glGenBuffers(1, &pattern_tables.color_VBO[0]);
    glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[0]);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_0_pixel_colors, GL_STATIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_0_pixel_colors, GL_DYNAMIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
 
@@ -1154,7 +1167,7 @@ static bool display_init_pattern_table_buffers(void)
 
    glGenBuffers(1, &pattern_tables.color_VBO[1]);
    glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[1]);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_1_pixel_colors, GL_STATIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * 128 * 128, pattern_table_1_pixel_colors, GL_DYNAMIC_DRAW);
    glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
 
@@ -1165,13 +1178,29 @@ static bool display_init_pattern_table_buffers(void)
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
    
    free(pixel_pos);
-   free(pattern_table_0_pixel_colors);
-   free(pattern_table_1_pixel_colors);
 
    if ( !display_create_frameBuffers(&pattern_tables.FBO[0], &pattern_tables.textureID[0], &pattern_tables.RBO[0], width, height) ) return false;
    if ( !display_create_frameBuffers(&pattern_tables.FBO[1], &pattern_tables.textureID[1], &pattern_tables.RBO[1], width, height) ) return false;
 
    return true;
+}
+
+static void display_update_pattern_table_color_buffers(void)
+{
+   if ( !emulator_state.is_pattern_table_open )
+   {
+      return;
+   }
+
+   if ( DEBUG_is_pattern_updated() )
+   {
+      DEBUG_ppu_update_pattern_tables(pattern_table_0_pixel_colors, pattern_table_1_pixel_colors);
+      glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[0]);
+      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * 128 * 128, pattern_table_0_pixel_colors);
+      glBindBuffer(GL_ARRAY_BUFFER, pattern_tables.color_VBO[1]);
+      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * 128 * 128, pattern_table_1_pixel_colors);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+   }
 }
 
 static void display_free_pattern_table_buffers(void)
@@ -1187,6 +1216,12 @@ static void display_free_pattern_table_buffers(void)
    glDeleteBuffers(1, &pattern_tables.translation_VBO);
    glDeleteBuffers(2, pattern_tables.color_VBO);
    glDeleteVertexArrays(2, pattern_tables.VAO);
+
+   free(pattern_table_0_pixel_colors);
+   free(pattern_table_1_pixel_colors);
+
+   pattern_table_0_pixel_colors = NULL;
+   pattern_table_1_pixel_colors = NULL;
 }
 
 static bool display_create_frameBuffers(GLuint *FBO_ID, GLuint *textureID, GLuint *RBO_ID, int width, int height)

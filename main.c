@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
                emulator_state->is_instruction_step = false;
             }
 
-            emulator_state->was_paused = true;
+            emulator_state->reset_delta_timers = true;
             break;
          }
          default:

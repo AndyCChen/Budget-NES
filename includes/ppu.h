@@ -74,12 +74,11 @@ void fetch_sprites(void);
 void sprite_clear_secondary_oam(void);
 
 /**
- * Used by debug gui widget to view pattern tables. Initializes pixel colors to draw based on values read
- * from the pattern tables. For chr-rom calling this once at the beginning will suffice. For chr-ram, since that changes
- * during runtime the pixel colors will need to also be update which is not currently handled yet.
+ * Used by debug gui widget to view pattern tables. Updates pixel colors to draw current pixels inside
+ * the pattern tables.
  * @param p0 color buffer of pixels that will be rendered for pattern table 0
  * @param p1 color buffer of pixels that will be rendered for pattern table 1
 */
-void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1);
+void DEBUG_ppu_update_pattern_tables(vec4* p0, vec4* p1);
 
 #endif

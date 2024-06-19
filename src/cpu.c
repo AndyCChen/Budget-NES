@@ -2720,10 +2720,10 @@ void cpu_run()
 
    if ( delta_time >= 1.0f / 60.0988f )
    {
-      if ( display_is_window_moved() || get_emulator_state()->was_paused )
+      if ( display_is_window_moved() || get_emulator_state()->reset_delta_timers )
       {
          delta_time = 0;
-         get_emulator_state()->was_paused = false;
+         get_emulator_state()->reset_delta_timers = false;
       }
       else
       {

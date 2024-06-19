@@ -35,7 +35,7 @@ typedef struct Emulator_State_t
    bool is_cpu_intr_log;           // toggle instruction logging
    bool is_pattern_table_open;     // toggle pattern table viewer
    Emulator_Run_State_t run_state;
-   bool was_paused;                // was emulator paused on previous frame
+   bool reset_delta_timers;
    bool is_instruction_step;       // true: steps the emulator forward by 1 instruction, false: do nothing
 } Emulator_State_t;
 

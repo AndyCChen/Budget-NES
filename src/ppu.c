@@ -370,7 +370,13 @@ void ppu_port_write(uint16_t position, uint8_t data)
          if ( (v_register & 0x3FFF) >= PALETTE_START )
          {
             // writing to palette ram
-            palette_ram[ get_palette_index( v_register & 0x1F ) ] = data;
+            uint8_t index = get_palette_index( v_register & 0x1F );
+            palette_ram[index] = data;
+
+            if ( (index & 0x1C) == 0 )
+            {
+               DEBUG_trigger_pattern_table_update();
+            }
          }
          else
          {
@@ -769,7 +775,7 @@ static uint8_t flip_bits_horizontally(uint8_t in)
    return in;
 }
 
-void DEBUG_ppu_init_pattern_tables(vec4* p0, vec4* p1)
+void DEBUG_ppu_update_pattern_tables(vec4* p0, vec4* p1)
 {
    //const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
 

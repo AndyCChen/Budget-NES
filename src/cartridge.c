@@ -24,6 +24,8 @@ static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom
 static bool load_iNES10(uint8_t *iNES_header, nes_header_t *header);
 static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header);
 
+static bool DEBUG_pattern_table_is_update = false; // set to true to signal to debug gui to update pattern table viewer
+
 uint8_t cartridge_cpu_read(uint16_t position)
 {
    size_t mapped_addr = 0;
@@ -74,6 +76,7 @@ uint8_t cartridge_ppu_read(uint16_t position)
    {
       case ACCESS_CHR_MEM:
          data = chr_memory[mapped_addr];
+         DEBUG_pattern_table_is_update = true;
          break;
       case ACCESS_VRAM:
          data = ppu_vram[mapped_addr]; // returned mapped address for vram 
@@ -99,6 +102,7 @@ void cartridge_ppu_write(uint16_t position, uint8_t data)
    {
       case ACCESS_CHR_MEM:
          chr_memory[mapped_addr] = data;
+         DEBUG_pattern_table_is_update = true;
          break;
       case ACCESS_VRAM:
          ppu_vram[mapped_addr] = data;
@@ -319,4 +323,16 @@ static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header)
    printf("iNES 2.0 not implemented yet.\n");
 
    return false;
+}
+
+bool DEBUG_is_pattern_updated(void)
+{
+   bool status = DEBUG_pattern_table_is_update;
+   DEBUG_pattern_table_is_update = false;
+   return status;
+}
+
+void DEBUG_trigger_pattern_table_update(void)
+{
+   DEBUG_pattern_table_is_update = true;
 }
