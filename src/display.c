@@ -4,6 +4,7 @@
 #include "glad.h"
 #include "SDL.h"
 #include "SDL_opengl.h"
+#include "SDL_syswm.h"
 #include "cglm.h"
 #include "nfd.h"
 
@@ -11,7 +12,6 @@
 #include <stdlib.h>
 
 #include "../includes/bus.h"
-#include "../includes/util.h"
 #include "../includes/display.h"
 #include "../includes/cpu.h"
 #include "../includes/log.h"
@@ -110,7 +110,7 @@ static Emulator_State_t emulator_state =
    .is_cpu_intr_log       = false,
    .is_pattern_table_open = false,
    .run_state             = EMULATOR_UNLOADED | EMULATOR_RUNNING,
-   .reset_delta_timers            = false,
+   .reset_delta_timers    = false,
    .is_instruction_step   = false,
 };
 
@@ -132,7 +132,7 @@ Emulator_State_t* get_emulator_state(void)
 bool display_init(void)
 {
    // sdl init
-   if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0 )
+   if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0 )
    {
       SDL_Log("Failed to init: %s\n", SDL_GetError());
       return false;
@@ -221,6 +221,10 @@ bool display_init(void)
       return false;
    }
 
+#ifdef _WIN32
+   SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
+#endif
+
    pattern_tables_viewport_scale = emulator_state.display_scale_factor;
    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
@@ -257,21 +261,19 @@ void display_process_event(bool* done)
       {
          *done = true;
       }
-
-      if (event.type == SDL_WINDOWEVENT && event.window.windowID == SDL_GetWindowID(window))
+      if (event.type == SDL_WINDOWEVENT && event.window.windowID == SDL_GetWindowID(window) && event.window.event == SDL_WINDOWEVENT_CLOSE)
       {
-         #ifndef __APPLE_
-            if (event.window.event == SDL_WINDOWEVENT_MOVED)
-            {
-               is_window_moved = true;
-            }
-          #endif
-
-         if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+         *done = true;
+      }
+#ifdef _WIN32
+      if ( event.type == SDL_SYSWMEVENT)
+      {
+         if (event.syswm.msg->msg.win.msg == WM_NCLBUTTONDOWN)
          {
-            *done = true;
+            is_window_moved = true;
          }
       }
+#endif
 
       if ( event.type == SDL_KEYUP )
       {
@@ -348,7 +350,6 @@ void display_process_event(bool* done)
                break;
          }
       }
-
       if ( event.type == SDL_KEYDOWN )
       {
          switch (event.key.keysym.scancode)

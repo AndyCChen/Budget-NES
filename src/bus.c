@@ -7,6 +7,7 @@
 #include "../includes/ppu.h"
 #include "../includes/cpu.h"
 #include "../includes/controllers.h"
+#include "../includes/apu.h"
 
 // address ranges used by cpu to access cartridge space
 
@@ -42,6 +43,11 @@ uint8_t cpu_bus_read(uint16_t position)
    else if ( position >= CPU_PPU_REG_START && position <= CPU_PPU_REG_END )
    {
       data = ppu_port_read( 0x2000 | (position & 0x7) );
+   }
+   // reading status register from apu
+   else if (position == 0x4015)
+   {
+      return apu_read_status(); // apu status is internal to cpu so it does not affect open bus value
    }
    // reading controller 1 input state
    else if ( position == 0x4016 )
@@ -82,14 +88,20 @@ void cpu_bus_write(uint16_t position, uint8_t data)
    {  
       ppu_port_write(position, data);
    }
+   // writing to cartridge rom which is done to configure mapper registers
    else if (position >= 0x8000)
    {
       cartridge_cpu_write(position, data);
    }
-   // writing to cartridge (i.e. program RAM, NOT ROM)
+   // writing to program ram
    else if ( position >= 0x6000 && position <= 0x7FFF )
    {
       cartridge_cpu_write(position, data);
+   }
+   // writing to apu registers
+   else if ( (position >= 0x4000 && position <= 0x4013) || position == 0x4015 || position == 0x4017 )
+   {
+      apu_write(position, data);
    }
 }
 

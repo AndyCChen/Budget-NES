@@ -79,16 +79,16 @@ target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 include_directories(cimgui/generator/output/)
 add_executable(BudgetNES
    main.c
-   src/bus.c
-   src/cartridge.c
-   src/cpu.c
-   src/log.c
    src/display.c
+   src/cpu.c
    src/ppu.c
    src/ppu_renderer_lookup.c
-   src/disassembler.c
+   src/apu.c
+   src/cartridge.c
    src/controllers.c
-   src/util.c
+   src/bus.c
+   src/disassembler.c
+   src/log.c
    src/mapper.c
    src/mappers/mirror_config.c
    src/mappers/mapper_000.c
