@@ -38,7 +38,6 @@
                             2, 3, 0}; \
 
 static SDL_Window* window = NULL;
-static bool is_window_moved = false;
 static SDL_GLContext gContext = NULL;
 static ImGuiIO* io = NULL;
 static GLuint display_shader_id = 0;
@@ -270,7 +269,7 @@ void display_process_event(bool* done)
       {
          if (event.syswm.msg->msg.win.msg == WM_NCLBUTTONDOWN)
          {
-            is_window_moved = true;
+            emulator_state.reset_delta_timers = true;
          }
       }
 #endif
@@ -1443,13 +1442,6 @@ void display_update_color_buffer(void)
    glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec4) * NES_PIXELS_W * NES_PIXELS_H, &viewport_pixel_colors);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
-bool display_is_window_moved(void)
-{
-   bool flag = is_window_moved;
-   is_window_moved = false;
-   return flag;
 }
 
 SDL_Window* display_get_window(void)

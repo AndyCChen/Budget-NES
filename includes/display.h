@@ -49,12 +49,4 @@ void set_viewport_pixel_color(uint32_t row, uint32_t col, vec3 color);
 Emulator_State_t* get_emulator_state(void);
 SDL_Window* display_get_window(void);
 
-/**
- * Check if window was recently moved.
- * On windows 10 moving a window blocks the execution of the program
- * so we need to adjust delta times for the emulation speed and ingnore accumulated
- * time during this period.
- */
-bool display_is_window_moved(void);
-
 #endif

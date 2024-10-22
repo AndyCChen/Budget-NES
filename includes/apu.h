@@ -6,41 +6,34 @@
 
 // https://www.nesdev.org/wiki/2A03
 
+typedef struct Framecounter_t
+{
+   uint8_t sequencer_mode; // 0: 4-step mode, 1: 5-step mode
+   uint8_t IRQ_inhibit;    // 0: IRQ enabled, 1: IRQ disabled
+} Framecounter_t;
+
 typedef struct Pulse_t
 {
-   uint8_t volume; // duty cycle and volume
-   uint8_t sweep;  // sweep control register
-   uint8_t lo;     // low byte of period
-   uint8_t hi;     // high byte of period and length counter
+   bool     enable;          // on/off toggle of channel
+   uint8_t  sequence;        // duty cycle sequence
+   uint8_t  sequence_reload; // reload value of sequence
+   uint16_t timer;           // 11 bit timer value
+   uint16_t timer_reload;    // reload value of 11 bit timer
+   uint8_t  length_counter;  // length counter loaded from lookup table, silences channel when value decrements to zero
+   uint8_t  volume;
+   uint8_t  raw_sample;
 } Pulse_t;
-
-typedef struct Triangle_t
-{
-   uint8_t linear_counter;
-   uint8_t lo; // lo byte of period
-   uint8_t hi; // high byte of period and length counter
-} Triangle_t;
-
-typedef struct Noise_t
-{
-   uint8_t volume;
-   uint8_t lo; // period and waveform shade
-   uint8_t hi; // length counter
-} Noise_t;
-
-typedef struct DMC_t
-{
-   uint8_t frequency; // irq flag, loop flag, and frequency
-   uint8_t raw;       // 7 bit dac
-   uint8_t start;     // sample starting address
-   uint8_t length;    // smaple length 
-} DMC_t;
 
 /**
  * Initialze audio device.
  * @returns false on fail, otherwise return true.
  */
 bool apu_init(void);
+
+/**
+ * Closes the audio device.
+ */
+void apu_shutdown(void);
 
 /**
  * Write to a apu register.
@@ -54,6 +47,13 @@ void apu_write(uint16_t position, uint8_t data);
  * @returns the value of the status register
  */
 uint8_t apu_read_status(void);
+
+/**
+ * Return output sample after mixing the 5 sound channels.
+ */
+uint8_t apu_get_output_sample(void);
+
+void apu_tick(void);
 
 
 #endif

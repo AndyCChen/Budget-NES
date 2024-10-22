@@ -5,6 +5,7 @@
 #include "glad_loader/include/glad/glad.h"
 #include "SDL.h"
 
+#include "includes/apu.h"
 #include "includes/cpu.h"
 #include "includes/ppu.h"
 #include "includes/cartridge.h"
@@ -77,7 +78,7 @@ static bool budgetNES_init(int argc, char *rom_path[])
       cpu_init();
    }
    
-   if ( !display_init() || !ppu_load_palettes("./ntscpalette.pal") )
+   if ( !display_init() || !ppu_load_palettes("./ntscpalette.pal") || !apu_init() )
    {
       return false;
    }
@@ -87,6 +88,7 @@ static bool budgetNES_init(int argc, char *rom_path[])
 
 static void budgetNES_shutdown(void)
 {
+   apu_shutdown();
    log_free();
    cartridge_free_memory();
    display_shutdown();

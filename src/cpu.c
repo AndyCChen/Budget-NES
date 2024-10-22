@@ -6,6 +6,7 @@
 #include "SDL_timer.h"
 
 #include "../includes/cpu.h"
+#include "../includes/apu.h"
 #include "../includes/log.h"
 #include "../includes/bus.h"
 #include "../includes/util.h"
@@ -2706,10 +2707,7 @@ void cpu_emulate_instruction(void)
    }
 }
 
-/**
- * Run the cpu for an x amount of clock cycles per frame depending refresh rate
-*/
-void cpu_run()
+void cpu_run_with_audio()
 {
    static float delta_time = 0;
    static float previous_time = 0;
@@ -2720,7 +2718,7 @@ void cpu_run()
 
    if ( delta_time >= 1.0f / 60.0988f )
    {
-      if ( display_is_window_moved() || get_emulator_state()->reset_delta_timers )
+      if ( get_emulator_state()->reset_delta_timers )
       {
          delta_time = 0;
          get_emulator_state()->reset_delta_timers = false;
@@ -2742,6 +2740,41 @@ void cpu_run()
 }
 
 /**
+ * Run the cpu for an x amount of clock cycles per frame
+*/
+void cpu_run()
+{
+   static float delta_time = 0;
+   static float previous_time = 0;
+   static float current_time = 0;
+
+   current_time = SDL_GetTicks64() / 1000.0f;
+   delta_time += current_time - previous_time;
+
+   if ( delta_time >= 1.0f / 60.0988f )
+   {
+      if ( get_emulator_state()->reset_delta_timers )
+      {
+         delta_time = 0;
+         get_emulator_state()->reset_delta_timers = false;
+      }
+      else
+      {
+         delta_time -= 1.0f / 60.0988f;
+      }
+      
+
+      while ( cpu.cycle_count < 29780 )
+      {
+         cpu_emulate_instruction();
+      }
+      cpu.cycle_count = 0;
+   }
+
+   previous_time = current_time; 
+}
+
+/**
  * Ticks cpu by 1 clock cycle and runs ppu for 3 cycles
 */
 void cpu_tick(void)
@@ -2750,6 +2783,13 @@ void cpu_tick(void)
    ppu_cycle();
    ppu_cycle();
    ppu_cycle();
+
+   // 2 cpu cycles := 1 apu cycle
+   if (cpu.cycle_count % 2 == 0)
+   {
+      apu_tick();
+   }
+   apu_get_output_sample();
 }
 
 /**
