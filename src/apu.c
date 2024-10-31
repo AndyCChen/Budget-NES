@@ -78,6 +78,8 @@ void apu_write(uint16_t position, uint8_t data)
          }
 
          pulse_1.volume = data & 0x0F;
+         pulse_1.length_counter_halt = (data & 0x20) >> 5;
+         pulse_1.constant_volume = (data & 0x10) >> 4;
          pulse_1.sequence = pulse_1.sequence_reload;
 
          break;
@@ -94,6 +96,7 @@ void apu_write(uint16_t position, uint8_t data)
          pulse_1.timer = pulse_1.timer_reload;
 
          pulse_1.sequence = pulse_1.sequence_reload;
+         pulse_1.envelope_reset = true;
          if (pulse_1.enable == true) pulse_1.length_counter = length_lut[ (data >> 3) & 0x1F ];
          break;
       }
@@ -133,20 +136,20 @@ void apu_tick(void)
 
    if (frame_counter.sequencer_mode == 0) // 4-step mode
    {
-      if (apu_cycles == 3729)
+      if (apu_cycles == 7457)
       {
          quarterFrame = true;
       }
-      else if (apu_cycles == 7457)
+      else if (apu_cycles == 14913)
       {
          quarterFrame = true;
          halfFrame = true;
       }
-      else if (apu_cycles == 11186)
+      else if (apu_cycles == 22371)
       {
          quarterFrame = true;
       }
-      else if (apu_cycles == 14915)
+      else if (apu_cycles == 29829)
       {
          quarterFrame = true;
          halfFrame = true;
@@ -155,7 +158,13 @@ void apu_tick(void)
 
       if (quarterFrame)
       {
-
+         // clock envelope
+         if (pulse_1.envelope_reset)
+         {
+            pulse_1.envelope_reset = false;
+            pulse_1.evelope_counter = 0xF;
+            
+         }
       }
 
       if (halfFrame)
@@ -179,9 +188,6 @@ void apu_tick(void)
       pulse_1.raw_sample = pulse_1.sequence & 0x1;
       pulse_1.sequence = ( (pulse_1.sequence & 0x1) << 7 ) | (pulse_1.sequence >> 1);
    }
-
-   
-
 }
 
 uint8_t apu_read_status(void)
@@ -192,11 +198,14 @@ uint8_t apu_read_status(void)
 uint8_t apu_get_output_sample(void)
 {
    static uint8_t counter = 0;
-   ++counter;
-   if (counter % 42 == 0)
+   static uint8_t sum = 0;
+   sum += pulse_1.raw_sample;
+   
+   if (++counter % 20 == 0)
    {
-      uint16_t raw =  pulse_1.raw_sample * 2;
+      uint16_t raw =  sum / 20;
       SDL_QueueAudio(audio_device_ID, &raw, 1);
+      sum = 0;
       counter = 0;
    }
    return 0;

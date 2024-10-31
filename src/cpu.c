@@ -2784,12 +2784,12 @@ void cpu_tick(void)
    ppu_cycle();
    ppu_cycle();
 
-   // 2 cpu cycles := 1 apu cycle
    if (cpu.cycle_count % 2 == 0)
    {
       apu_tick();
    }
    apu_get_output_sample();
+   
 }
 
 /**
