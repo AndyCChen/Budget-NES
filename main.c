@@ -17,9 +17,6 @@ static void budgetNES_shutdown(void);
 
 int main(int argc, char *argv[])
 {
-   (void) argc;
-   (void) argv;
-
    if ( !budgetNES_init( argc, argv ) )
    {
       return EXIT_FAILURE;

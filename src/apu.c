@@ -22,7 +22,10 @@ static uint8_t length_lut[] =
    12,  16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30
 };
 
-//static void clock_pulse_sequencer(Pulse_t *pulse);
+static void clock_pulse_sequencer(Pulse_t *pulse);
+static void clock_pulse_envelope(Pulse_t *pulse);
+static void clock_pulse_length_counter(Pulse_t *pulse);
+static void clock_pulse_sweep(Pulse_t *pulse);
 
 bool apu_init(void)
 {
@@ -79,12 +82,20 @@ void apu_write(uint16_t position, uint8_t data)
 
          pulse_1.volume = data & 0x0F;
          pulse_1.length_counter_halt = (data & 0x20) >> 5;
-         pulse_1.constant_volume = (data & 0x10) >> 4;
+         pulse_1.constant_volume_enable = (data & 0x10) >> 4;
          pulse_1.sequence = pulse_1.sequence_reload;
 
          break;
       }
-      case 0x4001: break;
+      case 0x4001: // eppp nsss        enable, period, negate, shift
+      {
+         pulse_1.sweep_enable = (data & 0x80) >> 7;
+         pulse_1.sweep_reload = (data & 0x70) >> 4; // period
+         pulse_1.sweep_negate = (data & 0x08) >> 3;
+         pulse_1.sweep_shift =  (data & 0x07);
+
+         break;
+      }
       case 0x4002:
       {
          pulse_1.timer_reload = (pulse_1.timer_reload & 0x0700) | data; // set low 8 bits of reload timer
@@ -97,7 +108,7 @@ void apu_write(uint16_t position, uint8_t data)
 
          pulse_1.sequence = pulse_1.sequence_reload;
          pulse_1.envelope_reset = true;
-         if (pulse_1.enable == true) pulse_1.length_counter = length_lut[ (data >> 3) & 0x1F ];
+         if (pulse_1.channel_enable == true) pulse_1.length_counter = length_lut[ (data >> 3) & 0x1F ];
          break;
       }
 
@@ -107,8 +118,9 @@ void apu_write(uint16_t position, uint8_t data)
       case 0x4015:
       {
          status = data;
-         pulse_1.enable = data & 0x1;
-         if (pulse_1.enable == false) pulse_1.length_counter = 0;
+         pulse_1.channel_enable = data & 0x1;
+         if (pulse_1.channel_enable == false) 
+            pulse_1.length_counter = 0;
          break;
       }
       // frame counter
@@ -136,20 +148,20 @@ void apu_tick(void)
 
    if (frame_counter.sequencer_mode == 0) // 4-step mode
    {
-      if (apu_cycles == 7457)
+      if (apu_cycles == 3729)
       {
          quarterFrame = true;
       }
-      else if (apu_cycles == 14913)
+      else if (apu_cycles == 7457)
       {
          quarterFrame = true;
          halfFrame = true;
       }
-      else if (apu_cycles == 22371)
+      else if (apu_cycles == 11186)
       {
          quarterFrame = true;
       }
-      else if (apu_cycles == 29829)
+      else if (apu_cycles == 14915)
       {
          quarterFrame = true;
          halfFrame = true;
@@ -158,19 +170,12 @@ void apu_tick(void)
 
       if (quarterFrame)
       {
-         // clock envelope
-         if (pulse_1.envelope_reset)
-         {
-            pulse_1.envelope_reset = false;
-            pulse_1.evelope_counter = 0xF;
-            
-         }
+         clock_pulse_envelope(&pulse_1);
       }
 
       if (halfFrame)
       {
-         // clock the length counter
-         if (pulse_1.length_counter > 0) pulse_1.length_counter -= 1;
+         clock_pulse_length_counter(&pulse_1);
       }
    }
    else // 5-step mode
@@ -178,21 +183,77 @@ void apu_tick(void)
 
    }
 
-   if (pulse_1.timer > 0)
+   clock_pulse_sequencer(&pulse_1);
+}
+
+static void clock_pulse_sequencer(Pulse_t *pulse)
+{
+   if (pulse->timer > 0)
    {
-      pulse_1.timer -= 1;
+      pulse->timer -= 1;
    }
    else
    {
-      pulse_1.timer = pulse_1.timer_reload;
-      pulse_1.raw_sample = pulse_1.sequence & 0x1;
-      pulse_1.sequence = ( (pulse_1.sequence & 0x1) << 7 ) | (pulse_1.sequence >> 1);
+      pulse->timer = pulse->timer_reload;
+      pulse->raw_sample = pulse->sequence & 0x1;
+      pulse->sequence = ( (pulse->sequence & 0x1) << 7 ) | (pulse->sequence >> 1);
    }
 }
 
-uint8_t apu_read_status(void)
+static void clock_pulse_envelope(Pulse_t *pulse)
 {
-   return status;
+   if (pulse->envelope_reset)
+   {
+      pulse->envelope_reset = false;
+      pulse->envelope_volume = 0xF;
+   }
+   else
+   {
+      if (pulse->envelope_volume > 0)
+      {
+         pulse->envelope_volume -= 1;
+      }
+      else
+      {
+         pulse->envelope_volume = 0xF;
+      }
+   }
+}
+
+static void clock_pulse_length_counter(Pulse_t *pulse)
+{
+   if (!pulse->length_counter_halt && pulse->length_counter > 0)
+   {
+      pulse->length_counter -= 1;
+   }
+}
+
+static void clock_pulse_sweep(Pulse_t *pulse)
+{
+   if (pulse->sweep_reset)
+   {
+      pulse->sweep_counter = pulse->sweep_reload;
+      pulse->sweep_reset = false;
+   }
+   else if (pulse->sweep_counter > 0)
+   {
+      pulse->sweep_counter -= 1;
+   }
+   else
+   {
+      if (pulse->sweep_enable)
+      {
+         if (pulse->sweep_negate)
+         {
+
+         }
+         else
+         {
+            uint32_t result = pulse->timer + (pulse->timer >> pulse->sweep_shift);
+            pulse->timer = result;
+         }
+      }
+   }
 }
 
 uint8_t apu_get_output_sample(void)
@@ -201,12 +262,34 @@ uint8_t apu_get_output_sample(void)
    static uint8_t sum = 0;
    sum += pulse_1.raw_sample;
    
-   if (++counter % 20 == 0)
+   if (++counter % 21 == 0)
    {
-      uint16_t raw =  sum / 20;
+      uint16_t raw =  sum / 21;
+
+      if (pulse_1.length_counter != 0)
+      {
+         if (pulse_1.constant_volume_enable)
+         {
+            raw *= pulse_1.volume;
+         }
+         else
+         {
+            raw *= pulse_1.envelope_volume;
+         }
+      }
+      else
+      {
+         raw = 0;
+      }
+
       SDL_QueueAudio(audio_device_ID, &raw, 1);
       sum = 0;
       counter = 0;
    }
    return 0;
+}
+
+uint8_t apu_read_status(void)
+{
+   return status;
 }
