@@ -96,21 +96,8 @@ add_executable(BudgetNES
    src/mappers/mapper_002.c
 )
 
-find_package(cglm CONFIG)
+target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad cglm/include/cglm)
 
-if (cglm_FOUND)
-   get_target_property(cglm_include cglm::cglm INTERFACE_INCLUDE_DIRECTORIES)
-   set(cglm_library cglm::cglm)
-   message(STATUS " cglm package found.")
-else(cglm_FOUND)
-   message(STATUS " cglm packge not found, provide path to cglm include with -Dcglm_include=path_to_include/include")
-   find_library(cglm_library
-      NAMES cglm
-      HINTS /usr/local/lib
-   )
-endif(cglm_FOUND)
-
-target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad ${cglm_include}/cglm)
 target_compile_definitions(BudgetNES PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
    target_link_options(BudgetNES PRIVATE "-mconsole")
@@ -120,10 +107,12 @@ add_library(glad_loader SHARED glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
 add_subdirectory(nativefiledialog-extended)
-target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl ${cglm_library} glad_loader nfd)
+
+target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd)
 
 if (UNIX)
-  target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
+target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
 target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
+message(STATUS "DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
