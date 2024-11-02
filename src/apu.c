@@ -34,6 +34,7 @@ bool apu_init(void)
    SDL_zero(want);
    want.freq = AUDIO_FREQUENCY;
    want.format = AUDIO_S16SYS;
+   want.samples = 1024;
    want.channels = 1;
    want.callback = NULL;
 
@@ -176,6 +177,7 @@ void apu_tick(void)
       if (halfFrame)
       {
          clock_pulse_length_counter(&pulse_1);
+         clock_pulse_sweep(&pulse_1);
       }
    }
    else // 5-step mode
@@ -245,12 +247,11 @@ static void clock_pulse_sweep(Pulse_t *pulse)
       {
          if (pulse->sweep_negate)
          {
-
+            pulse->timer -= (pulse->timer >> pulse->sweep_shift) + 1;
          }
          else
          {
-            uint32_t result = pulse->timer + (pulse->timer >> pulse->sweep_shift);
-            pulse->timer = result;
+            pulse->timer -= (pulse->timer >> pulse->sweep_shift);
          }
       }
    }
@@ -258,13 +259,13 @@ static void clock_pulse_sweep(Pulse_t *pulse)
 
 uint8_t apu_get_output_sample(void)
 {
-   static uint8_t counter = 0;
-   static uint8_t sum = 0;
+   static uint32_t counter = 0;
+   static uint32_t sum = 0;
    sum += pulse_1.raw_sample;
    
-   if (++counter % 21 == 0)
+   if (++counter % 40 == 0)
    {
-      uint16_t raw =  sum / 21;
+      uint16_t raw =  sum / 40;
 
       if (pulse_1.length_counter != 0)
       {

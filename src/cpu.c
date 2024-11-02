@@ -2789,6 +2789,7 @@ void cpu_tick(void)
       apu_tick();
    }
    apu_get_output_sample();
+   apu_get_output_sample();
    
 }
 
