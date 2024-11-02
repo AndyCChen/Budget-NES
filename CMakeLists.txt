@@ -96,7 +96,7 @@ add_executable(BudgetNES
    src/mappers/mapper_002.c
 )
 
-target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad cglm/include/cglm)
+target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad)
 
 target_compile_definitions(BudgetNES PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)
@@ -107,12 +107,14 @@ add_library(glad_loader SHARED glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
 add_subdirectory(nativefiledialog-extended)
+add_subdirectory(cglm EXCLUDE_FROM_ALL)
 
-target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd)
+target_include_directories(cglm_headers INTERFACE cglm/include/cglm)
+
+target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers)
 
 if (UNIX)
 target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
 target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
-message(STATUS "DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
