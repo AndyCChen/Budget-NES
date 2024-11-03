@@ -117,7 +117,7 @@ const char* log_get_prev_instruction(uint32_t x)
 {
    if (register_ring_buffer == NULL) return "";
 
-   size_t prev = modulo(current - x, instruction_ring_buffer_size);
+   uint32_t prev = modulo(current - x, instruction_ring_buffer_size);
    return instruction_ring_buffer[prev];
 }
 
@@ -125,7 +125,7 @@ const char* log_get_prev_cpu_state(uint32_t x)
 {
    if (register_ring_buffer == NULL) return "";
 
-   size_t prev = modulo(register_buffer_head - x, max_instructions);
+   uint32_t prev = modulo(register_buffer_head - x, max_instructions);
    return register_ring_buffer[prev];
 }
 
@@ -150,8 +150,8 @@ bool log_allocate_buffers(void)
    max_instructions             = max_instructions_input;
    instruction_ring_buffer_size = max_instructions_input + MAX_NEXT + 1;
 
-   register_ring_buffer    = malloc( sizeof(char[max_instructions][REGISTER_BUFFER_LENGTH]) );
-   instruction_ring_buffer = malloc( sizeof(char[instruction_ring_buffer_size][INSTRUCTION_BUFFER_LENGTH]) );
+   register_ring_buffer    = malloc( sizeof(char) * max_instructions * REGISTER_BUFFER_LENGTH );
+   instruction_ring_buffer = malloc( sizeof(char) * instruction_ring_buffer_size * INSTRUCTION_BUFFER_LENGTH );
 
    if (register_ring_buffer == NULL || instruction_ring_buffer == NULL)
    {
@@ -160,8 +160,9 @@ bool log_allocate_buffers(void)
    }
 
    printf("\n%zu bytes allocated.\n", 
-      sizeof( char[max_instructions][REGISTER_BUFFER_LENGTH] ) + 
-      sizeof( char[instruction_ring_buffer_size][INSTRUCTION_BUFFER_LENGTH] ));
+	   (sizeof(char) * max_instructions * REGISTER_BUFFER_LENGTH) + 
+	   (sizeof(char) * instruction_ring_buffer_size * INSTRUCTION_BUFFER_LENGTH)
+   );
 
    // initialize buffers to empty string
    for (uint32_t i = 0; i < max_instructions; ++i)

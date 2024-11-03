@@ -705,23 +705,22 @@ void fetch_sprites(void)
    }
 }
 
+#define PALETTE_SIZE 192
+
 bool ppu_load_palettes(const char* path)
 {
-   size_t size = 192;
-
    FILE *file = fopen(path, "rb");
 
    if (file == NULL)
    {
-      fclose(file);
       printf("Cannot open .pal file!\n");
       return false;
    }
 
-   uint8_t buffer[size];
-   size_t bytes_read = fread(buffer, 1, size, file);
+   uint8_t buffer[PALETTE_SIZE];
+   size_t bytes_read = fread(buffer, 1, PALETTE_SIZE, file);
 
-   if (bytes_read != size)
+   if (bytes_read != PALETTE_SIZE)
    {
       fclose(file);
       printf("Invalid .pal file!\n");

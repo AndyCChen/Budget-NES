@@ -39,45 +39,33 @@ endif(WIN32)
 
 #openGL
 set(OPENGL_LIBRARIES)
-find_package(OpenGL)
+find_package(OpenGL REQUIRED)
+list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl3.cpp)
+set(OPENGL_LIBRARIES OpenGL::GL)
 
-if(OPENGL_FOUND)
-   message(STATUS "openg gl found")
-   list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl3.cpp)
-   set(OPENGL_LIBRARIES OpenGL::GL)
-endif(OPENGL_FOUND)
+list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_sdl2.cpp)
 
 #sdl2
-list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_sdl2.cpp)
-if(DEFINED SDL_PATH)
-	message(STATUS "SDL_PATH defined as " ${SDL_PATH})
-	FIND_PACKAGE(SDL2 PATHS ${SDL_PATH})
-else(DEFINED SDL_PATH)
-	# If SDL_PATH is not set, fallback and attempt to find SDL cmake script at a default location
-	find_package(SDL2)
-endif(DEFINED SDL_PATH)
-
-if(SDL2_FOUND)
-	get_target_property(SDL_INCLUDE SDL2::SDL2 INTERFACE_INCLUDE_DIRECTORIES)
-	message(STATUS "sdl include is " ${SDL_INCLUDE})
-   include_directories(${SDL_INCLUDE})
-   set(IMGUI_SDL_LIBRARY SDL2::SDL2)
-   set(SDL_MAIN SDL2::SDL2main)
-   message(STATUS ${SDL_MAIN} ${IMGUI_SDL_LIBRARY})
-else(SDL2_FOUND)
-	if(DEFINED SDL_PATH)
-		message(FATAL_ERROR " Cannot find SDL at SDL_PATH")
-	else(DEFINED SDL_PATH)
-		message(FATAL_ERROR " Cannot find SDL. Maybe try specifying SDL_PATH?")
-	endif(DEFINED SDL_PATH)
-endif(SDL2_FOUND)
+find_package(SDL2 REQUIRED)
+get_target_property(SDL_INCLUDE SDL2::SDL2 INTERFACE_INCLUDE_DIRECTORIES)
+message(STATUS "DIR: " ${SDL_INCLUDE})
+include_directories(${SDL_INCLUDE})
+set(IMGUI_SDL_LIBRARY SDL2::SDL2)
+set(SDL_MAIN SDL2::SDL2main)
 
 add_library(cimgui_sdl SHARED ${IMGUI_SOURCES})
 target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 
 #using library
 include_directories(cimgui/generator/output/)
+
+file(GLOB BudgetNES_Headers
+	includes/*.h
+	includes/mappers/*.h
+)
+
 add_executable(BudgetNES
+   ${BudgetNES_Headers}
    main.c
    src/display.c
    src/cpu.c
@@ -103,7 +91,7 @@ if (MINGW)
    target_link_options(BudgetNES PRIVATE "-mconsole")
 endif()
 
-add_library(glad_loader SHARED glad_loader/src/glad.c)
+add_library(glad_loader STATIC glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
 add_subdirectory(nativefiledialog-extended)
@@ -117,4 +105,11 @@ if (UNIX)
 target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
-target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
+#target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
+#target_compile_options(BudgetNES PRIVATE /W0)
+
+#configure_file(ntscpalette.pal ${CMAKE_CURRENT_SOURCE_DIR}/bin COPYONLY)
+add_custom_command(TARGET BudgetNES POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy
+	${CMAKE_SOURCE_DIR}/ntscpalette.pal $<TARGET_FILE_DIR:BudgetNES>
+)
