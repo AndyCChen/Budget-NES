@@ -36,7 +36,7 @@ git clone --recurse-submodules https://github.com/AndyCChen/Budget-NES.git
 Using vcpkg for visual studio.
 
 ```bash
-$ vcpkg install sdl2
+vcpkg install sdl2
 ```
 
 ```bash
@@ -49,7 +49,7 @@ Use visual studio to build the .sln file located in the build directory.
 Using homebrew on mac.
 
 ```bash
-$ brew install sdl2
+brew install sdl2
 ```
 
 ```bash
