@@ -75,12 +75,22 @@ static bool budgetNES_init(int argc, char *rom_path[])
       cpu_init();
    }
    
-   if ( !display_init() || !ppu_load_palettes("./ntscpalette.pal") || !apu_init() )
+   bool flag = true;
+   char* base_path = SDL_GetBasePath();
+   char* pal_file = "ntscpalette.pal";
+
+   char *path = malloc( sizeof(char) * (strlen(base_path) + strlen(pal_file) + 1) );
+
+   strcpy(path, base_path);
+   strcat(path, pal_file);
+
+   if ( !display_init() || !ppu_load_palettes(path) || !apu_init() )
    {
-      return false;
+      flag = false;
    }
 
-   return true;
+   free(path);
+   return flag;
 }
 
 static void budgetNES_shutdown(void)
