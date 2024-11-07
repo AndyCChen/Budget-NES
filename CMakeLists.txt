@@ -64,24 +64,28 @@ file(GLOB BudgetNES_Headers
 	includes/mappers/*.h
 )
 
+set(BudgetNES_Sources
+	main.c
+	src/display.c
+	src/cpu.c
+	src/ppu.c
+	src/ppu_renderer_lookup.c
+	src/apu.c
+	src/cartridge.c
+	src/controllers.c
+	src/bus.c
+	src/disassembler.c
+	src/log.c
+	src/mapper.c
+	src/mappers/mirror_config.c
+	src/mappers/mapper_000.c
+	src/mappers/mapper_001.c
+	src/mappers/mapper_002.c
+)
+
 add_executable(BudgetNES
-   ${BudgetNES_Headers}
-   main.c
-   src/display.c
-   src/cpu.c
-   src/ppu.c
-   src/ppu_renderer_lookup.c
-   src/apu.c
-   src/cartridge.c
-   src/controllers.c
-   src/bus.c
-   src/disassembler.c
-   src/log.c
-   src/mapper.c
-   src/mappers/mirror_config.c
-   src/mappers/mapper_000.c
-   src/mappers/mapper_001.c
-   src/mappers/mapper_002.c
+	${BudgetNES_Headers}
+	${BudgetNES_Sources}
 )
 
 target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad)
@@ -105,11 +109,17 @@ if (UNIX)
 target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
-#target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
-#target_compile_options(BudgetNES PRIVATE /W0)
+if (MSVC)
+	target_compile_options(BudgetNES PRIVATE /W1)
+else(MSVC)
+	target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
+endif(MSVC)
 
-#configure_file(ntscpalette.pal ${CMAKE_CURRENT_SOURCE_DIR}/bin COPYONLY)
 add_custom_command(TARGET BudgetNES POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy
 	${CMAKE_SOURCE_DIR}/ntscpalette.pal $<TARGET_FILE_DIR:BudgetNES>
+)
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
+    FILES ${BudgetNES_Headers} ${BudgetNES_Sources}
 )
