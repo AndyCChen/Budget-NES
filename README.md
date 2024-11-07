@@ -16,6 +16,48 @@ Learning how to write a emulator for the NES console.
 ![Alt text](/res/budgetNES.png?raw=true "balloon fight title")
 ![Alt text](/res/superMarioBudgetNES.png?raw=true "super mario bros title")
 
+## Build/Install
+
+Build with CMake. Linux not supported.
+
+### Dependencies
+All dependencies are included as submodules except for sdl2 which can be easily installed via a 
+package such as [Homebrew](https://brew.sh/) for mac or [vcpkg](https://vcpkg.io/en/) on windows.
+* [cglm](https://github.com/recp/cglm)
+* [cimgui](https://github.com/cimgui/cimgui)
+* [SDL2](https://www.libsdl.org/)
+* [nativefiledialog-extended](https://github.com/btzy/nativefiledialog-extended)
+
+```
+git clone --recurse-submodules https://github.com/AndyCChen/Budget-NES.git
+```
+
+### Windows
+Using vcpkg for visual studio.
+
+```bash
+vcpkg install sdl2
+```
+
+```bash
+$ cmake -G "Visual Studio 17 2022" -S ./ -B build -DCMAKE_TOOLCHAIN_FILE="path_to_vcpkg\scripts\buildsystems\vcpkg.cmake"
+```
+
+Use visual studio to build the .sln file located in the build directory.
+
+### Mac
+Using homebrew on mac.
+
+```bash
+brew install sdl2
+```
+
+```bash
+$ cmake -G "Unix Makefiles" -S ./ -B build
+$ cd build
+$ make
+```
+
 ## Initial attempts at PPU graphics rendering
 Here were my initial tries at trying to get the ppu to at least render
 the background tiles of the menu screens of the nestest and donkey kong rom.
