@@ -18,7 +18,7 @@ Learning how to write a emulator for the NES console.
 
 ## Build/Install
 
-Build with CMake. Linux not supported.
+Build with CMake.
 
 ### Dependencies
 All dependencies are included as submodules except for sdl2 which can be easily installed via a 
@@ -40,7 +40,7 @@ vcpkg install sdl2
 ```
 
 ```bash
-$ cmake -G "Visual Studio 17 2022" -S ./ -B build -DCMAKE_TOOLCHAIN_FILE="path_to_vcpkg\scripts\buildsystems\vcpkg.cmake"
+cmake -G "Visual Studio 17 2022" -S ./ -B build -DCMAKE_TOOLCHAIN_FILE="path_to_vcpkg\scripts\buildsystems\vcpkg.cmake"
 ```
 
 Use visual studio to build the .sln file located in the build directory.
@@ -53,9 +53,9 @@ brew install sdl2
 ```
 
 ```bash
-$ cmake -G "Unix Makefiles" -S ./ -B build
-$ cd build
-$ make
+cmake -G "Unix Makefiles" -S ./ -B build
+cd build
+make
 ```
 
 ## Initial attempts at PPU graphics rendering
