@@ -59,12 +59,7 @@ target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 #using library
 include_directories(cimgui/generator/output/)
 
-file(GLOB BudgetNES_Headers
-	includes/*.h
-	includes/mappers/*.h
-)
-
-set(BudgetNES_Sources
+add_executable(BudgetNES
 	main.c
 	src/display.c
 	src/cpu.c
@@ -81,11 +76,6 @@ set(BudgetNES_Sources
 	src/mappers/mapper_000.c
 	src/mappers/mapper_001.c
 	src/mappers/mapper_002.c
-)
-
-add_executable(BudgetNES
-	${BudgetNES_Headers}
-	${BudgetNES_Sources}
 )
 
 target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad)
@@ -114,12 +104,3 @@ if (MSVC)
 else(MSVC)
 	target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
 endif(MSVC)
-
-add_custom_command(TARGET BudgetNES POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy
-	${CMAKE_SOURCE_DIR}/ntscpalette.pal $<TARGET_FILE_DIR:BudgetNES>
-)
-
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
-    FILES ${BudgetNES_Headers} ${BudgetNES_Sources}
-)

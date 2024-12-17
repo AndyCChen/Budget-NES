@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
             break;
       }
 
-      display_render(); 
+      display_render();
       display_update();
    }
 
@@ -65,32 +65,22 @@ static bool budgetNES_init(int argc, char *rom_path[])
    // try loading rom from command line argument if possible
    if (argc > 1)
    {
-      if ( !cartridge_load(rom_path[1]) )
+      if (!cartridge_load(rom_path[1]))
       {
-         return false; 
+         return false;
       }
 
       // set emulator to running if loading cartridge and color pallete is successful
       get_emulator_state()->run_state = EMULATOR_RUNNING;
       cpu_init();
    }
-   
-   bool flag = true;
-   char* base_path = SDL_GetBasePath();
-   char* pal_file = "ntscpalette.pal";
 
-   char *path = malloc( sizeof(char) * (strlen(base_path) + strlen(pal_file) + 1) );
-
-   strcpy(path, base_path);
-   strcat(path, pal_file);
-
-   if ( !display_init() || !ppu_load_palettes(path) || !apu_init() )
+   if (!display_init() || !ppu_load_palettes("ntscpalette.pal") || !apu_init())
    {
-      flag = false;
+      return false;
    }
 
-   free(path);
-   return flag;
+   return true;
 }
 
 static void budgetNES_shutdown(void)
