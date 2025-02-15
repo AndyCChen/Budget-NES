@@ -417,6 +417,7 @@ void display_render(void)
    if (emulator_state.is_cpu_debug) gui_cpu_debug();
    //gui_demo();
 
+	display_update_color_buffer();
    gui_main_viewport();
 
    glBindFramebuffer(GL_FRAMEBUFFER, viewport.FBO);

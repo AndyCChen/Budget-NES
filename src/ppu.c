@@ -249,8 +249,8 @@ void ppu_cycle(void)
    else if (scanline >= 240 && scanline <= 260) // vertical blank scanlines
    {
       if (scanline == 241 && cycle == 1)
-      {  
-         display_update_color_buffer(); // update color buffer after visible scanlines are finished rendering
+		{
+         //display_update_color_buffer(); // update color buffer after visible scanlines are finished rendering
 
          if (ppu_control & 0x80)
          {

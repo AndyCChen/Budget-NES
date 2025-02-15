@@ -13,6 +13,7 @@
 #include "includes/display.h"
 
 static bool budgetNES_init(int argc, char *rom_path[]);
+static void budgetNES_run(void);
 static void budgetNES_shutdown(void);
 
 int main(int argc, char *argv[])
@@ -22,38 +23,7 @@ int main(int argc, char *argv[])
       return EXIT_FAILURE;
    }
 
-   Emulator_State_t* emulator_state = get_emulator_state();
-
-   bool done = false;
-   while (!done)
-   {
-      display_process_event(&done); 
-
-      switch (emulator_state->run_state)
-      {
-         case EMULATOR_RUNNING:
-         {
-            cpu_run();
-            break;
-         }
-         case EMULATOR_PAUSED:
-         {
-            if (emulator_state->is_instruction_step)
-            {
-               cpu_emulate_instruction();
-               emulator_state->is_instruction_step = false;
-            }
-
-            emulator_state->reset_delta_timers = true;
-            break;
-         }
-         default:
-            break;
-      }
-
-      display_render();
-      display_update();
-   }
+	budgetNES_run();
 
    budgetNES_shutdown();
 
@@ -72,8 +42,9 @@ static bool budgetNES_init(int argc, char *rom_path[])
 
       // set emulator to running if loading cartridge and color pallete is successful
       get_emulator_state()->run_state = EMULATOR_RUNNING;
-      cpu_init();
+		cpu_init();
    }
+
 
    if (!display_init() || !ppu_load_palettes("ntscpalette.pal") || !apu_init())
    {
@@ -81,6 +52,44 @@ static bool budgetNES_init(int argc, char *rom_path[])
    }
 
    return true;
+}
+
+static void budgetNES_run(void)
+{
+	Emulator_State_t* emulator_state = get_emulator_state();
+
+	bool done = false;
+	apu_pause(false);
+	while (!done)
+	{
+		display_process_event(&done);
+
+		/*switch (emulator_state->run_state)
+		{
+			case EMULATOR_RUNNING:
+			{
+				cpu_run_without_audio();
+				break;
+			}
+			case EMULATOR_PAUSED:
+			{
+				if (emulator_state->is_instruction_step)
+				{
+					cpu_emulate_instruction();
+					emulator_state->is_instruction_step = false;
+				}
+
+				emulator_state->reset_delta_timers = true;
+				break;
+			}
+			default:
+				break;
+		}*/
+
+		//cpu_run_without_audio();
+		display_render();
+		display_update();
+	}
 }
 
 static void budgetNES_shutdown(void)

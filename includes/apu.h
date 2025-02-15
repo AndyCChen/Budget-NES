@@ -17,13 +17,14 @@ typedef struct Pulse_t
    bool     channel_enable;         // on/off toggle of channel
    uint8_t  sequence;               // duty cycle sequence
    uint8_t  sequence_reload;        // reload value of sequence
-   uint16_t timer;                  // 11 bit timer value
+   int      timer;                  // 11 bit timer value
    uint16_t timer_reload;           // reload value of 11 bit timer
    bool     length_counter_halt;    // 1: length counter frozen at current value, 0: length counter decreases to zero
    uint8_t  length_counter;         // length counter loaded from lookup table, silences channel when value decrements to zero
    uint8_t  volume;                 // set volume
    bool     constant_volume_enable; // 1: constant volume is used, 0: envelope volume is used starting at volume 15 and decreasing to 0 overtime
    uint8_t  envelope_volume;        // envelope volume that can be decreased overtime
+	uint8_t  envelope_counter;
    bool     envelope_reset;         // Restart envelope if true
    bool     sweep_enable;           // enable sweep unit
    bool     sweep_negate;       
@@ -32,6 +33,8 @@ typedef struct Pulse_t
    uint8_t  sweep_reload;           // reload value of sweep counter
    bool     sweep_reset;            // reload the sweep counter with sweep reload
    uint8_t  raw_sample;
+	uint8_t  raw_samples[41];
+	size_t   raw_sample_index;
 } Pulse_t;
 
 /**
@@ -61,9 +64,16 @@ uint8_t apu_read_status(void);
 /**
  * Return output sample after mixing the 5 sound channels.
  */
-uint8_t apu_get_output_sample(void);
+int16_t apu_get_output_sample(void);
 
 void apu_tick(void);
+
+/// <summary>
+/// Pauses the audio playback. Video output is synced to the apu so pausing
+/// the apu will also pause the NES itself.
+/// </summary>
+/// <param name="flag">True := Pause, False := Unpause</param>
+void apu_pause(bool flag);
 
 
 #endif

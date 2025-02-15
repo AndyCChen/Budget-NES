@@ -53,6 +53,8 @@ static const instruction_t* current_instruction = NULL;
 */
 static uint16_t instruction_operand;
 
+static float accumulatedTime = 0.0f;
+
 // ------------------------------- instruction functions ----------------------------------------------------
 
 /**
@@ -2707,42 +2709,21 @@ void cpu_emulate_instruction(void)
    }
 }
 
-void cpu_run_with_audio()
+void cpu_run_with_audio(void)
 {
-   static float delta_time = 0;
-   static float previous_time = 0;
-   static float current_time = 0;
-
-   current_time = SDL_GetTicks64() / 1000.0f;
-   delta_time += current_time - previous_time;
-
-   if ( delta_time >= 1.0f / 60.0988f )
-   {
-      if ( get_emulator_state()->reset_delta_timers )
-      {
-         delta_time = 0;
-         get_emulator_state()->reset_delta_timers = false;
-      }
-      else
-      {
-         delta_time -= 1.0f / 60.0988f;
-      }
-      
-
-      while ( cpu.cycle_count <= 29780 )
-      {
-         cpu_emulate_instruction();
-      }
-      cpu.cycle_count = 0;
-   }
-
-   previous_time = current_time; 
+	
+	while (cpu.cycle_count * (1 / 1789773.0f) <= 1 / 44100.0f)
+	{
+		cpu_emulate_instruction();
+	}
+	cpu.cycle_count = 0;
 }
 
 /**
- * Run the cpu for an x amount of clock cycles per frame
+ * Run the cpu for an x amount of clock cycles per frame without audio.
+ * The emulator is not synced to audio in otherwords.
 */
-void cpu_run()
+void cpu_run_without_audio()
 {
    static float delta_time = 0;
    static float previous_time = 0;
@@ -2784,13 +2765,10 @@ void cpu_tick(void)
    ppu_cycle();
    ppu_cycle();
 
-   if (cpu.cycle_count % 2 == 0)
+   //if (cpu.cycle_count % 2 == 0)
    {
       apu_tick();
    }
-   apu_get_output_sample();
-   apu_get_output_sample();
-   
 }
 
 /**
