@@ -32,6 +32,11 @@ int main(int argc, char *argv[])
 
 static bool budgetNES_init(int argc, char *rom_path[])
 {
+	if (!display_init() || !ppu_load_palettes("ntscpalette.pal") || !apu_init())
+	{
+		return false;
+	}
+
    // try loading rom from command line argument if possible
    if (argc > 1)
    {
@@ -40,17 +45,10 @@ static bool budgetNES_init(int argc, char *rom_path[])
          return false;
       }
 
-      // set emulator to running if loading cartridge and color pallete is successful
       get_emulator_state()->run_state = EMULATOR_RUNNING;
 		cpu_init();
+		apu_pause(false);
    }
-
-
-   if (!display_init() || !ppu_load_palettes("ntscpalette.pal") || !apu_init())
-   {
-      return false;
-   }
-
    return true;
 }
 
@@ -59,18 +57,12 @@ static void budgetNES_run(void)
 	Emulator_State_t* emulator_state = get_emulator_state();
 
 	bool done = false;
-	apu_pause(false);
 	while (!done)
 	{
 		display_process_event(&done);
 
-		/*switch (emulator_state->run_state)
+		switch (emulator_state->run_state)
 		{
-			case EMULATOR_RUNNING:
-			{
-				cpu_run_without_audio();
-				break;
-			}
 			case EMULATOR_PAUSED:
 			{
 				if (emulator_state->is_instruction_step)
@@ -84,7 +76,7 @@ static void budgetNES_run(void)
 			}
 			default:
 				break;
-		}*/
+		}
 
 		//cpu_run_without_audio();
 		display_render();

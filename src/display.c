@@ -11,13 +11,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "../includes/bus.h"
-#include "../includes/display.h"
-#include "../includes/cpu.h"
-#include "../includes/log.h"
-#include "../includes/controllers.h"
-#include "../includes/ppu.h"
-#include "../includes/cartridge.h"
+#include "bus.h"
+#include "display.h"
+#include "cpu.h"
+#include "log.h"
+#include "controllers.h"
+#include "ppu.h"
+#include "cartridge.h"
+#include "apu.h"
 
 #define NES_PIXELS_W 256
 #define NES_PIXELS_H (240 - 16) // the nes displays 240 vertical scanlines but when rendered to a tv the top and bottom 8 scanlines are cut off, hence the minus 16
@@ -267,7 +268,7 @@ void display_process_event(bool* done)
 #ifdef _WIN32
       if ( event.type == SDL_SYSWMEVENT)
       {
-         if (event.syswm.msg->msg.win.msg == WM_NCLBUTTONDOWN)
+         if (event.syswm.msg->msg.win.msg == WM_MOVE)
          {
             emulator_state.reset_delta_timers = true;
          }
@@ -293,11 +294,16 @@ void display_process_event(bool* done)
                if ( (emulator_state.run_state & 0x1) == EMULATOR_RUNNING )
                {
                   emulator_state.run_state &= ~EMULATOR_RUNNING; // pause emulator
+						apu_pause(true);
                }
                else
                {
                   emulator_state.run_state |= EMULATOR_RUNNING; // unpause emulator
-               }
+						if (!(emulator_state.run_state & EMULATOR_UNLOADED))
+						{
+							apu_pause(false);
+						}
+					}
 
                break;
             }
@@ -530,6 +536,7 @@ static void gui_main_viewport(void)
          {
             if ( igMenuItem_Bool("Load Rom...", "Ctrl-L", false, true) )
             {
+					apu_pause(true); // pause emulation when loading new file
                emulator_state.reset_delta_timers = true; // opening file dialogue will block program execution so we need to reset delta timers to zero when execution resumes
 
                if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
@@ -547,11 +554,15 @@ static void gui_main_viewport(void)
                   cartridge_free_memory();
                   if (cartridge_load(rom_path))
                   {
-                     cpu_clear_ram(); // init cpu ram to zero when loading in new rom
                      emulator_state.is_cpu_intr_log = false;
+                     cpu_clear_ram(); // init cpu ram to zero when loading in new rom
                      cpu_init();
                      log_free();
                      emulator_state.run_state &= ~EMULATOR_UNLOADED; // no longer waiting for rom file to be loaded
+							if (emulator_state.run_state == EMULATOR_RUNNING)
+							{
+								apu_pause(false);
+							}
                   }
                   // loading rom failed
                   else
@@ -565,6 +576,7 @@ static void gui_main_viewport(void)
                      }
                   }
 
+						display_clear();
                   NFD_FreePath(rom_path);
                }
                // error getting rom path
@@ -572,14 +584,20 @@ static void gui_main_viewport(void)
                {
                   rom_load_failed = true;
                   printf("File open error: %s\n", NFD_GetError());
+						display_clear();
                }
+					// cancel loading file
+					else
+					{
+						apu_pause(false); // resume emulation
+					}
                
                if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
                {
                   SDL_RestoreWindow(window);
                }
 
-               display_clear(); // clear the display after loading new rom file regardless of success or fail
+               
             }
 
             if ( igMenuItem_Bool("Exit", "", false, true) )
@@ -842,6 +860,10 @@ static void gui_cpu_debug(void)
             if ( igButton("Pause", zero_vec) )
             {
                emulator_state.run_state |= EMULATOR_RUNNING;
+					if (!(emulator_state.run_state & EMULATOR_UNLOADED))
+					{
+						apu_pause(false);
+					}
             }
             igPopStyleColor(1);
          }
@@ -850,6 +872,7 @@ static void gui_cpu_debug(void)
             if ( igButton("Pause", zero_vec) )
             {
                emulator_state.run_state &= ~EMULATOR_RUNNING;
+					apu_pause(true);
             }
          }
 

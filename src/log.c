@@ -150,8 +150,8 @@ bool log_allocate_buffers(void)
    max_instructions             = max_instructions_input;
    instruction_ring_buffer_size = max_instructions_input + MAX_NEXT + 1;
 
-   register_ring_buffer    = malloc( sizeof(char) * max_instructions * REGISTER_BUFFER_LENGTH );
-   instruction_ring_buffer = malloc( sizeof(char) * instruction_ring_buffer_size * INSTRUCTION_BUFFER_LENGTH );
+   register_ring_buffer    = malloc( sizeof(*register_ring_buffer) * max_instructions );
+   instruction_ring_buffer = malloc( sizeof(*instruction_ring_buffer) * instruction_ring_buffer_size );
 
    if (register_ring_buffer == NULL || instruction_ring_buffer == NULL)
    {
