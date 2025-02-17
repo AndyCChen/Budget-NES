@@ -78,6 +78,7 @@ static void budgetNES_run(void)
 				break;
 		}
 
+		cpu_run_with_audio();
 		//cpu_run_without_audio();
 		display_render();
 		display_update();

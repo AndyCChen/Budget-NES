@@ -420,10 +420,11 @@ void display_render(void)
    ImGui_ImplSDL2_NewFrame();
    igNewFrame();
 
-   if (emulator_state.is_cpu_debug) gui_cpu_debug();
+   if (emulator_state.is_cpu_debug) 
+		gui_cpu_debug();
    //gui_demo();
 
-	display_update_color_buffer();
+	//display_update_color_buffer();
    gui_main_viewport();
 
    glBindFramebuffer(GL_FRAMEBUFFER, viewport.FBO);
@@ -1086,7 +1087,7 @@ static bool display_init_pattern_table_buffers(void)
    float width = NES_PIXELS_W * pattern_tables_viewport_scale;
    float height = NES_PIXELS_H * pattern_tables_viewport_scale;
 
-   mat4* pixel_pos = malloc(128 * 128 * sizeof(mat4));
+   mat4* pixel_pos = malloc(sizeof(mat4) * 128 * 128);
 
    if (pixel_pos == NULL)
    {

@@ -52,8 +52,9 @@ typedef struct instruction_t
 } instruction_t;
 
 void cpu_emulate_instruction(void);
+void cpu_run_for_one_sample(void);
+void cpu_run_without_audio(void);
 void cpu_run_with_audio(void);
-void cpu_run_without_audio();
 void cpu_reset(void);
 void cpu_init(void);
 void cpu_IRQ(void);

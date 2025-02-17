@@ -42,7 +42,7 @@ bool apu_init(void)
    want.format = AUDIO_U16SYS;
    want.samples = 1024;
    want.channels = 1;
-   want.callback = &audio_callback;
+   //want.callback = &audio_callback;
 
    audio_device_ID = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
    if (audio_device_ID == 0)
@@ -460,7 +460,7 @@ static void audio_callback(void* userdata, Uint8* stream, int length)
 
 	for (size_t sample_index = 0; sample_index < audio_buffer_length; ++sample_index)
 	{
-		cpu_run_with_audio();
+		cpu_run_for_one_sample();
 		audio_buffer[sample_index] = apu_get_output_sample();
 	}
 
@@ -516,7 +516,7 @@ int16_t apu_get_output_sample(void)
 
 	float output = 95.88f / ((8128.0f / (raw + raw2)) + 100);
 
-	int res = (output * 65536) - 32768;
+	int16_t res = (output * 65536) - 32768;
 	if (res > 32767)
 	{
 		res = 32767;
@@ -526,7 +526,19 @@ int16_t apu_get_output_sample(void)
 		res = -32768;
 	}
 
-   return  res;
+	//SDL_QueueAudio(audio_device_ID, &res, sizeof(int16_t));
+
+   return res;
+}
+
+uint32_t apu_get_queued_audio()
+{
+	return SDL_GetQueuedAudioSize(audio_device_ID);
+}
+
+void apu_queue_audio(int16_t* data, uint32_t sample_count)
+{
+	SDL_QueueAudio(audio_device_ID, data, sizeof(int16_t) * sample_count);
 }
 
 uint8_t apu_read_status(void)

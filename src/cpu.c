@@ -2709,21 +2709,58 @@ void cpu_emulate_instruction(void)
    }
 }
 
-void cpu_run_with_audio(void)
+void cpu_run_for_one_sample(void)
 {
 	
-	while (cpu.cycle_count * (1 / 1789773.0f) <= 1 / 44100.0f)
+	while (cpu.cycle_count <= 41)
 	{
 		cpu_emulate_instruction();
 	}
 	cpu.cycle_count = 0;
 }
 
+void cpu_run_with_audio(void)
+{
+	static float delta_time = 0;
+	static float previous_time = 0;
+	static float current_time = 0;
+
+	current_time = SDL_GetTicks64() / 1000.0f;
+	delta_time += current_time - previous_time;
+
+	float frame_rate = 60.0988f;
+	if (delta_time >= 1.0f / frame_rate)
+	{
+		if (get_emulator_state()->reset_delta_timers)
+		{
+			delta_time = 0;
+			get_emulator_state()->reset_delta_timers = false;
+		}
+		else
+		{
+			delta_time -= 1.0f / frame_rate;
+		}
+
+		if (apu_get_queued_audio() < (735 * 8) )
+		{
+			int16_t data[735];
+			for (int i = 0; i < 735; ++i)
+			{
+				cpu_run_for_one_sample();
+				data[i] = apu_get_output_sample();
+			}
+			apu_queue_audio(&data, 735);
+		}
+	}
+
+	previous_time = current_time;
+}
+
 /**
  * Run the cpu for an x amount of clock cycles per frame without audio.
  * The emulator is not synced to audio in otherwords.
 */
-void cpu_run_without_audio()
+void cpu_run_without_audio(void)
 {
    static float delta_time = 0;
    static float previous_time = 0;

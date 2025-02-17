@@ -75,5 +75,7 @@ void apu_tick(void);
 /// <param name="flag">True := Pause, False := Unpause</param>
 void apu_pause(bool flag);
 
+uint32_t apu_get_queued_audio(void);
+void apu_queue_audio(int16_t* data, uint32_t sample_count);
 
 #endif
