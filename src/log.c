@@ -168,12 +168,11 @@ bool log_allocate_buffers(void)
    for (uint32_t i = 0; i < max_instructions; ++i)
    {
       snprintf(register_ring_buffer[i], REGISTER_BUFFER_LENGTH, " ");
-      snprintf(instruction_ring_buffer[i], INSTRUCTION_BUFFER_LENGTH, " ");
    }
 
    // initialize remaining space since the instruction ring buffer is slightly larger to hold
    // the next MAX_NEXT future disassembled instructions
-   for (uint32_t i = max_instructions; i < instruction_ring_buffer_size; ++i)
+   for (uint32_t i = 0; i < instruction_ring_buffer_size; ++i)
    {
       snprintf(instruction_ring_buffer[i], INSTRUCTION_BUFFER_LENGTH, " ");
    }
