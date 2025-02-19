@@ -55,14 +55,25 @@ static bool budgetNES_init(int argc, char *rom_path[])
 static void budgetNES_run(void)
 {
 	Emulator_State_t* emulator_state = get_emulator_state();
+	float delta_time = 0;
+	float previous_time = 0;
+	float current_time = 0;
 
 	bool done = false;
 	while (!done)
 	{
+		current_time = SDL_GetTicks64() / 1000.0f;
+		delta_time += current_time - previous_time;
+
 		display_process_event(&done);
 
 		switch (emulator_state->run_state)
 		{
+			case EMULATOR_RUNNING:
+			{
+				cpu_run_with_audio(&delta_time);
+				break;
+			}
 			case EMULATOR_PAUSED:
 			{
 				if (emulator_state->is_instruction_step)
@@ -78,10 +89,9 @@ static void budgetNES_run(void)
 				break;
 		}
 
-		cpu_run_with_audio();
-		//cpu_run_without_audio();
 		display_render();
 		display_update();
+		previous_time = current_time;
 	}
 }
 

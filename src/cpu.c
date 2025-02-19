@@ -2711,76 +2711,65 @@ void cpu_emulate_instruction(void)
 
 void cpu_run_for_one_sample(void)
 {
-	
-	while (cpu.cycle_count <= 41)
+	static float time = 0;
+
+	while (time <= (1 / 44100.0f))
 	{
 		cpu_emulate_instruction();
+		time += cpu.cycle_count * (1 / 1789773.0f) - time;
 	}
+	time -= 1 / 44100.0f;
 	cpu.cycle_count = 0;
 }
 
-void cpu_run_with_audio(void)
+void cpu_run_with_audio(float *delta_time)
 {
-	static float delta_time = 0;
-	static float previous_time = 0;
-	static float current_time = 0;
-
-	current_time = SDL_GetTicks64() / 1000.0f;
-	delta_time += current_time - previous_time;
-
 	float frame_rate = 60.0988f;
-	if (delta_time >= 1.0f / frame_rate)
+	float d = *delta_time;
+	while (*delta_time >= (1.0f / frame_rate))
 	{
+		uint32_t queued_audio = apu_get_queued_audio();
+		if (queued_audio < (735 * 16))
+		{
+			int16_t audio_data[735];
+			for (int i = 0; i < 735; ++i)
+			{
+				cpu_run_for_one_sample();
+				audio_data[i] = apu_get_output_sample();
+			}
+			apu_queue_audio(audio_data, 735);
+			queued_audio = apu_get_queued_audio();
+		}
+
 		if (get_emulator_state()->reset_delta_timers)
 		{
-			delta_time = 0;
+			*delta_time = 0;
 			get_emulator_state()->reset_delta_timers = false;
 		}
 		else
 		{
-			delta_time -= 1.0f / frame_rate;
-		}
-
-		if (apu_get_queued_audio() < (735 * 8) )
-		{
-			int16_t data[735];
-			for (int i = 0; i < 735; ++i)
-			{
-				cpu_run_for_one_sample();
-				data[i] = apu_get_output_sample();
-			}
-			apu_queue_audio(&data, 735);
+			*delta_time -= 1.0f / frame_rate;
 		}
 	}
-
-	previous_time = current_time;
 }
 
 /**
  * Run the cpu for an x amount of clock cycles per frame without audio.
  * The emulator is not synced to audio in otherwords.
 */
-void cpu_run_without_audio(void)
+void cpu_run_without_audio(float* delta_time)
 {
-   static float delta_time = 0;
-   static float previous_time = 0;
-   static float current_time = 0;
-
-   current_time = SDL_GetTicks64() / 1000.0f;
-   delta_time += current_time - previous_time;
-
-   if ( delta_time >= 1.0f / 60.0988f )
+   while ( *delta_time >= 1.0f / 60.0988f )
    {
       if ( get_emulator_state()->reset_delta_timers )
       {
-         delta_time = 0;
+         *delta_time = 0;
          get_emulator_state()->reset_delta_timers = false;
       }
       else
       {
-         delta_time -= 1.0f / 60.0988f;
+         *delta_time -= 1.0f / 60.0988f;
       }
-      
 
       while ( cpu.cycle_count < 29780 )
       {
@@ -2788,8 +2777,6 @@ void cpu_run_without_audio(void)
       }
       cpu.cycle_count = 0;
    }
-
-   previous_time = current_time; 
 }
 
 /**

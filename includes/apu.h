@@ -17,7 +17,7 @@ typedef struct Pulse_t
    bool     channel_enable;         // on/off toggle of channel
    uint8_t  sequence;               // duty cycle sequence
    uint8_t  sequence_reload;        // reload value of sequence
-   int      timer;                  // 11 bit timer value
+	uint16_t timer;                  // 11 bit timer value
    uint16_t timer_reload;           // reload value of 11 bit timer
    bool     length_counter_halt;    // 1: length counter frozen at current value, 0: length counter decreases to zero
    uint8_t  length_counter;         // length counter loaded from lookup table, silences channel when value decrements to zero
@@ -36,6 +36,22 @@ typedef struct Pulse_t
 	uint8_t  raw_samples[41];
 	size_t   raw_sample_index;
 } Pulse_t;
+
+typedef struct Triangle_t
+{
+	bool     channel_enable;
+	bool     control_flag;
+	bool     linear_counter_reset;
+	uint8_t  linear_counter;
+	uint8_t  linear_counter_reload;
+	uint8_t  length_counter;
+	uint16_t timer;
+	uint16_t timer_reload;
+	uint8_t  sequence_step;
+	uint8_t  raw_sample;
+	uint8_t  raw_samples[41];
+	size_t   raw_sample_index;
+} Triangle_t;
 
 /**
  * Initialze audio device.
@@ -77,5 +93,6 @@ void apu_pause(bool flag);
 
 uint32_t apu_get_queued_audio(void);
 void apu_queue_audio(int16_t* data, uint32_t sample_count);
+void apu_clear_queued_audio(void);
 
 #endif

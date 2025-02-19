@@ -577,6 +577,7 @@ static void gui_main_viewport(void)
                      }
                   }
 
+						apu_clear_queued_audio();
 						display_clear();
                   NFD_FreePath(rom_path);
                }
@@ -693,7 +694,7 @@ static void gui_main_viewport(void)
                border_offset_y = (size.y - (NES_PIXELS_H * y)) / 2;
             }
          }
-
+			
          glViewport(border_offset_x, border_offset_y, size.x - (border_offset_x * 2), size.y - (border_offset_y * 2));
          display_resize_texture(size.x, size.y, viewport.textureID, viewport.RBO);
          ImVec2 uv_min = {0, 1};
@@ -1442,8 +1443,8 @@ static void gui_popup_modal(const char* title, const char* desc, bool p_open)
 {
    ImVec2 pivot = {0.5f, 0.5f};
    ImVec2 center;
-   ImGuiViewport* viewport = igGetMainViewport();
-   ImGuiViewport_GetCenter(&center, viewport);
+   ImGuiViewport* imgui_viewport = igGetMainViewport();
+   ImGuiViewport_GetCenter(&center, imgui_viewport);
    igSetNextWindowPos(center, ImGuiCond_Appearing, pivot);
 
    if (p_open) igOpenPopup_Str(title, ImGuiPopupFlags_NoOpenOverExistingPopup);

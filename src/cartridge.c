@@ -13,7 +13,7 @@
 
 static mapper_t mapper;
 static void* mapper_registers = NULL; // void pointer to struct containing a mapper's registers
-static nes_header_t header;
+static nes_header_t rom_header;
 
 static uint8_t ppu_vram[1024 * 2];
 static uint8_t *prg_rom = NULL;
@@ -26,7 +26,7 @@ static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header);
 uint8_t cartridge_cpu_read(uint16_t position)
 {
    size_t mapped_addr = 0;
-   cartridge_access_mode_t mode = mapper.cpu_read(&header, position, &mapped_addr, mapper_registers);
+   cartridge_access_mode_t mode = mapper.cpu_read(&rom_header, position, &mapped_addr, mapper_registers);
 
    static uint8_t data = 0;
    switch ( mode )
@@ -48,7 +48,7 @@ uint8_t cartridge_cpu_read(uint16_t position)
 void cartridge_cpu_write(uint16_t position, uint8_t data)
 {
    size_t mapped_addr = 0;
-   cartridge_access_mode_t mode = mapper.cpu_write(&header, position, data, &mapped_addr, mapper_registers);
+   cartridge_access_mode_t mode = mapper.cpu_write(&rom_header, position, data, &mapped_addr, mapper_registers);
 
    switch ( mode )
    {
@@ -66,7 +66,7 @@ uint8_t cartridge_ppu_read(uint16_t position)
 
    // ppu address space is only 14 bits, hence the 0x3FFF bitmask
 
-   cartridge_access_mode_t mode = mapper.ppu_read(&header, position & 0x3FFF, &mapped_addr, mapper_registers);
+   cartridge_access_mode_t mode = mapper.ppu_read(&rom_header, position & 0x3FFF, &mapped_addr, mapper_registers);
 
    uint8_t data = 0;
    switch ( mode )
@@ -92,7 +92,7 @@ void cartridge_ppu_write(uint16_t position, uint8_t data)
 
    // ppu address space is only 14 bits, hence the 0x3FFF bitmask
 
-   cartridge_access_mode_t mode = mapper.ppu_write(&header, position & 0x3FFF, &mapped_addr, mapper_registers);
+   cartridge_access_mode_t mode = mapper.ppu_write(&rom_header, position & 0x3FFF, &mapped_addr, mapper_registers);
    
    switch ( mode )
    {
@@ -135,7 +135,7 @@ bool cartridge_load(const char* const filepath)
       if ( (iNES_header[7] & 0x0C) == 0x08 )
       {
          printf("iNES 2.0\n");
-         if ( !load_iNES20(iNES_header, &header) )
+         if ( !load_iNES20(iNES_header, &rom_header) )
          {
             fclose(file);
             return false;
@@ -145,7 +145,7 @@ bool cartridge_load(const char* const filepath)
       else
       {
          printf("iNES 1.0\n");
-         if ( !load_iNES10(iNES_header, &header) )
+         if ( !load_iNES10(iNES_header, &rom_header) )
          {
             fclose(file);
             return false;
@@ -159,40 +159,40 @@ bool cartridge_load(const char* const filepath)
       return false;
    }
 
-   if ( !load_mapper(header.mapper_id, &mapper, (void**) &mapper_registers) )
+   if ( !load_mapper(rom_header.mapper_id, &mapper, (void**) &mapper_registers) )
    {
       fclose(file);
-      printf("Mapper %d does not exist or is not supported!\n", header.mapper_id);
+      printf("Mapper %d does not exist or is not supported!\n", rom_header.mapper_id);
       return false;
    }
    else
    {
-      mapper.init(&header, mapper_registers);
+      mapper.init(&rom_header, mapper_registers);
    }
    
 
    // determine sizes of prg rom/ram and chr rom/ram in bytes
 
-   size_t prg_rom_size = header.prg_rom_size * 1024 * 16;
+   size_t prg_rom_size = rom_header.prg_rom_size * 1024 * 16;
    size_t chr_mem_size = 0;
    size_t prg_ram_size = 0;
 
-   if (header.chr_rom_size == 0) // if rom size is zero we use chr_ram which will just be fixed to 8kb of memory
+   if (rom_header.chr_rom_size == 0) // if rom size is zero we use chr_ram which will just be fixed to 8kb of memory
    {
       chr_mem_size = 1024 * 8;
    }
    else
    {
-      chr_mem_size = header.chr_rom_size * 1024 * 8;
+      chr_mem_size = rom_header.chr_rom_size * 1024 * 8;
    }
    
-   if (header.prg_ram_size == 0) // ram size 0 infers 8kb of program_ram
+   if (rom_header.prg_ram_size == 0) // ram size 0 infers 8kb of program_ram
    {
       prg_ram_size = 1024 * 8;
    }
    else
    {
-      prg_ram_size =header.prg_ram_size * 1024 * 8;
+      prg_ram_size =rom_header.prg_ram_size * 1024 * 8;
    }
 
    // memory allocation for cartridge prg rom/ram and chr rom/ram
@@ -223,7 +223,7 @@ bool cartridge_load(const char* const filepath)
 
    // read nes file contents into corresponding allocated memory blocks
 
-   if ( header.trainer != 0 )
+   if ( rom_header.trainer != 0 )
    {     
       // ignore trainer data in nes file
       printf("Trainer data present.\n");
@@ -239,7 +239,7 @@ bool cartridge_load(const char* const filepath)
    }
 
    // when rom size is 0 we are using chr-ram so of course chr-rom data does not exist in the nes file
-   if ( header.chr_rom_size != 0 ) 
+   if ( rom_header.chr_rom_size != 0 ) 
    {
       bytes_read = fread(chr_memory, 1, chr_mem_size, file);
       if (bytes_read != chr_mem_size)
@@ -251,11 +251,11 @@ bool cartridge_load(const char* const filepath)
    }
 
    printf("%-13s %d\n%-13s %zu\n%-13s %zu\n%-13s %zu\n%-13s %s\n\n", 
-      "Mapper:", header.mapper_id, 
+      "Mapper:", rom_header.mapper_id, 
       "Prg-ROM size:", prg_rom_size, 
       "CHR-ROM/RAM", chr_mem_size, 
       "PRG_RAM size:", prg_ram_size, 
-      "Mirroring:", (header.nametable_arrangement) ? "Vertical" : "Horizontal"
+      "Mirroring:", (rom_header.nametable_arrangement) ? "Vertical" : "Horizontal"
    );
 
    fclose(file);
