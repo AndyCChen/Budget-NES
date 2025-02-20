@@ -32,6 +32,7 @@ typedef struct Pulse_t
    uint8_t  sweep_counter;          // sweep unit counter/divider counter
    uint8_t  sweep_reload;           // reload value of sweep counter
    bool     sweep_reset;            // reload the sweep counter with sweep reload
+
    uint8_t  raw_sample;
 	uint8_t  raw_samples[41];
 	size_t   raw_sample_index;
@@ -48,10 +49,31 @@ typedef struct Triangle_t
 	uint16_t timer;
 	uint16_t timer_reload;
 	uint8_t  sequence_step;
+
 	uint8_t  raw_sample;
 	uint8_t  raw_samples[41];
 	size_t   raw_sample_index;
 } Triangle_t;
+
+typedef struct Noise_t
+{
+	bool     channel_enable;
+	bool     length_counter_halt;
+	bool     noise_mode;
+	bool     constant_volume_enable;
+	uint16_t timer;
+	uint16_t timer_reload;
+	uint8_t  volume;
+	uint8_t  envelope_volume;
+	uint8_t  envelope_counter;
+	bool     envelope_reset;
+	uint8_t  length_counter;
+	uint16_t shift_register;
+
+	uint8_t  raw_sample;
+	uint8_t  raw_samples[41];
+	size_t   raw_sample_index;
+} Noise_t;
 
 /**
  * Initialze audio device.

@@ -204,7 +204,7 @@ static uint8_t NOP(void){
 // (a16)    absolute indirect             ABI
 // r8       relative                      REL
 
-static const instruction_t instruction_lookup_table[256] = 
+static const instruction_t instruction_lookup_table[] = 
 {
    /* 0x00 - 0x 0F */
    {"BRK", &BRK, IMP, 7},  {"ORA", &ORA, XZI, 6},  {"*JAM", &JAM, IMP, 0},

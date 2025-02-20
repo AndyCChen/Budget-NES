@@ -100,7 +100,7 @@ target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -fram
 endif(UNIX)
 
 if (MSVC)
-	target_compile_options(BudgetNES PRIVATE /W1)
+	target_compile_options(BudgetNES PRIVATE /W4)
 else(MSVC)
 	target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
 endif(MSVC)

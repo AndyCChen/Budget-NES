@@ -718,7 +718,7 @@ bool ppu_load_palettes(const char* path)
    }
 
    uint8_t buffer[PALETTE_SIZE];
-   size_t bytes_read = fread(buffer, 1, PALETTE_SIZE, file);
+   size_t bytes_read = fread(buffer, sizeof(buffer[0]), PALETTE_SIZE, file);
 
    if (bytes_read != PALETTE_SIZE)
    {

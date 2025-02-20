@@ -14,6 +14,7 @@ static uint8_t        status = 0;
 static Pulse_t        pulse_1;
 static Pulse_t			 pulse_2;
 static Triangle_t     triangle_1;
+static Noise_t        noise_1;
 static Framecounter_t frame_counter;
 static size_t sequencer_timer_cpu_tick = 0; // elapsed apu cycles used to track when to clock the next sequence
 
@@ -31,19 +32,30 @@ static uint8_t triangle_sequence_lut[] =
 	 0,  1,  2,  3,  4,  5,  6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 };
 
+static uint16_t noise_period_lut[] =
+{
+	4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068,
+};
+
 static void audio_callback(void* userdata, Uint8* stream, int length);
+
+static void clock_quarter_frame(void);
+static void clock_half_frame(void);
 
 static void clock_pulse_sequencer(Pulse_t *pulse);
 static void clock_pulse_envelope(Pulse_t *pulse);
 static void clock_pulse_length_counter(Pulse_t *pulse);
+
 static void clock_pulse_sweep(Pulse_t *pulse, uint8_t pulse_channel);
-static void clock_quarter_frame(void);
-static void clock_half_frame(void);
 static bool pulse_sweep_forcing_silence(Pulse_t* pulse);
 
 static void clock_triangle_sequencer(Triangle_t* triangle);
 static void clock_triangle_length_counter(Triangle_t* triangle);
 static void clock_triangle_linear_counter(Triangle_t* triangle);
+
+static void clock_noise_sequencer(Noise_t* noise);
+static void clock_noise_length_counter(Noise_t* noise);
+static void clock_noise_envelope(Noise_t* noise);
 
 bool apu_init(void)
 {
@@ -62,6 +74,8 @@ bool apu_init(void)
       printf("Failed to initialize audio device: %s\n", SDL_GetError());
       return false;
    }
+
+	noise_1.shift_register = 1; // shift register is set to 1 on startup
 
    return true;
 }
@@ -217,7 +231,34 @@ void apu_write(uint16_t position, uint8_t data)
 			break;
 		}
 
-      // todo: other 2 channels
+		// noise channel
+
+		case 0x400C:
+		{
+			noise_1.volume = data & 0xF;
+			noise_1.constant_volume_enable = (data >> 4) & 0x1;
+			noise_1.length_counter_halt = (data >> 5) & 0x1;
+
+			break;
+		}
+		case 0x400E:
+		{
+			noise_1.noise_mode = (data >> 7) & 0x1;
+			noise_1.timer_reload = noise_period_lut[data & 0xF];
+
+			break;
+		}
+		// 0x400D is unused
+		case 0x400F:
+		{
+			noise_1.envelope_reset = true;
+			if (noise_1.channel_enable)
+				noise_1.length_counter = length_lut[(data >> 3) & 0x1F];
+
+			break;
+		}
+
+      // todo: other 1 channels
 
       // status register
       case 0x4015:
@@ -235,6 +276,10 @@ void apu_write(uint16_t position, uint8_t data)
 			triangle_1.channel_enable = (status & 0x4) >> 2;
 			if (triangle_1.channel_enable == false)
 				triangle_1.length_counter = 0;
+
+			noise_1.channel_enable = (status & 0x8) >> 3;
+			if (noise_1.channel_enable == false)
+				noise_1.length_counter = 0;
 
          break;
       }
@@ -329,20 +374,21 @@ void apu_tick(void)
 	{
 		clock_pulse_sequencer(&pulse_1);
 		clock_pulse_sequencer(&pulse_2);
+		clock_noise_sequencer(&noise_1);
 	}
 	even = !even;
 
 	clock_triangle_sequencer(&triangle_1);
 
-	if (pulse_1.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_1))
+	if (pulse_1.raw_sample != 0 && pulse_1.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_1))
 	{
 		if (pulse_1.constant_volume_enable)
 		{
-			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.raw_sample * pulse_1.volume;
+			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.volume;
 		}
 		else
 		{
-			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.raw_sample * pulse_1.envelope_volume;
+			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.envelope_volume;
 		}
 	}
 	else
@@ -350,15 +396,15 @@ void apu_tick(void)
 		pulse_1.raw_samples[pulse_1.raw_sample_index] = 0;
 	}
 
-	if (pulse_2.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_2))
+	if (pulse_2.raw_sample != 0 && pulse_2.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_2))
 	{
 		if (pulse_2.constant_volume_enable)
 		{
-			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.raw_sample * pulse_2.volume;
+			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.volume;
 		}
 		else
 		{
-			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.raw_sample * pulse_2.envelope_volume;
+			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.envelope_volume;
 		}
 	}
 	else
@@ -371,6 +417,24 @@ void apu_tick(void)
 
 	triangle_1.raw_samples[triangle_1.raw_sample_index] = triangle_1.raw_sample;
 	triangle_1.raw_sample_index = (triangle_1.raw_sample_index + 1) % 41;
+
+	if (noise_1.length_counter != 0 && (noise_1.shift_register & 0x1) == 0)
+	{
+		if (noise_1.constant_volume_enable)
+		{
+			noise_1.raw_samples[noise_1.raw_sample_index] = noise_1.volume;
+		}
+		else
+		{
+			noise_1.raw_samples[noise_1.raw_sample_index] = noise_1.envelope_volume;
+		}
+	}
+	else
+	{
+		noise_1.raw_samples[noise_1.raw_sample_index] = 0;
+	}
+
+	noise_1.raw_sample_index = (noise_1.raw_sample_index + 1) % 41;
 }
 
 static void clock_quarter_frame(void)
@@ -378,6 +442,7 @@ static void clock_quarter_frame(void)
 	clock_pulse_envelope(&pulse_1);
 	clock_pulse_envelope(&pulse_2);
 	clock_triangle_linear_counter(&triangle_1);
+	clock_noise_envelope(&noise_1);
 }
 
 static void clock_half_frame(void)
@@ -387,6 +452,7 @@ static void clock_half_frame(void)
 	clock_pulse_length_counter(&pulse_1);
 	clock_pulse_length_counter(&pulse_2);
 	clock_triangle_length_counter(&triangle_1);
+	clock_noise_length_counter(&noise_1);
 }
 
 static void clock_pulse_sequencer(Pulse_t *pulse)
@@ -411,24 +477,21 @@ static void clock_pulse_envelope(Pulse_t *pulse)
       pulse->envelope_volume = 0xF;
 		pulse->envelope_counter = pulse->volume;
    }
+   else if (pulse->envelope_counter > 0)
+   {
+      pulse->envelope_counter -= 1;
+   }
    else
    {
-      if (pulse->envelope_counter > 0)
-      {
-         pulse->envelope_counter -= 1;
-      }
-      else
-      {
-         pulse->envelope_counter = pulse->volume;
-			if (pulse->envelope_volume > 0)
-			{
-				pulse->envelope_volume -= 1;
-			}
-			else if (pulse->length_counter_halt)
-			{
-				pulse->envelope_volume = 0xF;
-			}
-      }
+      pulse->envelope_counter = pulse->volume;
+		if (pulse->envelope_volume > 0)
+		{
+			pulse->envelope_volume -= 1;
+		}
+		else if (pulse->length_counter_halt) // looping envelope
+		{
+			pulse->envelope_volume = 0xF;
+		}
    }
 }
 
@@ -536,6 +599,69 @@ static void clock_triangle_linear_counter(Triangle_t* triangle)
 	}
 }
 
+static void clock_noise_sequencer(Noise_t* noise)
+{
+	if (noise->timer > 0)
+	{
+		noise->timer -= 1;
+	}
+	else
+	{
+		noise->timer = noise->timer_reload;
+		
+		// xor zero-th bit with another bit depending on noise mode
+		uint8_t bit_0 = noise->shift_register & 0x1;
+		uint8_t bit_1 = 0;
+
+		if (noise->noise_mode) // xor with the bit 6 if mode is set
+		{
+			bit_1 = (noise->shift_register >> 6) & 0x1;
+		}
+		else                  // xor with the bit 1 if mode is cleared
+		{
+			bit_1 = (noise->shift_register >> 1) & 0x1;
+		}
+
+		uint8_t feedback = bit_0 ^ bit_1;
+		noise->shift_register = noise->shift_register >> 1;
+		noise->shift_register |= feedback << 14;
+	}
+}
+
+static void clock_noise_length_counter(Noise_t* noise)
+{
+	if (!noise->length_counter_halt && noise->length_counter > 0)
+	{
+		noise->length_counter -= 1;
+	}
+}
+
+static void clock_noise_envelope(Noise_t* noise)
+{
+	if (noise->envelope_reset)
+	{
+		noise->envelope_reset = false;
+		noise->envelope_volume = 0xF;
+		noise->envelope_counter = noise->volume;
+	}
+	else if (noise->envelope_counter > 0)
+	{
+		noise->envelope_counter -= 0;
+	}
+	else
+	{
+		noise->envelope_counter = noise->envelope_volume;
+		if (noise->envelope_volume > 0)
+		{
+			noise->envelope_volume -= 1;
+		}
+		else if (noise->length_counter_halt) // looping envelope
+		{
+			noise->envelope_volume = 0xF;
+		}
+	}
+}
+
 static void audio_callback(void* userdata, Uint8* stream, int length)
 {
 	Uint16* audio_buffer = (Uint16*) stream;
@@ -562,11 +688,13 @@ int16_t apu_get_output_sample(void)
 		p1 += pulse_1.raw_samples[i];
 		p2 += pulse_2.raw_samples[i];
 		t1 += triangle_1.raw_samples[i];
+		n1 += noise_1.raw_samples[i];
 	}
 
 	p1 = p1 / 41.0f;
 	p2 = p2 / 41.0f;
 	t1 = t1 / 41.0f;
+	n1 = n1 / 41.0f;
 
 	float pulse_out = (p1 == 0 && p2 == 0) ? 0.0f : 95.88f / ((8128.0f / (p1 + p2)) + 100);
 

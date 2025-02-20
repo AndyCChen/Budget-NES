@@ -676,8 +676,8 @@ static void gui_main_viewport(void)
          ImVec2 size;
          igGetWindowSize(&size);
 
-         float border_offset_x = 0;
-         float border_offset_y = 0;
+         int border_offset_x = 0;
+         int border_offset_y = 0;
          if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
          {
             int x = size.x / NES_PIXELS_W;
@@ -1035,8 +1035,8 @@ static bool display_init_main_viewport_buffers(void)
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_IBO);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-   glEnableVertexAttribArray(0);
-   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
 
    // send instanced transformation data for pixels
    glGenBuffers(1, &viewport.translation_VBO);
@@ -1045,14 +1045,14 @@ static bool display_init_main_viewport_buffers(void)
    glBufferData(GL_ARRAY_BUFFER, sizeof(mat4) * NES_PIXELS_W * NES_PIXELS_H, pixel_pos, GL_STATIC_DRAW);
    free(pixel_pos);
 
-   glEnableVertexAttribArray(1);
    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) 0);
-   glEnableVertexAttribArray(2);
+   glEnableVertexAttribArray(1);
    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 1 * sizeof(vec4) ));
-   glEnableVertexAttribArray(3);
+   glEnableVertexAttribArray(2);
    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 2 * sizeof(vec4) ));
-   glEnableVertexAttribArray(4);
+   glEnableVertexAttribArray(3);
    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(mat4), (void*) ( 3 * sizeof(vec4) ));
+   glEnableVertexAttribArray(4);
 
    glVertexAttribDivisor(1, 1);
    glVertexAttribDivisor(2, 1);
@@ -1063,8 +1063,8 @@ static bool display_init_main_viewport_buffers(void)
    glGenBuffers(1, &viewport.color_VBO);
    glBindBuffer(GL_ARRAY_BUFFER, viewport.color_VBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(viewport_pixel_colors), viewport_pixel_colors, GL_DYNAMIC_DRAW);
-   glEnableVertexAttribArray(5);
    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void*) 0);
+   glEnableVertexAttribArray(5);
    
    glVertexAttribDivisor(5, 1);
 
