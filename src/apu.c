@@ -95,7 +95,7 @@ bool apu_init(void)
 	if (cblip_buffer_set_sample_rate(buffer, 44100, 1000/60))
 		return false;
 
-	cblip_synth_volume(synth, 0.05);
+	cblip_synth_volume(synth, 0.01);
 	cblip_synth_output(synth, buffer);
 
    return true;
@@ -717,12 +717,13 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1)
 {
 	float pulse_out = (p1+p2) ? 95.88f / (8128.0f / (p1 + p2) + 100) : 0.0f;
 
-	//t1 = t1 / 8227;
-	//n1 = n1 / 12241;
+	t1 = t1 / 8227;
+	n1 = n1 / 12241;
 
 	float tnd_out = (t1 + n1) ? 159.79f / ((1 / (t1 + n1)) + 100) : 0.0f;
 
-	int output = ((pulse_out + tnd_out) * 255) - 128;
+
+	int output = ((pulse_out + tnd_out) * 0.01f * 65536) - 32768;
 	if (output > 32767)
 	{
 		output = 32767;
@@ -732,7 +733,7 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1)
 		output = -32768;
 	}
 
-	cblip_synth_update(synth, time, p1+p2+t1+n1);
+	cblip_synth_update(synth, time, output*0.5f);
 }
 
 int16_t apu_get_output_sample(void)
