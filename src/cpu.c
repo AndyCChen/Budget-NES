@@ -2724,21 +2724,17 @@ void cpu_run_for_one_sample(void)
 
 void cpu_run_with_audio(float *delta_time)
 {
-	float frame_rate = 60.0988f;
-	float d = *delta_time;
+	float frame_rate = 60.0f;
 	while (*delta_time >= (1.0f / frame_rate))
 	{
-		uint32_t queued_audio = apu_get_queued_audio();
-		if (queued_audio < (735 * 16))
+		if (apu_get_queued_audio() < (735 * 16))
 		{
-			int16_t audio_data[735];
-			for (int i = 0; i < 735; ++i)
+			while (cpu.cycle_count <= 29829)
 			{
-				cpu_run_for_one_sample();
-				audio_data[i] = apu_get_output_sample();
+				cpu_emulate_instruction();
 			}
-			apu_queue_audio(audio_data, 735);
-			queued_audio = apu_get_queued_audio();
+			apu_queue_audio_frame(cpu.cycle_count);
+			cpu.cycle_count -= 29829;
 		}
 
 		if (get_emulator_state()->reset_delta_timers)
@@ -2784,15 +2780,11 @@ void cpu_run_without_audio(float* delta_time)
 */
 void cpu_tick(void)
 {
+   ppu_cycle();
+   ppu_cycle();
+   ppu_cycle();
+	apu_tick(cpu.cycle_count);
    cpu.cycle_count += 1;
-   ppu_cycle();
-   ppu_cycle();
-   ppu_cycle();
-
-   //if (cpu.cycle_count % 2 == 0)
-   {
-      apu_tick();
-   }
 }
 
 /**

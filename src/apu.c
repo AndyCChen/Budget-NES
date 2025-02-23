@@ -1,7 +1,8 @@
 #include "SDL_audio.h"
 
-#include "../includes/apu.h"
+#include "apu.h"
 #include "cpu.h"
+#include "CBlip_buffer.h"
 
 #define DUTY_CYCLE_0 0x40 // duty cycle of 12.5%
 #define DUTY_CYCLE_1 0x60 // duty cycle of 25%
@@ -17,6 +18,9 @@ static Triangle_t     triangle_1;
 static Noise_t        noise_1;
 static Framecounter_t frame_counter;
 static size_t sequencer_timer_cpu_tick = 0; // elapsed apu cycles used to track when to clock the next sequence
+
+static CBlip_Buffer* buffer;
+static CBlipSynth synth;
 
 // lookup table of values used in the lengh counter -> https://www.nesdev.org/wiki/APU_Length_Counter
 static uint8_t length_lut[] = 
@@ -57,13 +61,15 @@ static void clock_noise_sequencer(Noise_t* noise);
 static void clock_noise_length_counter(Noise_t* noise);
 static void clock_noise_envelope(Noise_t* noise);
 
+static void mix_audio(long time, float p1, float p2, float t1, float n1);
+
 bool apu_init(void)
 {
    SDL_AudioSpec want, have;
 
    SDL_zero(want);
    want.freq = 44100;
-   want.format = AUDIO_U16SYS;
+   want.format = AUDIO_S16SYS;
    want.samples = 1024;
    want.channels = 1;
    //want.callback = &audio_callback;
@@ -77,11 +83,28 @@ bool apu_init(void)
 
 	noise_1.shift_register = 1; // shift register is set to 1 on startup
 
+	buffer = create_cblip_buffer();
+	synth = create_cblip_synth();
+
+	if (!buffer)
+		return false;
+	if (!synth)
+		return false;
+
+	cblip_buffer_clock_rate(buffer, 1800000);
+	if (cblip_buffer_set_sample_rate(buffer, 44100, 1000/60))
+		return false;
+
+	cblip_synth_volume(synth, 0.05);
+	cblip_synth_output(synth, buffer);
+
    return true;
 }
 
 void apu_shutdown(void)
 {
+	free_cblip_buffer(buffer);
+	free_cblip_synth(synth);
    SDL_CloseAudioDevice(audio_device_ID);
 }
 
@@ -120,7 +143,6 @@ void apu_write(uint16_t position, uint8_t data)
          pulse_1.volume = data & 0x0F;
          pulse_1.length_counter_halt = (data & 0x20) >> 5;
          pulse_1.constant_volume_enable = (data & 0x10) >> 4;
-         pulse_1.sequence = pulse_1.sequence_reload;
 
          break;
       }
@@ -142,7 +164,6 @@ void apu_write(uint16_t position, uint8_t data)
       case 0x4003:
       {
          pulse_1.timer_reload = (pulse_1.timer_reload & 0x00FF) | ((data & 0x7) << 8); // set high 3 bits of reload timer
-         //pulse_1.timer = pulse_1.timer_reload;
          pulse_1.sequence = pulse_1.sequence_reload;
          pulse_1.envelope_reset = true;
 
@@ -176,7 +197,6 @@ void apu_write(uint16_t position, uint8_t data)
 			pulse_2.volume = data & 0x0F;
 			pulse_2.length_counter_halt = (data & 0x20) >> 5;
 			pulse_2.constant_volume_enable = (data & 0x10) >> 4;
-			pulse_2.sequence = pulse_2.sequence_reload;
 
 			break;
 		}
@@ -198,7 +218,6 @@ void apu_write(uint16_t position, uint8_t data)
 		case 0x4007:
 		{
 			pulse_2.timer_reload = (pulse_2.timer_reload & 0x00FF) | ((data & 0x7) << 8); // set high 3 bits of reload timer
-			//pulse_2.timer = pulse_2.timer_reload;
 			pulse_2.sequence = pulse_2.sequence_reload;
 			pulse_2.envelope_reset = true;
 
@@ -306,7 +325,7 @@ void apu_write(uint16_t position, uint8_t data)
 /**
  * Clocks the apu for one cycle
  */
-void apu_tick(void)
+void apu_tick(long audio_time)
 {
    
    bool quarterFrame = false;
@@ -385,15 +404,18 @@ void apu_tick(void)
 		if (pulse_1.constant_volume_enable)
 		{
 			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.volume;
+			pulse_1.out = pulse_1.volume;
 		}
 		else
 		{
 			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.envelope_volume;
+			pulse_1.out = pulse_1.envelope_volume;
 		}
 	}
 	else
 	{
 		pulse_1.raw_samples[pulse_1.raw_sample_index] = 0;
+		pulse_1.out = 0;
 	}
 
 	if (pulse_2.raw_sample != 0 && pulse_2.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_2))
@@ -401,39 +423,55 @@ void apu_tick(void)
 		if (pulse_2.constant_volume_enable)
 		{
 			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.volume;
+			pulse_2.out = pulse_2.volume;
 		}
 		else
 		{
 			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.envelope_volume;
+			pulse_2.out = pulse_2.envelope_volume;
 		}
 	}
 	else
 	{
 		pulse_2.raw_samples[pulse_2.raw_sample_index] = 0;
+		pulse_2.out = 0;
 	}
 
-	pulse_1.raw_sample_index = (pulse_1.raw_sample_index + 1) % 41;
-	pulse_2.raw_sample_index = (pulse_2.raw_sample_index + 1) % 41;
+	
 
 	triangle_1.raw_samples[triangle_1.raw_sample_index] = triangle_1.raw_sample;
-	triangle_1.raw_sample_index = (triangle_1.raw_sample_index + 1) % 41;
+	triangle_1.out = triangle_1.raw_sample;
 
 	if (noise_1.length_counter != 0 && (noise_1.shift_register & 0x1) == 0)
 	{
 		if (noise_1.constant_volume_enable)
 		{
 			noise_1.raw_samples[noise_1.raw_sample_index] = noise_1.volume;
+			noise_1.out = noise_1.volume;
 		}
 		else
 		{
 			noise_1.raw_samples[noise_1.raw_sample_index] = noise_1.envelope_volume;
+			noise_1.out = noise_1.envelope_volume;
 		}
 	}
 	else
 	{
 		noise_1.raw_samples[noise_1.raw_sample_index] = 0;
+		noise_1.out = 0;
 	}
 
+	mix_audio(
+		audio_time, 
+		pulse_1.out, 
+		pulse_2.out,
+		triangle_1.out,
+		noise_1.out
+	);
+
+	pulse_1.raw_sample_index = (pulse_1.raw_sample_index + 1) % 41;
+	pulse_2.raw_sample_index = (pulse_2.raw_sample_index + 1) % 41;
+	triangle_1.raw_sample_index = (triangle_1.raw_sample_index + 1) % 41;
 	noise_1.raw_sample_index = (noise_1.raw_sample_index + 1) % 41;
 }
 
@@ -675,6 +713,28 @@ static void audio_callback(void* userdata, Uint8* stream, int length)
 
 }
 
+static void mix_audio(long time, float p1, float p2, float t1, float n1)
+{
+	float pulse_out = (p1+p2) ? 95.88f / (8128.0f / (p1 + p2) + 100) : 0.0f;
+
+	//t1 = t1 / 8227;
+	//n1 = n1 / 12241;
+
+	float tnd_out = (t1 + n1) ? 159.79f / ((1 / (t1 + n1)) + 100) : 0.0f;
+
+	int output = ((pulse_out + tnd_out) * 255) - 128;
+	if (output > 32767)
+	{
+		output = 32767;
+	}
+	else if (output < -32768)
+	{
+		output = -32768;
+	}
+
+	cblip_synth_update(synth, time, p1+p2+t1+n1);
+}
+
 int16_t apu_get_output_sample(void)
 {
 	float p1 = 0; // pulse 1
@@ -696,7 +756,7 @@ int16_t apu_get_output_sample(void)
 	t1 = t1 / 41.0f;
 	n1 = n1 / 41.0f;
 
-	float pulse_out = (p1 == 0 && p2 == 0) ? 0.0f : 95.88f / ((8128.0f / (p1 + p2)) + 100);
+	float pulse_out = (p1 == 0 && p2 == 0) ? 0.0f : 95.88f / ((8128.0f / (p1 + 0)) + 100);
 
 	t1 = t1 / 8227;
 	n1 = n1 / 12241;
@@ -704,7 +764,7 @@ int16_t apu_get_output_sample(void)
 
 	float tnd_out = (t1 == 0 && n1 == 0 && d1 == 0) ? 0.0f : 159.79f / ((1 / (t1 + n1 + d1)) + 100);
 
-	int output = ((pulse_out + tnd_out) * 65536) - 32768;
+	int output = ((pulse_out + 0) * 65536) - 32768;
 	if (output > 32767)
 	{
 		output = 32767;
@@ -722,9 +782,28 @@ uint32_t apu_get_queued_audio()
 	return SDL_GetQueuedAudioSize(audio_device_ID);
 }
 
-void apu_queue_audio(int16_t* data, uint32_t sample_count)
+void apu_queue_audio_frame(long audio_time)
 {
-	SDL_QueueAudio(audio_device_ID, data, sizeof(int16_t) * sample_count);
+	cblip_buffer_end_frame(buffer, 29829);
+	short samples[735];
+	long count = cblip_buffer_read_samples(buffer, samples, 735);
+
+	/*for (int i = 0; i < count; i++)
+	{
+		float pulse_out = (samples[i] == 0) ? 0.0f : 95.88f / ((8128.0f / (samples[i])) + 100);
+		int output = ((pulse_out + 0) * 65536) - 32768;
+		if (output > 32767)
+		{
+			output = 32767;
+		}
+		else if (output < -32768)
+		{
+			output = -32768;
+		}
+		samples[i] = output;
+	}*/
+
+	SDL_QueueAudio(audio_device_ID, samples, sizeof(short) * count);
 }
 
 void apu_clear_queued_audio(void)

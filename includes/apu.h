@@ -36,6 +36,7 @@ typedef struct Pulse_t
    uint8_t  raw_sample;
 	uint8_t  raw_samples[41];
 	size_t   raw_sample_index;
+	uint8_t  out;
 } Pulse_t;
 
 typedef struct Triangle_t
@@ -53,6 +54,7 @@ typedef struct Triangle_t
 	uint8_t  raw_sample;
 	uint8_t  raw_samples[41];
 	size_t   raw_sample_index;
+	uint8_t  out;
 } Triangle_t;
 
 typedef struct Noise_t
@@ -73,6 +75,7 @@ typedef struct Noise_t
 	uint8_t  raw_sample;
 	uint8_t  raw_samples[41];
 	size_t   raw_sample_index;
+	uint8_t  out;
 } Noise_t;
 
 /**
@@ -104,7 +107,7 @@ uint8_t apu_read_status(void);
  */
 int16_t apu_get_output_sample(void);
 
-void apu_tick(void);
+void apu_tick(long audio_time);
 
 /// <summary>
 /// Pauses the audio playback. Video output is synced to the apu so pausing
@@ -114,7 +117,7 @@ void apu_tick(void);
 void apu_pause(bool flag);
 
 uint32_t apu_get_queued_audio(void);
-void apu_queue_audio(int16_t* data, uint32_t sample_count);
+void apu_queue_audio_frame(long audio_time);
 void apu_clear_queued_audio(void);
 
 #endif

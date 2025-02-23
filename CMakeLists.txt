@@ -89,11 +89,20 @@ add_library(glad_loader STATIC glad_loader/src/glad.c)
 target_include_directories(glad_loader PRIVATE glad_loader/include/glad)
 
 add_subdirectory(nativefiledialog-extended)
-add_subdirectory(cglm EXCLUDE_FROM_ALL)
 
+add_subdirectory(cglm EXCLUDE_FROM_ALL)
 target_include_directories(cglm_headers INTERFACE cglm/include/cglm)
 
-target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers)
+add_library(blip_buffer STATIC
+	lib/CBlip_Buffer/CBlip_buffer.cpp
+	lib/CBlip_Buffer//Blip_buffer/Blip_Buffer.cpp
+)
+target_include_directories(blip_buffer PUBLIC
+	lib/CBlip_Buffer
+	lib/CBlip_Buffer/Blip_Buffer
+)
+
+target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer)
 
 if (UNIX)
 target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")

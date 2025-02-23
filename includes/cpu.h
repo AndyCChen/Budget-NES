@@ -6,7 +6,7 @@
 typedef struct cpu_6502_t
 {
    bool nmi_flip_flop;
-   size_t cycle_count;
+   long cycle_count;
 
    uint8_t ac;  // accumulator
    uint8_t X;   // x index register
