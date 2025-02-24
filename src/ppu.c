@@ -78,7 +78,7 @@ static uint8_t get_palette_index(uint8_t index);
 static uint8_t flip_bits_horizontally(uint8_t in);
 static void sprite_evaluation(void);
 
-void ppu_cycle(void)
+void ppu_cycle(bool* nmi_flip_flop)
 {
    uint8_t background_pixel = 0;
    uint8_t sprite_pixel = 0;
@@ -254,7 +254,7 @@ void ppu_cycle(void)
 
          if (ppu_control & 0x80)
          {
-            get_cpu()->nmi_flip_flop = true;
+            *nmi_flip_flop = true;
          }
 
          ppu_status |= 0x80; // set VBlank flag on cycle 1 of scanline 241  

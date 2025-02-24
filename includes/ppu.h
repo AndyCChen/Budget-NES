@@ -56,7 +56,7 @@ uint8_t ppu_port_read(uint16_t position);
 /**
  * Run the ppu for one cycle
 */
-void ppu_cycle(void);
+void ppu_cycle(bool * nmi_flip_flop);
 
 // render pipeline events
 

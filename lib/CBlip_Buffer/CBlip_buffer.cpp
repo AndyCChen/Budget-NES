@@ -31,6 +31,11 @@ CBLIP_BUFFER_API long cblip_buffer_read_samples(CBlip_Buffer* in, blip_sample_t*
 	return in->read_samples(dest, max_samples);
 }
 
+CBLIP_BUFFER_API void cblip_buffer_clear(CBlip_Buffer* in)
+{
+	in->clear();
+}
+
 CBLIP_BUFFER_API CBlipSynth create_cblip_synth(void)
 {
 	return (Blip_Synth<blip_good_quality, 20>*) new Blip_Synth<blip_good_quality, 20>;

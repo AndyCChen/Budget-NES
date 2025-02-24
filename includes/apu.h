@@ -116,8 +116,21 @@ void apu_tick(long audio_time);
 /// <param name="flag">True := Pause, False := Unpause</param>
 void apu_pause(bool flag);
 
+/// <summary>
+/// Returns number of bytes queued for playing.
+/// </summary>
+/// <returns>Returns number of bytes (not samples) queued for playing</returns>
 uint32_t apu_get_queued_audio(void);
-void apu_queue_audio_frame(long audio_time);
+
+/// <summary>
+/// Read a frame of audio samples from internal buffer and queues them for playing.
+/// </summary>
+void apu_queue_audio_frame(void);
+
+/// <summary>
+/// Clears any queued audio as well as samples in internal buffers.
+/// </summary>
+/// <param name=""></param>
 void apu_clear_queued_audio(void);
 
 #endif

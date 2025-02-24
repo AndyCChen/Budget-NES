@@ -11,7 +11,6 @@
 
 static SDL_AudioDeviceID audio_device_ID;
 
-static uint8_t        status = 0;
 static Pulse_t        pulse_1;
 static Pulse_t			 pulse_2;
 static Triangle_t     triangle_1;
@@ -61,7 +60,7 @@ static void clock_noise_sequencer(Noise_t* noise);
 static void clock_noise_length_counter(Noise_t* noise);
 static void clock_noise_envelope(Noise_t* noise);
 
-static void mix_audio(long time, float p1, float p2, float t1, float n1);
+static void mix_audio(long time, float p1, float p2, float t1, float n1, float d1);
 
 bool apu_init(void)
 {
@@ -282,21 +281,19 @@ void apu_write(uint16_t position, uint8_t data)
       // status register
       case 0x4015:
       {
-         status = data & 0x1F;
-         
-			pulse_1.channel_enable = status & 0x1;
+			pulse_1.channel_enable = data & 0x1;
          if (pulse_1.channel_enable == false) 
             pulse_1.length_counter = 0;
 
-			pulse_2.channel_enable = (status & 0x2) >> 1;
+			pulse_2.channel_enable = (data & 0x2) >> 1;
 			if (pulse_2.channel_enable == false)
 				pulse_2.length_counter = 0;
 
-			triangle_1.channel_enable = (status & 0x4) >> 2;
+			triangle_1.channel_enable = (data & 0x4) >> 2;
 			if (triangle_1.channel_enable == false)
 				triangle_1.length_counter = 0;
 
-			noise_1.channel_enable = (status & 0x8) >> 3;
+			noise_1.channel_enable = (data & 0x8) >> 3;
 			if (noise_1.channel_enable == false)
 				noise_1.length_counter = 0;
 
@@ -466,7 +463,8 @@ void apu_tick(long audio_time)
 		pulse_1.out, 
 		pulse_2.out,
 		triangle_1.out,
-		noise_1.out
+		noise_1.out,
+		0
 	);
 
 	pulse_1.raw_sample_index = (pulse_1.raw_sample_index + 1) % 41;
@@ -713,15 +711,15 @@ static void audio_callback(void* userdata, Uint8* stream, int length)
 
 }
 
-static void mix_audio(long time, float p1, float p2, float t1, float n1)
+static void mix_audio(long time, float p1, float p2, float t1, float n1, float d1)
 {
 	float pulse_out = (p1+p2) ? 95.88f / (8128.0f / (p1 + p2) + 100) : 0.0f;
 
 	t1 = t1 / 8227;
 	n1 = n1 / 12241;
+	d1 = d1 / 22638;
 
-	float tnd_out = (t1 + n1) ? 159.79f / ((1 / (t1 + n1)) + 100) : 0.0f;
-
+	float tnd_out = (t1 + n1 + d1) ? 159.79f / (1 / (t1 + n1 + d1) + 100) : 0.0f;
 
 	int output = ((pulse_out + tnd_out) * 0.01f * 65536) - 32768;
 	if (output > 32767)
@@ -732,8 +730,9 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1)
 	{
 		output = -32768;
 	}
+	output *= 0.5f;
 
-	cblip_synth_update(synth, time, output*0.5f);
+	cblip_synth_update(synth, time, output);
 }
 
 int16_t apu_get_output_sample(void)
@@ -783,7 +782,7 @@ uint32_t apu_get_queued_audio()
 	return SDL_GetQueuedAudioSize(audio_device_ID);
 }
 
-void apu_queue_audio_frame(long audio_time)
+void apu_queue_audio_frame(void)
 {
 	cblip_buffer_end_frame(buffer, 29829);
 	short samples[735];
@@ -809,10 +808,22 @@ void apu_queue_audio_frame(long audio_time)
 
 void apu_clear_queued_audio(void)
 {
+	cblip_buffer_clear(buffer);
 	SDL_ClearQueuedAudio(audio_device_ID);
 }
 
 uint8_t apu_read_status(void)
 {
+	uint8_t status = 0;
+	if (pulse_1.length_counter > 0)
+		status |= 0x1;
+	if (pulse_2.length_counter > 0)
+		status |= 0x1 << 1;
+	if (triangle_1.length_counter > 0)
+		status |= 0x1 << 2;
+	if (noise_1.length_counter > 0)
+		status |= 0x1 << 3;
+
+
    return status;
 }

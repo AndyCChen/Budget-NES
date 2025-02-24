@@ -53,8 +53,6 @@ static const instruction_t* current_instruction = NULL;
 */
 static uint16_t instruction_operand;
 
-static float accumulatedTime = 0.0f;
-
 // ------------------------------- instruction functions ----------------------------------------------------
 
 /**
@@ -2286,7 +2284,8 @@ static uint8_t INY(void)
 */
 static uint8_t BRK(void)
 {
-   //cpu_fetch(); // read next byte and ingore fetched result while incrementing pc
+   // read next byte and ingore fetched result while incrementing pc, the dummy read is already handled
+	// as BRK is a immediate mode intruction. So we just increment the pc.
    cpu.pc += 1;
    stack_push( (cpu.pc & 0xFF00) >> 8 );
    stack_push( cpu.pc & 0x00FF );
@@ -2560,6 +2559,9 @@ void cpu_IRQ(void)
 { 
    if (cpu.status_flags & 4) return; // ignore IRQ if interrupt disable flag is set
 
+	cpu_fetch_no_increment(); // fetch opcode
+	cpu_fetch_no_increment(); // attempt to fetch next instruction by fail since pc increment is supressed
+
    stack_push( ( cpu.pc & 0xFF00 ) >> 8 );
    stack_push( cpu.pc & 0x00FF );
 
@@ -2693,14 +2695,16 @@ static uint8_t stack_pop(void)
 */
 void cpu_emulate_instruction(void)
 {  
-   if (emu_state->is_cpu_intr_log) log_cpu_state("A:%02X X:%02X Y:%02X SP:%02X P:%02X", cpu.ac, cpu.X, cpu.Y, cpu.sp, cpu.status_flags);
+   if (emu_state->is_cpu_intr_log) 
+		log_cpu_state("A:%02X X:%02X Y:%02X SP:%02X P:%02X", cpu.ac, cpu.X, cpu.Y, cpu.sp, cpu.status_flags);
 
    uint8_t opcode = cpu_fetch();
    cpu_decode(opcode);
    cpu_execute();
 
    controller_reload_shift_registers(); // check if controller shifts registers need to be reloaded
-   if (emu_state->is_cpu_intr_log) disassemble();
+   if (emu_state->is_cpu_intr_log) 
+		disassemble();
 
    if (cpu.nmi_flip_flop)
    {
@@ -2733,7 +2737,7 @@ void cpu_run_with_audio(float *delta_time)
 			{
 				cpu_emulate_instruction();
 			}
-			apu_queue_audio_frame(cpu.cycle_count);
+			apu_queue_audio_frame();
 			cpu.cycle_count -= 29829;
 		}
 
@@ -2780,9 +2784,9 @@ void cpu_run_without_audio(float* delta_time)
 */
 void cpu_tick(void)
 {
-   ppu_cycle();
-   ppu_cycle();
-   ppu_cycle();
+   ppu_cycle(&cpu.nmi_flip_flop);
+   ppu_cycle(&cpu.nmi_flip_flop);
+   ppu_cycle(&cpu.nmi_flip_flop);
 	apu_tick(cpu.cycle_count);
    cpu.cycle_count += 1;
 }

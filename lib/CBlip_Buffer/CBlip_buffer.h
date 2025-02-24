@@ -25,6 +25,7 @@ CBLIP_BUFFER_API void cblip_buffer_clock_rate(CBlip_Buffer *in, long cps);
 CBLIP_BUFFER_API blargg_err_t cblip_buffer_set_sample_rate(CBlip_Buffer* in, long samples_per_sec, int msec_length);
 CBLIP_BUFFER_API void cblip_buffer_end_frame(CBlip_Buffer* in, blip_time_t time);
 CBLIP_BUFFER_API long cblip_buffer_read_samples(CBlip_Buffer* in, blip_sample_t* dest, long max_samples);
+CBLIP_BUFFER_API void cblip_buffer_clear(CBlip_Buffer* in);
 
 // blip synth
 
