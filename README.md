@@ -7,14 +7,14 @@ Learning how to write a emulator for the NES console.
 - [X] basic ppu implementation that can draw background tiles
 - [X] ppu sprite rendering/evaluation
 - [X] input handling
-- [ ] audio processing unit implementation to have sound
+- [X] audio processing unit implementation to have sound
 - [ ] more mappers
 - [X] debug gui
 
 ## Current Progress
 
-![Alt text](/res/budgetNES.png?raw=true "balloon fight title")
-![Alt text](/res/superMarioBudgetNES.png?raw=true "super mario bros title")
+![Alt text](/res/budgetNES.png "balloon fight title")
+![Alt text](/res/superMarioBudgetNES.png "super mario bros title")
 
 ## Build/Install
 
@@ -43,7 +43,17 @@ vcpkg install sdl2
 cmake -G "Visual Studio 17 2022" -S ./ -B build -DCMAKE_TOOLCHAIN_FILE="path_to_vcpkg\scripts\buildsystems\vcpkg.cmake"
 ```
 
-Use visual studio to build the .sln file located in the build directory.
+Use visual studio to build the .sln file located in the build directory.  
+
+Alternatively you can fully use CMake + ninja (included with visual studio) without having to use MSbuild
+and the .sln files. Just make sure to set the path to the vcpkg toolchain file under configurations.
+
+![Alt text](/res/toochain_path.png "toolchain_path")
+
+Or integrate vcpkg with visual studio and it will use the path to the vcpkg toolchain file automatically.
+```
+vcpkg integrate install
+```
 
 ### Mac
 Using homebrew on mac.
@@ -65,8 +75,8 @@ As you can see not great... The individual graphics tiles look fine.
 We can see the correct pixel tiles being rendered with the right colors but they are all
 over the place. Why?!?
 
-![Alt text](/res/nestest-bug.png?raw=true "corrupted nestest title")
-![Alt text](/res/donkey-kong-bug.png?raw=true "corrupted donkey kong title")
+![Alt text](/res/nestest-bug.png "corrupted nestest title")
+![Alt text](/res/donkey-kong-bug.png? "corrupted donkey kong title")
 
 The issue was nametable corruption. When the program for both donkey kong and nestest begins initial
 execution it writes data into the nametables (ppu vram) to determine what tiles get displayed. This process
@@ -80,5 +90,5 @@ initially, this allows the CPU to spend as many clock cycles as needed to write 
 is not rendering. Once the cpu is finished sending this data into vram, it can then toggle rendering back on via a write to the PPU port located at address $2002.
 Here is what those title screen should look like. As you can see the nametables are no longer corrupted!
 
-![Alt text](/res/nestest-title.png?raw=true "nestest title")
-![Alt text](/res/donkey-kong-title.png?raw=true "donkey kong title")
+![Alt text](/res/nestest-title.png "nestest title")
+![Alt text](/res/donkey-kong-title.png "donkey kong title")
