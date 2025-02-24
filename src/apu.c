@@ -18,6 +18,9 @@ static Noise_t        noise_1;
 static Framecounter_t frame_counter;
 static size_t sequencer_timer_cpu_tick = 0; // elapsed apu cycles used to track when to clock the next sequence
 
+static bool frame_interrupt_flag;
+static bool dmc_interrupt_flag;
+
 static CBlip_Buffer* buffer;
 static CBlipSynth synth;
 
@@ -306,6 +309,9 @@ void apu_write(uint16_t position, uint8_t data)
          frame_counter.IRQ_inhibit    = (data >> 6) & 0x1;
 			sequencer_timer_cpu_tick = 0;
 
+			if (frame_counter.IRQ_inhibit)
+				frame_interrupt_flag = false;
+
 			if (frame_counter.sequencer_mode)
 			{
 				clock_quarter_frame();
@@ -324,7 +330,6 @@ void apu_write(uint16_t position, uint8_t data)
  */
 void apu_tick(long audio_time)
 {
-   
    bool quarterFrame = false;
    bool halfFrame = false;
 
@@ -369,6 +374,9 @@ void apu_tick(long audio_time)
 		}
 		else if (sequencer_timer_cpu_tick == 37281)
 		{
+			if (frame_counter.IRQ_inhibit == 0)
+				frame_interrupt_flag = true;
+
 			quarterFrame = true;
 			halfFrame = true;
 			sequencer_timer_cpu_tick = 0;
@@ -384,7 +392,7 @@ void apu_tick(long audio_time)
 		clock_half_frame();
 	}
 	
-	// pulse channel is clocked every 2nd cpu cycle
+	// pulse and noise channel is clocked every 2nd cpu cycle
 	static bool even = true;
 	if (even)
 	{
@@ -394,6 +402,7 @@ void apu_tick(long audio_time)
 	}
 	even = !even;
 
+	// triangle channel clocked every cpu cycle
 	clock_triangle_sequencer(&triangle_1);
 
 	if (pulse_1.raw_sample != 0 && pulse_1.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_1))
@@ -788,21 +797,6 @@ void apu_queue_audio_frame(void)
 	short samples[735];
 	long count = cblip_buffer_read_samples(buffer, samples, 735);
 
-	/*for (int i = 0; i < count; i++)
-	{
-		float pulse_out = (samples[i] == 0) ? 0.0f : 95.88f / ((8128.0f / (samples[i])) + 100);
-		int output = ((pulse_out + 0) * 65536) - 32768;
-		if (output > 32767)
-		{
-			output = 32767;
-		}
-		else if (output < -32768)
-		{
-			output = -32768;
-		}
-		samples[i] = output;
-	}*/
-
 	SDL_QueueAudio(audio_device_ID, samples, sizeof(short) * count);
 }
 
@@ -810,6 +804,11 @@ void apu_clear_queued_audio(void)
 {
 	cblip_buffer_clear(buffer);
 	SDL_ClearQueuedAudio(audio_device_ID);
+}
+
+bool apu_is_triggering_irq(void)
+{
+	return frame_interrupt_flag || dmc_interrupt_flag;
 }
 
 uint8_t apu_read_status(void)
@@ -824,6 +823,8 @@ uint8_t apu_read_status(void)
 	if (noise_1.length_counter > 0)
 		status |= 0x1 << 3;
 
+	status |= (frame_interrupt_flag & 0x1) << 6;
+	frame_interrupt_flag = false; // acknowledge interrupt when status is read
 
    return status;
 }

@@ -133,4 +133,6 @@ void apu_queue_audio_frame(void);
 /// <param name=""></param>
 void apu_clear_queued_audio(void);
 
+bool apu_is_triggering_irq(void);
+
 #endif

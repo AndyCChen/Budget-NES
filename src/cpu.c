@@ -2557,7 +2557,8 @@ static uint8_t SEI(void)
 */
 void cpu_IRQ(void)
 { 
-   if (cpu.status_flags & 4) return; // ignore IRQ if interrupt disable flag is set
+   if (cpu.status_flags & 4) 
+		return; // ignore IRQ if interrupt disable flag is set
 
 	cpu_fetch_no_increment(); // fetch opcode
 	cpu_fetch_no_increment(); // attempt to fetch next instruction by fail since pc increment is supressed
@@ -2575,7 +2576,8 @@ void cpu_IRQ(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
+   if (emu_state->is_cpu_intr_log) 
+		update_disassembly(MAX_NEXT + 1);
 }
 
 void cpu_NMI(void)
@@ -2596,7 +2598,8 @@ void cpu_NMI(void)
 
    cpu.pc = (hi << 8) | lo;
 
-   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
+   if (emu_state->is_cpu_intr_log) 
+		update_disassembly(MAX_NEXT + 1);
 }
 
 /**
@@ -2703,6 +2706,7 @@ void cpu_emulate_instruction(void)
    cpu_execute();
 
    controller_reload_shift_registers(); // check if controller shifts registers need to be reloaded
+
    if (emu_state->is_cpu_intr_log) 
 		disassemble();
 
@@ -2711,6 +2715,11 @@ void cpu_emulate_instruction(void)
       cpu.nmi_flip_flop = false;
       cpu_NMI();
    }
+	else if (apu_is_triggering_irq())
+	{
+		cpu_IRQ();
+	}
+	
 }
 
 void cpu_run_for_one_sample(void)
@@ -2803,7 +2812,8 @@ void cpu_reset(void)
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
 
-   if (emu_state->is_cpu_intr_log) update_disassembly(MAX_NEXT + 1);
+   if (emu_state->is_cpu_intr_log) 
+		update_disassembly(MAX_NEXT + 1);
 
    ppu_reset();
 }
