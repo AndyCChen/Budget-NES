@@ -78,6 +78,19 @@ typedef struct Noise_t
 	uint8_t  out;
 } Noise_t;
 
+typedef struct Dmc_t
+{
+	bool channel_enable;
+	bool irq_enable;
+	bool loop_flag;
+
+	uint16_t timer;
+	uint16_t timer_reload;
+
+
+
+} Dmc_t;
+
 /**
  * Initialze audio device.
  * @returns false on fail, otherwise return true.
@@ -133,6 +146,10 @@ void apu_queue_audio_frame(void);
 /// <param name=""></param>
 void apu_clear_queued_audio(void);
 
+/// <summary>
+/// Check if apu is signaling a irq from the frame counter or the dmc channel.
+/// </summary>
+/// <returns>True if either the frame or dmc interrupt flag is set. False otherwise.</returns>
 bool apu_is_triggering_irq(void);
 
 #endif

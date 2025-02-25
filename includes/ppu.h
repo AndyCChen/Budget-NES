@@ -73,6 +73,18 @@ void transfer_t_vertical(void);
 void fetch_sprites(void);
 void sprite_clear_secondary_oam(void);
 
+/// <summary>
+/// Returns the state of oam dma flag to check if a dma is pending.
+/// Will also clear the oam dma flag before returning its previous state.
+/// </summary>
+/// <returns>True if dma is scheduled, else false</returns>
+bool ppu_scheduled_oam_dma(void);
+
+/// <summary>
+/// Execute oam dma process.
+/// </summary>
+void ppu_handle_oam_dma(void);
+
 /**
  * Used by debug gui widget to view pattern tables. Updates pixel colors to draw current pixels inside
  * the pattern tables.

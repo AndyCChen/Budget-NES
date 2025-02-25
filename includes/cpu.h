@@ -6,6 +6,7 @@
 typedef struct cpu_6502_t
 {
    bool nmi_flip_flop;
+	bool get_put_cycle; // cpu alternate between get/put cycles. True: get cycle, False: put cycle
    long cycle_count;
 
    uint8_t ac;  // accumulator
@@ -60,6 +61,8 @@ void cpu_init(void);
 void cpu_IRQ(void);
 void cpu_NMI(void);
 void cpu_tick(void);
+void cpu_read_tick(void);
+void cpu_write_tick(void);
 cpu_6502_t* get_cpu(void);
 const instruction_t* get_instruction_lookup_entry(uint8_t position);
 void update_disassembly(uint8_t next);

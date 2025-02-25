@@ -43,6 +43,11 @@ static uint16_t noise_period_lut[] =
 	4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068,
 };
 
+static uint16_t dmc_period_lut[] =
+{
+	428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84,  72,  54
+};
+
 static void audio_callback(void* userdata, Uint8* stream, int length);
 
 static void clock_quarter_frame(void);

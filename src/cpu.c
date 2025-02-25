@@ -2793,11 +2793,39 @@ void cpu_run_without_audio(float* delta_time)
 */
 void cpu_tick(void)
 {
-   ppu_cycle(&cpu.nmi_flip_flop);
-   ppu_cycle(&cpu.nmi_flip_flop);
-   ppu_cycle(&cpu.nmi_flip_flop);
 	apu_tick(cpu.cycle_count);
+
+   ppu_cycle(&cpu.nmi_flip_flop);
+   ppu_cycle(&cpu.nmi_flip_flop);
+   ppu_cycle(&cpu.nmi_flip_flop);
+
    cpu.cycle_count += 1;
+	cpu.get_put_cycle = !cpu.get_put_cycle;
+}
+
+void cpu_read_tick(void)
+{
+	// handle scheduled oam dma
+	// dma can only attempt its halt cycle on cpu read cycles and not writes
+	if (ppu_scheduled_oam_dma())
+	{
+		cpu_tick(); // dma halt cycle
+
+		// optional alignment cycle if currently on a put cycle
+		// dma begins with a read which can only happen on get cycles
+		if (cpu.get_put_cycle == false)
+			cpu_tick();
+
+		// perform dma
+		ppu_handle_oam_dma();
+	}
+
+	cpu_tick(); // resume cpu execution
+}
+
+void cpu_write_tick(void)
+{
+	cpu_tick();
 }
 
 /**

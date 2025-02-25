@@ -73,6 +73,9 @@ static uint16_t cycle = 0;
 // 64 rgb colors for system_palette
 static vec3 system_palette[64];
 
+static bool oam_dma_scheduled = false;
+static uint16_t oam_dma_address;
+
 // retrieves palette index that is mirrored if necessary
 static uint8_t get_palette_index(uint8_t index);
 static uint8_t flip_bits_horizontally(uint8_t in);
@@ -350,15 +353,18 @@ void ppu_port_write(uint16_t position, uint8_t data)
          break;
       case OAMDMA:
       {
-         uint16_t read_address = data << 8;
-         cpu_tick();
-         for (size_t i = 0; i < 256; ++i)
-         {
-            cpu_tick();
-            oam_data = cpu_bus_read(read_address + i);
-            oam_ram[oam_address] = oam_data;
-            oam_address += 1;
-         }
+			oam_dma_scheduled = true;
+			oam_dma_address = data << 8;
+
+         //uint16_t read_address = data << 8;
+         //cpu_tick();
+         //for (size_t i = 0; i < 256; ++i)
+         //{
+         //   cpu_tick();
+         //   oam_data = cpu_bus_read(read_address + i);
+         //   oam_ram[oam_address] = oam_data;
+         //   oam_address += 1;
+         //}
          break;
       }
       case OAMDATA:
@@ -571,6 +577,24 @@ void sprite_clear_secondary_oam(void)
       secondary_oam_ram[i].attribute  = 0xFF;
       secondary_oam_ram[i].x_position = 0xFF;
    }
+}
+
+bool ppu_scheduled_oam_dma(void)
+{
+	bool temp = oam_dma_scheduled;
+	oam_dma_scheduled = false;
+	return temp;
+}
+
+void ppu_handle_oam_dma(void)
+{
+	for (size_t i = 0; i < 256; ++i)
+	{
+		cpu_tick();
+		oam_data = cpu_bus_read(oam_dma_address + i);
+		oam_ram[oam_address] = oam_data;
+		oam_address += 1;
+	}
 }
 
 static void sprite_evaluation(void)
@@ -823,6 +847,7 @@ void ppu_reset(void)
    odd_even_flag = true;
    x_register = 0;
    t_register = 0;
+	oam_dma_scheduled = false;
 }
 
 void ppu_init(void)
@@ -852,4 +877,5 @@ void ppu_init(void)
    number_of_sprites = 0;
    scanline = 261;
    cycle = 0;
+	oam_dma_scheduled = false;
 }
