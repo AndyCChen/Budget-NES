@@ -3,6 +3,7 @@
 #include "apu.h"
 #include "cpu.h"
 #include "bus.h"
+#include "cartridge.h"
 #include "CBlip_buffer.h"
 
 #define DUTY_CYCLE_0 0x40 // duty cycle of 12.5%
