@@ -34,8 +34,6 @@ typedef struct Pulse_t
    bool     sweep_reset;            // reload the sweep counter with sweep reload
 
    uint8_t  raw_sample;
-	uint8_t  raw_samples[41];
-	size_t   raw_sample_index;
 	uint8_t  out;
 } Pulse_t;
 
@@ -52,8 +50,6 @@ typedef struct Triangle_t
 	uint8_t  sequence_step;
 
 	uint8_t  raw_sample;
-	uint8_t  raw_samples[41];
-	size_t   raw_sample_index;
 	uint8_t  out;
 } Triangle_t;
 
@@ -83,12 +79,21 @@ typedef struct Dmc_t
 	bool channel_enable;
 	bool irq_enable;
 	bool loop_flag;
+	bool sample_buffer_filled;
+	bool silence_flag;
 
 	uint16_t timer;
 	uint16_t timer_reload;
+	uint16_t sample_address;
+	uint16_t current_sample_address;
+	uint16_t sample_bytes_length;
+	uint16_t sample_bytes_remaining;
+	uint8_t  sample_buffer;
+	uint8_t  bits_remaining;
+	uint8_t  shift_register;
 
 
-
+	uint8_t out;
 } Dmc_t;
 
 /**
@@ -96,6 +101,11 @@ typedef struct Dmc_t
  * @returns false on fail, otherwise return true.
  */
 bool apu_init(void);
+
+/// <summary>
+/// Resets states of certain apu channels and flags when loading in new cartridge.
+/// </summary>
+void apu_reset_internals(void);
 
 /**
  * Closes the audio device.
@@ -115,11 +125,6 @@ void apu_write(uint16_t position, uint8_t data);
  */
 uint8_t apu_read_status(void);
 
-/**
- * Return output sample after mixing the 5 sound channels.
- */
-int16_t apu_get_output_sample(void);
-
 void apu_tick(long audio_time);
 
 /// <summary>
@@ -138,7 +143,7 @@ uint32_t apu_get_queued_audio(void);
 /// <summary>
 /// Read a frame of audio samples from internal buffer and queues them for playing.
 /// </summary>
-void apu_queue_audio_frame(void);
+void apu_queue_audio_frame(long audio_frame_length);
 
 /// <summary>
 /// Clears any queued audio as well as samples in internal buffers.

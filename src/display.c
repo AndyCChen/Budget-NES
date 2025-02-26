@@ -558,6 +558,7 @@ static void gui_main_viewport(void)
                      emulator_state.is_cpu_intr_log = false;
                      cpu_clear_ram(); // init cpu ram to zero when loading in new rom
                      cpu_init();
+							apu_reset_internals();
                      log_free();
                      emulator_state.run_state &= ~EMULATOR_UNLOADED; // no longer waiting for rom file to be loaded
 							if (emulator_state.run_state == EMULATOR_RUNNING)

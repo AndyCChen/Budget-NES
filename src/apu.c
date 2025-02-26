@@ -2,6 +2,7 @@
 
 #include "apu.h"
 #include "cpu.h"
+#include "bus.h"
 #include "CBlip_buffer.h"
 
 #define DUTY_CYCLE_0 0x40 // duty cycle of 12.5%
@@ -15,6 +16,7 @@ static Pulse_t        pulse_1;
 static Pulse_t			 pulse_2;
 static Triangle_t     triangle_1;
 static Noise_t        noise_1;
+static Dmc_t          dmc_1;
 static Framecounter_t frame_counter;
 static size_t sequencer_timer_cpu_tick = 0; // elapsed apu cycles used to track when to clock the next sequence
 
@@ -68,6 +70,9 @@ static void clock_noise_sequencer(Noise_t* noise);
 static void clock_noise_length_counter(Noise_t* noise);
 static void clock_noise_envelope(Noise_t* noise);
 
+static void clock_dmc_sequencer(Dmc_t* dmc);
+static void dmc_memory_reader(Dmc_t* dmc);
+
 static void mix_audio(long time, float p1, float p2, float t1, float n1, float d1);
 
 bool apu_init(void)
@@ -88,8 +93,6 @@ bool apu_init(void)
       return false;
    }
 
-	noise_1.shift_register = 1; // shift register is set to 1 on startup
-
 	buffer = create_cblip_buffer();
 	synth = create_cblip_synth();
 
@@ -105,7 +108,24 @@ bool apu_init(void)
 	cblip_synth_volume(synth, 0.01);
 	cblip_synth_output(synth, buffer);
 
+	apu_reset_internals();
+
    return true;
+}
+
+void apu_reset_internals(void)
+{
+	frame_interrupt_flag = false;
+	dmc_interrupt_flag = false;
+
+	memset(&pulse_1, 0, sizeof(Pulse_t));
+	memset(&pulse_2, 0, sizeof(Pulse_t));
+	memset(&triangle_1, 0, sizeof(Triangle_t));
+	memset(&noise_1, 0, sizeof(Noise_t));
+	memset(&dmc_1, 0, sizeof(Dmc_t));
+
+	noise_1.shift_register = 1;
+	dmc_1.silence_flag = true;
 }
 
 void apu_shutdown(void)
@@ -284,7 +304,38 @@ void apu_write(uint16_t position, uint8_t data)
 			break;
 		}
 
-      // todo: other 1 channels
+      // dmc channel
+
+		case 0x4010:
+		{
+			dmc_1.irq_enable = (data >> 7) & 0x1;
+			if (dmc_1.irq_enable == false) // clear interupt flag if irq enable is also cleared
+				dmc_interrupt_flag = false;
+
+			dmc_1.loop_flag = (data >> 6) & 0x1;
+			dmc_1.timer_reload = dmc_period_lut[data & 0xF];
+
+			break;
+		}
+		case 0x4011:
+		{
+			dmc_1.out = data & 0x7F;
+			break;
+		}
+		case 0x4012:
+		{
+			// %11AAAAAA.AA000000 = $C000 + (data * 64)
+
+			dmc_1.sample_address = 0xC000 | (data << 6);
+			break;
+		}
+		case 0x4013:
+		{
+			// %LLLL.LLLL0001 = (L * 16) + 1 bytes
+
+			dmc_1.sample_bytes_length = 0x001 | (data << 4);
+			break;
+		}
 
       // status register
       case 0x4015:
@@ -304,6 +355,21 @@ void apu_write(uint16_t position, uint8_t data)
 			noise_1.channel_enable = (data & 0x8) >> 3;
 			if (noise_1.channel_enable == false)
 				noise_1.length_counter = 0;
+
+			dmc_1.channel_enable = (data & 0x10) >> 4;
+			if (dmc_1.channel_enable)
+			{
+				if (dmc_1.sample_bytes_remaining == 0) // restart dmc sample when remain samples is zero
+				{
+					dmc_1.sample_bytes_remaining = dmc_1.sample_bytes_length;
+					dmc_1.current_sample_address = dmc_1.sample_address;
+				}
+			}
+			else // set remaining sample bytes to zero when dmc is disabled
+				dmc_1.sample_bytes_remaining = 0;
+
+
+			dmc_interrupt_flag = false; // clear/acknowledge interrupt flag on status write
 
          break;
       }
@@ -410,22 +476,22 @@ void apu_tick(long audio_time)
 	// triangle channel clocked every cpu cycle
 	clock_triangle_sequencer(&triangle_1);
 
+	clock_dmc_sequencer(&dmc_1);
+	dmc_memory_reader(&dmc_1);
+
 	if (pulse_1.raw_sample != 0 && pulse_1.length_counter != 0 && !pulse_sweep_forcing_silence(&pulse_1))
 	{
 		if (pulse_1.constant_volume_enable)
 		{
-			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.volume;
 			pulse_1.out = pulse_1.volume;
 		}
 		else
 		{
-			pulse_1.raw_samples[pulse_1.raw_sample_index] = pulse_1.envelope_volume;
 			pulse_1.out = pulse_1.envelope_volume;
 		}
 	}
 	else
 	{
-		pulse_1.raw_samples[pulse_1.raw_sample_index] = 0;
 		pulse_1.out = 0;
 	}
 
@@ -433,24 +499,18 @@ void apu_tick(long audio_time)
 	{
 		if (pulse_2.constant_volume_enable)
 		{
-			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.volume;
 			pulse_2.out = pulse_2.volume;
 		}
 		else
 		{
-			pulse_2.raw_samples[pulse_2.raw_sample_index] = pulse_2.envelope_volume;
 			pulse_2.out = pulse_2.envelope_volume;
 		}
 	}
 	else
 	{
-		pulse_2.raw_samples[pulse_2.raw_sample_index] = 0;
 		pulse_2.out = 0;
 	}
 
-	
-
-	triangle_1.raw_samples[triangle_1.raw_sample_index] = triangle_1.raw_sample;
 	triangle_1.out = triangle_1.raw_sample;
 
 	if (noise_1.length_counter != 0 && (noise_1.shift_register & 0x1) == 0)
@@ -473,17 +533,14 @@ void apu_tick(long audio_time)
 	}
 
 	mix_audio(
-		audio_time, 
-		pulse_1.out, 
+		audio_time,
+		pulse_1.out,
 		pulse_2.out,
 		triangle_1.out,
 		noise_1.out,
-		0
+		dmc_1.out & 0x7F
 	);
 
-	pulse_1.raw_sample_index = (pulse_1.raw_sample_index + 1) % 41;
-	pulse_2.raw_sample_index = (pulse_2.raw_sample_index + 1) % 41;
-	triangle_1.raw_sample_index = (triangle_1.raw_sample_index + 1) % 41;
 	noise_1.raw_sample_index = (noise_1.raw_sample_index + 1) % 41;
 }
 
@@ -700,7 +757,7 @@ static void clock_noise_envelope(Noise_t* noise)
 	}
 	else
 	{
-		noise->envelope_counter = noise->envelope_volume;
+		noise->envelope_counter = noise->volume;
 		if (noise->envelope_volume > 0)
 		{
 			noise->envelope_volume -= 1;
@@ -708,6 +765,82 @@ static void clock_noise_envelope(Noise_t* noise)
 		else if (noise->length_counter_halt) // looping envelope
 		{
 			noise->envelope_volume = 0xF;
+		}
+	}
+}
+
+void clock_dmc_sequencer(Dmc_t* dmc)
+{
+	if (dmc->timer > 0)
+	{
+		dmc->timer -= 1;
+	}
+	else
+	{
+		dmc->timer = dmc->timer_reload;
+
+		if (dmc->silence_flag == false)
+		{
+			// add 2 to output if bit 0 is set
+			// dmc output level ranges 0-127, so clamp as needed
+			if (dmc->shift_register & 0x1)
+			{
+				if (dmc->out <= 125)
+					dmc->out += 2;
+			}
+			else // else subtract 2
+			{
+				if (dmc->out >= 2)
+					dmc->out -= 2;
+			}
+		}
+
+		dmc->shift_register = dmc->shift_register >> 1;
+
+		if (dmc->bits_remaining > 0)
+		{
+			dmc->bits_remaining -= 1;
+		}
+		else
+		{
+			dmc->bits_remaining = 8;
+
+			if (dmc->sample_buffer_filled) // empty sample buffer into shift register
+			{
+				dmc->shift_register = dmc->sample_buffer;
+				dmc->sample_buffer_filled = false;
+				dmc->silence_flag = false;
+			}
+			else // sample buffer is empty
+			{
+				dmc->silence_flag = true;
+			}
+		}
+	}
+}
+
+void dmc_memory_reader(Dmc_t* dmc)
+{
+	// sample buffer is empty and remaining sample bytes are non-zero
+	if (dmc->sample_buffer_filled == false && dmc->sample_bytes_remaining > 0)
+	{
+		dmc->sample_buffer = cartridge_cpu_read(dmc->current_sample_address);
+		dmc->sample_buffer_filled = true;
+
+		dmc->current_sample_address = (dmc->current_sample_address + 1) | 0x8000; // wrap back to 0x8000 if increment exceeds 0xFFFF
+		dmc->sample_bytes_remaining -= 1;
+
+		if (dmc->sample_bytes_remaining == 0)
+		{
+			if (dmc->loop_flag)
+			{
+				dmc->current_sample_address = dmc->sample_address;
+				dmc->sample_bytes_remaining = dmc->sample_bytes_length;
+			}
+			else if (dmc->irq_enable)
+			{
+				dmc_interrupt_flag = true;
+			}
 		}
 	}
 }
@@ -749,56 +882,14 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1, float d
 	cblip_synth_update(synth, time, output);
 }
 
-int16_t apu_get_output_sample(void)
-{
-	float p1 = 0; // pulse 1
-	float p2 = 0; // pulse 2
-	float t1 = 0; // triangle
-	float n1 = 0; // noise
-	float d1 = 0; // dmc
-
-	for (int i = 0; i < 41; ++i)
-	{
-		p1 += pulse_1.raw_samples[i];
-		p2 += pulse_2.raw_samples[i];
-		t1 += triangle_1.raw_samples[i];
-		n1 += noise_1.raw_samples[i];
-	}
-
-	p1 = p1 / 41.0f;
-	p2 = p2 / 41.0f;
-	t1 = t1 / 41.0f;
-	n1 = n1 / 41.0f;
-
-	float pulse_out = (p1 == 0 && p2 == 0) ? 0.0f : 95.88f / ((8128.0f / (p1 + 0)) + 100);
-
-	t1 = t1 / 8227;
-	n1 = n1 / 12241;
-	d1 = d1 / 22638;
-
-	float tnd_out = (t1 == 0 && n1 == 0 && d1 == 0) ? 0.0f : 159.79f / ((1 / (t1 + n1 + d1)) + 100);
-
-	int output = ((pulse_out + 0) * 65536) - 32768;
-	if (output > 32767)
-	{
-		output = 32767;
-	}
-	else if (output < -32768)
-	{
-		output = -32768;
-	}
-
-   return output;
-}
-
 uint32_t apu_get_queued_audio()
 {
 	return SDL_GetQueuedAudioSize(audio_device_ID);
 }
 
-void apu_queue_audio_frame(void)
+void apu_queue_audio_frame(long audio_frame_length)
 {
-	cblip_buffer_end_frame(buffer, 29829);
+	cblip_buffer_end_frame(buffer, audio_frame_length);
 	short samples[735];
 	long count = cblip_buffer_read_samples(buffer, samples, 735);
 
@@ -827,9 +918,13 @@ uint8_t apu_read_status(void)
 		status |= 0x1 << 2;
 	if (noise_1.length_counter > 0)
 		status |= 0x1 << 3;
+	if (dmc_1.sample_bytes_remaining > 0)
+		status |= 0x1 << 4;
 
 	status |= (frame_interrupt_flag & 0x1) << 6;
-	frame_interrupt_flag = false; // acknowledge interrupt when status is read
+	frame_interrupt_flag = false; // clear/acknowledge frame interrupt when status is read
+
+	status |= (dmc_interrupt_flag & 0x1) << 7;
 
    return status;
 }

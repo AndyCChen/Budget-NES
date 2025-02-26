@@ -2737,17 +2737,17 @@ void cpu_run_for_one_sample(void)
 
 void cpu_run_with_audio(float *delta_time)
 {
-	float frame_rate = 60.0f;
+	float frame_rate = 60.0988f;// 29829 29780
 	while (*delta_time >= (1.0f / frame_rate))
 	{
 		if (apu_get_queued_audio() < (735 * 16))
 		{
-			while (cpu.cycle_count <= 29829)
+			while (cpu.cycle_count <= 29780)
 			{
 				cpu_emulate_instruction();
 			}
-			apu_queue_audio_frame();
-			cpu.cycle_count -= 29829;
+			apu_queue_audio_frame(29780);
+			cpu.cycle_count -= 29780;
 		}
 
 		if (get_emulator_state()->reset_delta_timers)
@@ -2839,7 +2839,7 @@ void cpu_reset(void)
    uint8_t lo = cpu_bus_read(RESET_VECTOR);
    uint8_t hi =  cpu_bus_read(RESET_VECTOR + 1);
    cpu.pc = (hi << 8) | lo;
-
+	
    if (emu_state->is_cpu_intr_log) 
 		update_disassembly(MAX_NEXT + 1);
 
