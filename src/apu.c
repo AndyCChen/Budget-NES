@@ -51,8 +51,6 @@ static uint16_t dmc_period_lut[] =
 	428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84,  72,  54
 };
 
-static void audio_callback(void* userdata, Uint8* stream, int length);
-
 static void clock_quarter_frame(void);
 static void clock_half_frame(void);
 
@@ -85,7 +83,6 @@ bool apu_init(void)
    want.format = AUDIO_S16SYS;
    want.samples = 1024;
    want.channels = 1;
-   //want.callback = &audio_callback;
 
    audio_device_ID = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
    if (audio_device_ID == 0)
@@ -844,19 +841,6 @@ void dmc_memory_reader(Dmc_t* dmc)
 			}
 		}
 	}
-}
-
-static void audio_callback(void* userdata, Uint8* stream, int length)
-{
-	Uint16* audio_buffer = (Uint16*) stream;
-	int audio_buffer_length = length / 2;
-
-	for (size_t sample_index = 0; sample_index < audio_buffer_length; ++sample_index)
-	{
-		cpu_run_for_one_sample();
-		audio_buffer[sample_index] = apu_get_output_sample();
-	}
-
 }
 
 static void mix_audio(long time, float p1, float p2, float t1, float n1, float d1)
