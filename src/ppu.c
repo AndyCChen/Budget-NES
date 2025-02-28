@@ -646,6 +646,7 @@ static void sprite_evaluation(void)
 void fetch_sprites(void)
 {
    oam_address = 0;
+	cartridge_clock_irq();
 
    for (size_t i = 0; i < 8; ++i)
    {

@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "../includes/cartridge.h"
-#include "../includes/cpu.h"
-#include "../includes/ppu.h"
-#include "../includes/mapper.h"
+#include "cartridge.h"
+#include "cpu.h"
+#include "ppu.h"
+#include "mapper.h"
 
 #define iNES_HEADER_SIZE 16 // iNES headers are all 16 bytes long
 #define TRAINER_SIZE 512
@@ -103,7 +103,7 @@ void cartridge_ppu_write(uint16_t position, uint8_t data)
          ppu_vram[mapped_addr] = data;
          break;
       default: // default should case will never happen unless chr-rom is written to, in which case no write will occur 
-         printf("Writing to chr-rom\n");
+         //printf("Writing to chr-rom %X\n", (int)position);
          break;
    }
 }
@@ -273,6 +273,16 @@ void cartridge_free_memory(void)
    prg_ram = NULL;
    chr_memory = NULL;
    mapper_registers = NULL;
+}
+
+bool cartridge_is_triggering_irq(void)
+{
+	return mapper.irq_signaled(mapper_registers);
+}
+
+void cartridge_clock_irq(void)
+{
+	mapper.irq_clock(mapper_registers);
 }
 
 /**

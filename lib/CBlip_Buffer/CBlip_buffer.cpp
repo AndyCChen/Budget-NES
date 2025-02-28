@@ -36,6 +36,11 @@ CBLIP_BUFFER_API void cblip_buffer_clear(CBlip_Buffer* in)
 	in->clear();
 }
 
+CBLIP_BUFFER_API void cblip_buffer_bass_freq(CBlip_Buffer* in, int frequency)
+{
+	in->bass_freq(frequency);
+}
+
 CBLIP_BUFFER_API CBlipSynth create_cblip_synth(void)
 {
 	return (Blip_Synth<blip_good_quality, 20>*) new Blip_Synth<blip_good_quality, 20>;
@@ -59,4 +64,9 @@ CBLIP_BUFFER_API void cblip_synth_output(CBlipSynth in, CBlip_Buffer* b)
 CBLIP_BUFFER_API void cblip_synth_update(CBlipSynth in, blip_time_t time, int amplitude)
 {
 	((Blip_Synth<blip_good_quality, 20>*) in)->update(time, amplitude);
+}
+
+CBLIP_BUFFER_API void cblip_synth_treble_eq(CBlipSynth in, double treble_db)
+{
+	((Blip_Synth<blip_good_quality, 20>*) in)->treble_eq(treble_db);
 }

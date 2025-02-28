@@ -5,15 +5,16 @@
 
 #include "SDL_timer.h"
 
-#include "../includes/cpu.h"
-#include "../includes/apu.h"
-#include "../includes/log.h"
-#include "../includes/bus.h"
-#include "../includes/util.h"
-#include "../includes/ppu.h"
-#include "../includes/disassembler.h"
-#include "../includes/controllers.h"
-#include "../includes/display.h"
+#include "cpu.h"
+#include "apu.h"
+#include "log.h"
+#include "bus.h"
+#include "util.h"
+#include "ppu.h"
+#include "disassembler.h"
+#include "controllers.h"
+#include "display.h"
+#include "cartridge.h"
 
 #define NMI_VECTOR       0xFFFA // address of non-maskable interrupt vector
 #define RESET_VECTOR     0xFFFC // address of reset vector
@@ -2715,7 +2716,7 @@ void cpu_emulate_instruction(void)
       cpu.nmi_flip_flop = false;
       cpu_NMI();
    }
-	else if (apu_is_triggering_irq())
+	else if (apu_is_triggering_irq() || cartridge_is_triggering_irq())
 	{
 		cpu_IRQ();
 	}

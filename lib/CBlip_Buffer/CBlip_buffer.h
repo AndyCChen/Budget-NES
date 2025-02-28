@@ -26,6 +26,7 @@ CBLIP_BUFFER_API blargg_err_t cblip_buffer_set_sample_rate(CBlip_Buffer* in, lon
 CBLIP_BUFFER_API void cblip_buffer_end_frame(CBlip_Buffer* in, blip_time_t time);
 CBLIP_BUFFER_API long cblip_buffer_read_samples(CBlip_Buffer* in, blip_sample_t* dest, long max_samples);
 CBLIP_BUFFER_API void cblip_buffer_clear(CBlip_Buffer* in);
+CBLIP_BUFFER_API void cblip_buffer_bass_freq(CBlip_Buffer* in, int frequency);
 
 // blip synth
 
@@ -34,6 +35,7 @@ CBLIP_BUFFER_API void free_cblip_synth(CBlipSynth in);
 CBLIP_BUFFER_API void cblip_synth_volume(CBlipSynth in, double v);
 CBLIP_BUFFER_API void cblip_synth_output(CBlipSynth in, CBlip_Buffer *b);
 CBLIP_BUFFER_API void cblip_synth_update(CBlipSynth in, blip_time_t time, int amplitude);
+CBLIP_BUFFER_API void cblip_synth_treble_eq(CBlipSynth in, double treble_db);
 
 
 #endif

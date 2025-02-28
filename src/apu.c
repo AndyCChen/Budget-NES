@@ -25,7 +25,7 @@ static bool frame_interrupt_flag;
 static bool dmc_interrupt_flag;
 
 static CBlip_Buffer* buffer;
-static CBlipSynth synth;
+static CBlipSynth synth_1;
 
 // lookup table of values used in the lengh counter -> https://www.nesdev.org/wiki/APU_Length_Counter
 static uint8_t length_lut[] = 
@@ -92,19 +92,22 @@ bool apu_init(void)
    }
 
 	buffer = create_cblip_buffer();
-	synth = create_cblip_synth();
+	synth_1 = create_cblip_synth();
 
 	if (!buffer)
 		return false;
-	if (!synth)
+	if (!synth_1)
 		return false;
 
 	cblip_buffer_clock_rate(buffer, 1800000);
 	if (cblip_buffer_set_sample_rate(buffer, 44100, 1000/60))
 		return false;
 
-	cblip_synth_volume(synth, 0.01);
-	cblip_synth_output(synth, buffer);
+	cblip_synth_volume(synth_1, 0.01);
+	cblip_synth_output(synth_1, buffer);
+	cblip_buffer_bass_freq(buffer, 1);
+	cblip_synth_treble_eq(synth_1, 5.0);
+
 
 	apu_reset_internals();
 
@@ -129,7 +132,7 @@ void apu_reset_internals(void)
 void apu_shutdown(void)
 {
 	free_cblip_buffer(buffer);
-	free_cblip_synth(synth);
+	free_cblip_synth(synth_1);
    SDL_CloseAudioDevice(audio_device_ID);
 }
 
@@ -461,19 +464,18 @@ void apu_tick(long audio_time)
 		clock_half_frame();
 	}
 	
-	// pulse and noise channel is clocked every 2nd cpu cycle
+	// pulse is clocked every 2nd cpu cycle
 	static bool even = true;
 	if (even)
 	{
 		clock_pulse_sequencer(&pulse_1);
 		clock_pulse_sequencer(&pulse_2);
-		clock_noise_sequencer(&noise_1);
 	}
 	even = !even;
 
 	// triangle channel clocked every cpu cycle
 	clock_triangle_sequencer(&triangle_1);
-
+	clock_noise_sequencer(&noise_1);
 	clock_dmc_sequencer(&dmc_1);
 	dmc_memory_reader(&dmc_1);
 
@@ -511,7 +513,7 @@ void apu_tick(long audio_time)
 
 	triangle_1.out = triangle_1.raw_sample;
 
-	if (noise_1.length_counter != 0 && (noise_1.shift_register & 0x1) == 0)
+	if (noise_1.length_counter != 0 && ((noise_1.shift_register & 0x1) == 0))
 	{
 		if (noise_1.constant_volume_enable)
 		{
@@ -557,7 +559,7 @@ static void clock_half_frame(void)
 	clock_pulse_length_counter(&pulse_1);
 	clock_pulse_length_counter(&pulse_2);
 	clock_triangle_length_counter(&triangle_1);
-	clock_noise_length_counter(&noise_1);
+	clock_noise_length_counter(&noise_1); 
 }
 
 static void clock_pulse_sequencer(Pulse_t *pulse)
@@ -853,7 +855,7 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1, float d
 
 	float tnd_out = (t1 + n1 + d1) ? 159.79f / (1 / (t1 + n1 + d1) + 100) : 0.0f;
 
-	int output = ((pulse_out + tnd_out) * 0.01f * 65536) - 32768;
+	int output = ((pulse_out + tnd_out)* 0.01f * 65536) - 32767;
 	if (output > 32767)
 	{
 		output = 32767;
@@ -864,7 +866,7 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1, float d
 	}
 	output *= 0.5f;
 
-	cblip_synth_update(synth, time, output);
+	cblip_synth_update(synth_1, time, output);
 }
 
 uint32_t apu_get_queued_audio()

@@ -76,9 +76,10 @@ add_executable(BudgetNES
 	src/mappers/mapper_000.c
 	src/mappers/mapper_001.c
 	src/mappers/mapper_002.c
+	src/mappers/mapper_004.c
 )
 
-target_include_directories(BudgetNES PRIVATE includes/ glad_loader/include/glad)
+target_include_directories(BudgetNES PRIVATE includes/ includes/mappers glad_loader/include/glad)
 
 target_compile_definitions(BudgetNES PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_SDL2)
 if (MINGW)

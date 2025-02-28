@@ -65,4 +65,7 @@ void cartridge_ppu_write(uint16_t position, uint8_t data);
 */
 void cartridge_free_memory(void);
 
+bool cartridge_is_triggering_irq(void);
+void cartridge_clock_irq(void);
+
 #endif
