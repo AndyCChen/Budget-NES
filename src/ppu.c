@@ -680,17 +680,17 @@ void fetch_sprites(void)
          // sprite flipped vertically
          if (output_sprites[i].attribute & 0x80)
          {
-            // fetching upper tile
+            // fetching bottom tile
             if (sprite_fine_y < 8)
             {
                sprite_fine_y = 7 - sprite_fine_y;
                pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
             }
-            // fetching bottom tile
+            // fetching upper tile
             else
             {
                sprite_fine_y = 7 - sprite_fine_y;
-               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFF) ) << 4) | (sprite_fine_y & 0x7);
+               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) ) << 4) | (sprite_fine_y & 0x7);
             }
          }
          // sprite is NOT flipped vertically
@@ -707,10 +707,9 @@ void fetch_sprites(void)
                pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
             }
          }
-         
 
-         output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address_lo);
-         output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address_lo + 8);
+				output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address_lo);
+				output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address_lo + 8);
       }
 
       // sprite flipped horizontally
@@ -720,7 +719,7 @@ void fetch_sprites(void)
          output_sprites[i].hi_bitplane = flip_bits_horizontally( output_sprites[i].hi_bitplane );
       }
 
-      // when there are less than 8 sprites on the next scanline, the remaining fetches are have their color index replaced with the transparent background color
+      // when there are less than 8 sprites on the next scanline, the remaining fetches have their color index replaced with the transparent background color
       if (i >= number_of_sprites)
       {
          output_sprites[i].lo_bitplane = 0;
