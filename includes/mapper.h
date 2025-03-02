@@ -15,7 +15,6 @@ typedef struct mapper_t
    cartridge_access_mode_t (*ppu_write)    (nes_header_t *header, uint16_t position, size_t *mapped_addr, void* internal_registers);
    void                    (*init)         (nes_header_t* header, void* internal_registers); // function to initialize a mapper's register if necessary
 	bool                    (*irq_signaled) (void* internal_registers);
-	void                    (*irq_clock)    (void* internal_registers);
 } mapper_t;
 
 /**

@@ -1,5 +1,10 @@
 #include "mapper_004.h"
 #include "mirror_config.h"
+#include "cpu.h"
+
+#include <string.h>
+
+static void mapper004_clock_irq(Registers_004* mapper);
 
 cartridge_access_mode_t mapper004_cpu_read(nes_header_t* header, uint16_t position, size_t* mapped_addr, void* internal_registers)
 {
@@ -148,6 +153,27 @@ cartridge_access_mode_t mapper004_ppu_read(nes_header_t* header, uint16_t positi
 	Registers_004* mapper = (Registers_004*)internal_registers;
 	cartridge_access_mode_t mode = NO_CARTRIDGE_DEVICE;
 
+	{
+		size_t cpu_cycle_count = get_cpu()->cycle_count;
+		if ((position & 0x1000) == 0 && cpu_cycle_count != mapper->cpu_timestamp)
+		{
+			mapper->M2 += 1;
+		}
+		else if ((position & 0x1000) && (mapper->A12 == 0) && mapper->M2 >= 3)
+		{
+			// rising edge of a12 decrements irq counter
+			mapper004_clock_irq(internal_registers);
+			mapper->M2 = 0;
+		}
+		else if ((position & 0x1000) && (mapper->A12 == 0) && mapper->M2 < 3)
+		{
+			mapper->M2 = 0;
+		}
+
+		mapper->cpu_timestamp = cpu_cycle_count;
+		mapper->A12 = (position & 0x1000) >> 12;
+	}
+
 	// bank mode 1:
 	// two 2 KB banks at $1000-$1FFF
 	// four 1 KB banks at $0000 - $0FFF
@@ -244,6 +270,27 @@ cartridge_access_mode_t mapper004_ppu_write(nes_header_t* header, uint16_t posit
 	Registers_004* mapper = (Registers_004*)internal_registers;
 	cartridge_access_mode_t mode = NO_CARTRIDGE_DEVICE;
 
+	{
+		size_t cpu_cycle_count = get_cpu()->cycle_count;
+		if ((position & 0x1000) == 0 && cpu_cycle_count != mapper->cpu_timestamp)
+		{
+			mapper->M2 += 1;
+		}
+		else if ((position & 0x1000) && (mapper->A12 == 0) && mapper->M2 >= 3)
+		{
+			// rising edge of a12 decrements irq counter
+			mapper004_clock_irq(internal_registers);
+			mapper->M2 = 0;
+		}
+		else if ((position & 0x1000) && (mapper->A12 == 0) && mapper->M2 < 3)
+		{
+			mapper->M2 = 0;
+		}
+
+		mapper->cpu_timestamp = cpu_cycle_count;
+		mapper->A12 = (position & 0x1000) >> 12;
+	}
+
 	// writing to chr-memory
 	if (position <= 0x1FFF)
 	{
@@ -277,15 +324,13 @@ cartridge_access_mode_t mapper004_ppu_write(nes_header_t* header, uint16_t posit
 
 void mapper004_init(nes_header_t* header, void* internal_registers)
 {
-	(void)header;
 	Registers_004* mapper = (Registers_004*)internal_registers;
-	mapper->mirroring_mode = 1;
+	memset(mapper, 0, sizeof(Registers_004));
+	mapper->mirroring_mode = header->nametable_arrangement ? 0 : 1;
 }
 
-void mapper004_clock_irq(void* internal_registers)
+void mapper004_clock_irq(Registers_004* mapper)
 {
-	Registers_004* mapper = (Registers_004*)internal_registers;
-
 	if (mapper->irq_counter == 0)
 	{
 		mapper->irq_counter = mapper->irq_counter_reload;

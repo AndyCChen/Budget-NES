@@ -274,7 +274,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 266
 	&rest_cycle,                                         // cycle 267
 	&fetch_nametable,                                    // cycle 268
-	&rest_cycle,                                         // cycle 269
+	&fetch_sprites,                                        // cycle 269
 	&rest_cycle,                                         // cycle 270
 	&rest_cycle,                                         // cycle 271
 	&rest_cycle,                                         // cycle 272
@@ -282,7 +282,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 274
 	&rest_cycle,                                         // cycle 275
 	&fetch_nametable,                                    // cycle 276
-	&rest_cycle,                                         // cycle 277
+	&fetch_sprites,                                        // cycle 277
 	&rest_cycle,                                         // cycle 278
 	&rest_cycle,                                         // cycle 279
 	&rest_cycle,                                         // cycle 280
@@ -290,7 +290,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 282
 	&rest_cycle,                                         // cycle 283
 	&fetch_nametable,                                    // cycle 284
-	&rest_cycle,                                         // cycle 285
+	&fetch_sprites,                                        // cycle 285
 	&rest_cycle,                                         // cycle 286
 	&rest_cycle,                                         // cycle 287
 	&rest_cycle,                                         // cycle 288
@@ -298,7 +298,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 290
 	&rest_cycle,                                         // cycle 291
 	&fetch_nametable,                                    // cycle 292
-	&rest_cycle,                                         // cycle 293
+	&fetch_sprites,                                         // cycle 293
 	&rest_cycle,                                         // cycle 294
 	&rest_cycle,                                         // cycle 295
 	&rest_cycle,                                         // cycle 296
@@ -306,7 +306,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 298
 	&rest_cycle,                                         // cycle 299
 	&fetch_nametable,                                    // cycle 300
-	&rest_cycle,                                         // cycle 301
+	&fetch_sprites,                                       // cycle 301
 	&rest_cycle,                                         // cycle 302
 	&rest_cycle,                                         // cycle 303
 	&rest_cycle,                                         // cycle 304
@@ -314,7 +314,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 306
 	&rest_cycle,                                         // cycle 307
 	&fetch_nametable,                                    // cycle 308
-	&rest_cycle,                                         // cycle 309
+	&fetch_sprites,                                         // cycle 309
 	&rest_cycle,                                         // cycle 310
 	&rest_cycle,                                         // cycle 311
 	&rest_cycle,                                         // cycle 312
@@ -322,7 +322,7 @@ const render_events_t scanline_lookup[341] =
 	&fetch_nametable,                                    // cycle 314
 	&rest_cycle,                                         // cycle 315
 	&fetch_nametable,                                    // cycle 316
-	&rest_cycle,                                         // cycle 317
+	&fetch_sprites,                                       // cycle 317
 	&rest_cycle,                                         // cycle 318
 	&rest_cycle,                                         // cycle 319
 	&rest_cycle,                                         // cycle 320

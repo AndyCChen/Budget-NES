@@ -23,6 +23,9 @@ typedef struct Registers_004
 	uint8_t irq_counter;
 	bool    irq_enable;
 	bool    irq_pending;
+	uint8_t A12;
+	size_t  M2; // number of cpu cycles where A12 remained low
+	size_t  cpu_timestamp;
 } Registers_004;
 
 cartridge_access_mode_t mapper004_cpu_read(nes_header_t* header, uint16_t position, size_t* mapped_addr, void* internal_registers);
@@ -31,7 +34,6 @@ cartridge_access_mode_t mapper004_cpu_write(nes_header_t* header, uint16_t posit
 cartridge_access_mode_t mapper004_ppu_read(nes_header_t* header, uint16_t position, size_t* mapped_addr, void* internal_registers);
 cartridge_access_mode_t mapper004_ppu_write(nes_header_t* header, uint16_t position, size_t* mapped_addr, void* internal_registers);
 
-void mapper004_clock_irq(void* internal_registers);
 bool mapper004_irq_signaled(void* internal_registers);
 
 void mapper004_init(nes_header_t* header, void* internal_registers);

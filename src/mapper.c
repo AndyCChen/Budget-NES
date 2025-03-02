@@ -13,12 +13,6 @@ static bool irq_signaled_default(void* internal_registers)
 	return false;
 }
 
-// mappers that don't generate irqs use this default function
-static void irq_clock_default(void* internal_registers)
-{
-	return;
-}
-
 bool load_mapper(uint32_t mapper_id, mapper_t *mapper, void** mapper_registers)
 {
    bool status = true;
@@ -33,7 +27,6 @@ bool load_mapper(uint32_t mapper_id, mapper_t *mapper, void** mapper_registers)
          mapper->ppu_write    = &mapper000_ppu_write;
          mapper->init         = &mapper000_init;
 			mapper->irq_signaled = &irq_signaled_default;
-			mapper->irq_clock    = &irq_clock_default;
          *mapper_registers = NULL;
          break;
       }
@@ -45,7 +38,6 @@ bool load_mapper(uint32_t mapper_id, mapper_t *mapper, void** mapper_registers)
          mapper->ppu_write    = &mapper001_ppu_write;
          mapper->init         = &mapper001_init;
 			mapper->irq_signaled = &irq_signaled_default;
-			mapper->irq_clock    = &irq_clock_default;
          *mapper_registers = malloc(sizeof(Registers_001));
 
          if (mapper_registers == NULL)
@@ -64,7 +56,6 @@ bool load_mapper(uint32_t mapper_id, mapper_t *mapper, void** mapper_registers)
          mapper->ppu_write    = &mapper002_ppu_write;
          mapper->init         = &mapper002_init;
 			mapper->irq_signaled = &irq_signaled_default;
-			mapper->irq_clock    = &irq_clock_default;
          *mapper_registers    = malloc(sizeof(Registers_002));
 
          if (mapper_registers == NULL)
@@ -83,7 +74,6 @@ bool load_mapper(uint32_t mapper_id, mapper_t *mapper, void** mapper_registers)
 			mapper->ppu_write    = &mapper004_ppu_write;
 			mapper->init         = &mapper004_init;
 			mapper->irq_signaled = &mapper004_irq_signaled;
-			mapper->irq_clock    = &mapper004_clock_irq;
 			*mapper_registers    = malloc(sizeof(Registers_004));
 
 			if (mapper_registers == NULL)

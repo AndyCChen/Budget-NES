@@ -275,14 +275,17 @@ void ppu_cycle(bool* nmi_flip_flop)
 
       if (cycle >= 280 && cycle <= 304)
       {
-         if (ppu_mask & 0x18) transfer_t_vertical(); // reload vertical scroll bits if rendering enabled
+         if (ppu_mask & 0x18) 
+				transfer_t_vertical(); // reload vertical scroll bits if rendering enabled
       }
       else if (cycle == 339)
       {
-         if (ppu_mask & 0x18 && odd_even_flag == false) cycle = 340; // frames are 1 cycle shorted every odd frame 
+         if (ppu_mask & 0x18 && odd_even_flag == false) 
+				cycle = 340; // frames are 1 cycle shorted every odd frame 
       }
 
-      if (ppu_mask & 0x18) scanline_lookup[cycle](); // execute function from lookup table if rendering enabled
+      if (ppu_mask & 0x18) 
+			scanline_lookup[cycle](); // execute function from lookup table if rendering enabled
    }
 
    cycle++;
@@ -645,88 +648,82 @@ static void sprite_evaluation(void)
 // we cheat a little here and fetch sprites all on a single ppu cycle for simplicity
 void fetch_sprites(void)
 {
+	static uint8_t i = 0;
    oam_address = 0;
-	cartridge_clock_irq();
+   
+   uint8_t sprite_fine_y        = scanline - secondary_oam_ram[i].y_coord; // row within a sprite
+   uint8_t tile_number          = secondary_oam_ram[i].tile_id;
+   output_sprites[i].sprite_id  = secondary_oam_ram[i].sprite_id;
+   output_sprites[i].attribute  = secondary_oam_ram[i].attribute;
+   output_sprites[i].x_position = secondary_oam_ram[i].x_position;
 
-   for (size_t i = 0; i < 8; ++i)
+	uint16_t pattern_tile_address_lo = 0;
+
+   // using 8 by 8 sprites
+   if ((ppu_control & 0x20) == 0)
    {
-      uint8_t sprite_fine_y        = scanline - secondary_oam_ram[i].y_coord; // row within a sprite
-      uint8_t tile_number          = secondary_oam_ram[i].tile_id;
-      output_sprites[i].sprite_id  = secondary_oam_ram[i].sprite_id;
-      output_sprites[i].attribute  = secondary_oam_ram[i].attribute;
-      output_sprites[i].x_position = secondary_oam_ram[i].x_position;
-
-      // using 8 by 8 sprites
-      if ((ppu_control & 0x20) == 0)
+      // sprite flipped vertically
+      if (output_sprites[i].attribute & 0x80)
       {
-         // sprite flipped vertically
-         if (output_sprites[i].attribute & 0x80)
+         sprite_fine_y = 7 - sprite_fine_y;
+      }
+
+      // fetching lo bitplane
+      pattern_tile_address_lo = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (sprite_fine_y & 0x7);
+   }
+   // using 8 by 16 sprites
+   else                           
+   {
+      // sprite flipped vertically
+      if (output_sprites[i].attribute & 0x80)
+      {
+         // fetching bottom tile
+         if (sprite_fine_y < 8)
          {
             sprite_fine_y = 7 - sprite_fine_y;
+            pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
          }
-
-         // fetching lo bitplane
-         uint16_t pattern_tile_address = ( (ppu_control & 0x8) << 9 )  | (tile_number << 4) | (sprite_fine_y & 0x7);
-         output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address);
-
-         // fetching hi bitplane
-         output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address + 8);
-      }
-      // using 8 by 16 sprites
-      else                           
-      {
-         uint16_t pattern_tile_address_lo = 0;
-
-         // sprite flipped vertically
-         if (output_sprites[i].attribute & 0x80)
-         {
-            // fetching bottom tile
-            if (sprite_fine_y < 8)
-            {
-               sprite_fine_y = 7 - sprite_fine_y;
-               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
-            }
-            // fetching upper tile
-            else
-            {
-               sprite_fine_y = 7 - sprite_fine_y;
-               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) ) << 4) | (sprite_fine_y & 0x7);
-            }
-         }
-         // sprite is NOT flipped vertically
+         // fetching upper tile
          else
          {
-            // fetching upper tile
-            if (sprite_fine_y < 8)
-            {
-               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( tile_number & 0xFE ) << 4) | (sprite_fine_y & 0x7);
-            }
-            // fetching bottom tile
-            else
-            {
-               pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
-            }
+            sprite_fine_y = 7 - sprite_fine_y;
+            pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) ) << 4) | (sprite_fine_y & 0x7);
          }
-
-				output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address_lo);
-				output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address_lo + 8);
       }
-
-      // sprite flipped horizontally
-      if (output_sprites[i].attribute & 0x40)
+      // sprite is NOT flipped vertically
+      else
       {
-         output_sprites[i].lo_bitplane = flip_bits_horizontally( output_sprites[i].lo_bitplane );
-         output_sprites[i].hi_bitplane = flip_bits_horizontally( output_sprites[i].hi_bitplane );
-      }
-
-      // when there are less than 8 sprites on the next scanline, the remaining fetches have their color index replaced with the transparent background color
-      if (i >= number_of_sprites)
-      {
-         output_sprites[i].lo_bitplane = 0;
-         output_sprites[i].hi_bitplane = 0;
-      }
-      
+         // fetching upper tile
+         if (sprite_fine_y < 8)
+         {
+            pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( tile_number & 0xFE ) << 4) | (sprite_fine_y & 0x7);
+         }
+         // fetching bottom tile
+         else
+         {
+            pattern_tile_address_lo = ( (tile_number & 0x1) << 12 ) | (( (tile_number & 0xFE) + 1 ) << 4) | (sprite_fine_y & 0x7);
+         }
+      }	
    }
+
+	output_sprites[i].lo_bitplane = cartridge_ppu_read(pattern_tile_address_lo);
+	output_sprites[i].hi_bitplane = cartridge_ppu_read(pattern_tile_address_lo + 8);
+
+   // sprite flipped horizontally
+   if (output_sprites[i].attribute & 0x40)
+   {
+      output_sprites[i].lo_bitplane = flip_bits_horizontally( output_sprites[i].lo_bitplane );
+      output_sprites[i].hi_bitplane = flip_bits_horizontally( output_sprites[i].hi_bitplane );
+   }
+
+   // when there are less than 8 sprites on the next scanline, the remaining fetches have their color index replaced with the transparent background color
+   if (i >= number_of_sprites)
+   {
+      output_sprites[i].lo_bitplane = 0;
+      output_sprites[i].hi_bitplane = 0;
+   }
+      
+	i = (i + 1) & 0x7;
 }
 
 #define PALETTE_SIZE 192

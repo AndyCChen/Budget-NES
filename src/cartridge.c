@@ -280,11 +280,6 @@ bool cartridge_is_triggering_irq(void)
 	return mapper.irq_signaled(mapper_registers);
 }
 
-void cartridge_clock_irq(void)
-{
-	mapper.irq_clock(mapper_registers);
-}
-
 /**
  * Loads data in iNES in 1.0 format into a struct.
  * @param iNES_header array container 16 header
