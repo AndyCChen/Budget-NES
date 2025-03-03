@@ -753,7 +753,7 @@ static void clock_noise_envelope(Noise_t* noise)
 	}
 	else if (noise->envelope_counter > 0)
 	{
-		noise->envelope_counter -= 0;
+		noise->envelope_counter -= 1;
 	}
 	else
 	{
