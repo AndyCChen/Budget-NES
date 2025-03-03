@@ -132,7 +132,7 @@ void ppu_cycle(bool* nmi_flip_flop)
       bool sprite_found = false;
 
       // search for the first in range opaque sprite pixel on the horizontal axis
-      for (size_t i = 0; i < 8; ++i)
+      for (int i = 0; i < 8; ++i)
       {
          if ( cycle >= output_sprites[i].x_position + 1 && cycle - (output_sprites[i].x_position + 1) <= 8 /*&& scanline != 0*/ )
          {
@@ -591,7 +591,7 @@ bool ppu_scheduled_oam_dma(void)
 
 void ppu_handle_oam_dma(void)
 {
-	for (size_t i = 0; i < 256; ++i)
+	for (uint16_t i = 0; i < 256; ++i)
 	{
 		cpu_tick();
 		oam_data = cpu_bus_read(oam_dma_address + i);
@@ -651,7 +651,7 @@ void fetch_sprites(void)
 	static uint8_t i = 0;
    oam_address = 0;
    
-   uint8_t sprite_fine_y        = scanline - secondary_oam_ram[i].y_coord; // row within a sprite
+	uint8_t sprite_fine_y        = (uint8_t) (scanline - secondary_oam_ram[i].y_coord); // row within a sprite
    uint8_t tile_number          = secondary_oam_ram[i].tile_id;
    output_sprites[i].sprite_id  = secondary_oam_ram[i].sprite_id;
    output_sprites[i].attribute  = secondary_oam_ram[i].attribute;
@@ -793,13 +793,13 @@ void DEBUG_ppu_update_pattern_tables(vec4* p0, vec4* p1)
 {
    //const uint8_t debug_palette[4] = {0x3F, 0x00, 0x10, 0x20};
 
-   for (int tile_row = 0; tile_row < 16; ++tile_row)
+   for (uint8_t tile_row = 0; tile_row < 16; ++tile_row)
    {
-      for (int tile_col = 0; tile_col < 16; ++tile_col)
+      for (uint8_t tile_col = 0; tile_col < 16; ++tile_col)
       {
          uint8_t tile_number = (tile_row * 16) + tile_col;
          
-         for (int fine_y = 0; fine_y < 8; ++fine_y)
+         for (uint8_t fine_y = 0; fine_y < 8; ++fine_y)
          {
             uint8_t p0_lo = cartridge_ppu_read( (tile_number << 4) | fine_y );
             uint8_t p0_hi = cartridge_ppu_read( (tile_number << 4) | (1 << 3) | fine_y );

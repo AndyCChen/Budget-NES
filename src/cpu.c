@@ -582,7 +582,7 @@ static uint8_t LAX(void)
 
    if (current_instruction->mode == IMM)
    {
-      value = instruction_operand;
+      value = (uint8_t) instruction_operand;
    }
    else
    {

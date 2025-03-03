@@ -10,6 +10,7 @@
 // mappers that don't generate irqs use this default function
 static bool irq_signaled_default(void* internal_registers)
 {
+	(void)internal_registers;
 	return false;
 }
 

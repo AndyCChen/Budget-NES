@@ -538,7 +538,7 @@ void apu_tick(long audio_time)
 		pulse_2.out,
 		triangle_1.out,
 		noise_1.out,
-		dmc_1.out & 0x7F
+		(float)(dmc_1.out & 0x7F)
 	);
 
 	noise_1.raw_sample_index = (noise_1.raw_sample_index + 1) % 41;
@@ -855,7 +855,7 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1, float d
 
 	float tnd_out = (t1 + n1 + d1) ? 159.79f / (1 / (t1 + n1 + d1) + 100) : 0.0f;
 
-	int output = ((pulse_out + tnd_out)* 0.01f * 65536) - 32767;
+	int output = (int) (((pulse_out + tnd_out) * 0.01f * 65536) - 32767);
 	if (output > 32767)
 	{
 		output = 32767;
@@ -864,7 +864,7 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1, float d
 	{
 		output = -32768;
 	}
-	output *= 0.5f;
+	output = (int) (output * 0.5f);
 
 	cblip_synth_update(synth_1, time, output);
 }

@@ -681,23 +681,23 @@ static void gui_main_viewport(void)
          int border_offset_y = 0;
          if (emulator_state.display_scale_factor == DISPLAY_BORDERLESS_FULLSCREEN)
          {
-            int x = size.x / NES_PIXELS_W;
-            int y = size.y / NES_PIXELS_H;
+            int x = (int) size.x / NES_PIXELS_W;
+            int y = (int) size.y / NES_PIXELS_H;
 
             if (x < y)
             {
-               border_offset_x = (size.x - (NES_PIXELS_W * x)) / 2;
-               border_offset_y = (size.y - (NES_PIXELS_H * x)) / 2;
+               border_offset_x = (int) (size.x - (NES_PIXELS_W * x)) / 2;
+               border_offset_y = (int) (size.y - (NES_PIXELS_H * x)) / 2;
             }
             else
             {
-               border_offset_x = (size.x - (NES_PIXELS_W * y)) / 2;
-               border_offset_y = (size.y - (NES_PIXELS_H * y)) / 2;
+               border_offset_x = (int) (size.x - (NES_PIXELS_W * y)) / 2;
+               border_offset_y = (int) (size.y - (NES_PIXELS_H * y)) / 2;
             }
          }
-			
-         glViewport(border_offset_x, border_offset_y, size.x - (border_offset_x * 2), size.y - (border_offset_y * 2));
-         display_resize_texture(size.x, size.y, viewport.textureID, viewport.RBO);
+
+			glViewport(border_offset_x, border_offset_y, ((int)size.x) - (border_offset_x * 2), ((int)size.y) - (border_offset_y * 2));
+         display_resize_texture((int) size.x, (int) size.y, viewport.textureID, viewport.RBO);
          ImVec2 uv_min = {0, 1};
          ImVec2 uv_max = {1, 0};
          ImVec4 col = {1, 1, 1, 1};
@@ -712,8 +712,8 @@ static void display_resize(DISPLAY_SIZE_CONFIG_t display_size)
    emulator_state.display_scale_factor = display_size;
    if (emulator_state.display_scale_factor != DISPLAY_BORDERLESS_FULLSCREEN)
    {
-      float w = NES_PIXELS_W * emulator_state.display_scale_factor;
-      float h = NES_PIXELS_H * emulator_state.display_scale_factor;
+      int w = NES_PIXELS_W * emulator_state.display_scale_factor;
+		int h = NES_PIXELS_H * emulator_state.display_scale_factor;
       SDL_SetWindowFullscreen(window, 0);
       SDL_SetWindowSize( window, w, h );
       SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
@@ -837,7 +837,7 @@ static void gui_cpu_debug(void)
 
          // log previous 5 disassembled opcodes
 
-         for (size_t i = MAX_PREV; i >= 1; --i)
+         for (uint32_t i = MAX_PREV; i >= 1; --i)
          {
             igText("%s", log_get_prev_instruction(i));
          }
@@ -897,7 +897,7 @@ static void gui_cpu_debug(void)
          igEndDisabled();
          gui_help_marker("Resets the emulator back to beginning of program execution.");
 
-         static size_t current_option_index = 0;
+         static uint32_t current_option_index = 0;
          const char* current_option = log_size_options[current_option_index];
 
          igNewLine();
@@ -906,7 +906,7 @@ static void gui_cpu_debug(void)
          igBeginDisabled(emulator_state.run_state == EMULATOR_RUNNING || emulator_state.is_cpu_intr_log || (emulator_state.run_state & 0x2) == EMULATOR_UNLOADED);
             if ( igBeginCombo("", current_option, ImGuiComboFlags_None) )
             {
-               for (size_t n = 0; n < log_size_options_count; ++n)
+               for (uint32_t n = 0; n < log_size_options_count; ++n)
                {
                   const bool is_selected = current_option_index == n;
                   if ( igSelectable_Bool(log_size_options[n], is_selected, ImGuiSelectableFlags_None, zero_vec) )
@@ -987,14 +987,14 @@ static void gui_pattern_table_viewer(void)
          igBeginChild_Str("Pattern Table 0", child_size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
             igGetWindowSize(&size);
             glViewport(0, 0, (int) size.x, (int) size.y);
-            display_resize_texture(size.x, size.y, pattern_tables.textureID[0], pattern_tables.RBO[0]);
+            display_resize_texture((int)size.x, (int)size.y, pattern_tables.textureID[0], pattern_tables.RBO[0]);
             igImage( (void*) (uintptr_t) pattern_tables.textureID[0], size, uv_min, uv_max, col, border); 
          igEndChild();
          
          igSameLine(0.0f, -1.0f);
 
          igBeginChild_Str("Pattern Table 1", size, ImGuiChildFlags_None, ImGuiWindowFlags_None);
-            display_resize_texture(size.x, size.y, pattern_tables.textureID[1], pattern_tables.RBO[1]);
+            display_resize_texture((int)size.x, (int)size.y, pattern_tables.textureID[1], pattern_tables.RBO[1]);
             igImage( (void*) (uintptr_t) pattern_tables.textureID[1], size, uv_min, uv_max, col, border); 
          igEndChild();
       igEndChild();
@@ -1086,8 +1086,8 @@ static bool display_init_pattern_table_buffers(void)
       return false;
    }
 
-   float width = NES_PIXELS_W * pattern_tables_viewport_scale;
-   float height = NES_PIXELS_H * pattern_tables_viewport_scale;
+   int width = NES_PIXELS_W * pattern_tables_viewport_scale;
+   int height = NES_PIXELS_H * pattern_tables_viewport_scale;
 
    mat4* pixel_pos = malloc(sizeof(mat4) * 128 * 128);
 
@@ -1352,7 +1352,7 @@ static bool display_create_shaders(void)
    int height = NES_PIXELS_H * emulator_state.display_scale_factor;
 
    mat4 ortho_projection = GLM_MAT4_IDENTITY_INIT;
-   glm_ortho(0.0f, width, height, 0.0f, -1.0f, 1.0f, ortho_projection);
+   glm_ortho(0.0f, (float) width, (float) height, 0.0f, -1.0f, 1.0f, ortho_projection);
    GLuint projectionLoc = glGetUniformLocation(display_shader_id, "projection");
    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, (GLfloat*) ortho_projection);
 
