@@ -21,22 +21,12 @@ cartridge_access_mode_t mapper009_cpu_read(nes_header_t* header, uint16_t positi
 		*mapped_addr = (position & 0x1FFF) + (mapper->prg_bank * 0x2000);
 	}
 	// select last 24k prg rom (last 3 8kb banks)
-	else if (position >= 0xA000 && position <= 0xBFFF)
+	else if (position >= 0xA000)
 	{
 		mode = ACCESS_PRG_ROM;
-		//*mapped_addr = (position & 0x5FFF) + (((header->prg_rom_size * 2) - 3) * 0x2000);
-		*mapped_addr = (position & 0x1FFF) + (((header->prg_rom_size * 2) - 3) * 0x2000);
+		*mapped_addr = (position - 0xA000) + (((header->prg_rom_size * 2) - 3) * 0x2000);
 	}
-	else if (position >= 0xC000 && position <= 0xDFFF)
-	{
-		mode = ACCESS_PRG_ROM;
-		*mapped_addr = (position & 0x1FFF) + (((header->prg_rom_size * 2) - 2) * 0x2000);
-	}
-	else if (position >= 0xE000 && position <= 0xFFFF)
-	{
-		mode = ACCESS_PRG_ROM;
-		*mapped_addr = (position & 0x1FFF) + (((header->prg_rom_size * 2) - 1) * 0x2000);
-	}
+
 
 	return mode;
 }
