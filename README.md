@@ -1,6 +1,9 @@
 # NES emulator  
 
-Learning how to write a emulator for the NES console. 
+BudgetNES is a NES emulator I learned to write after finishing the [Chip8](https://github.com/AndyCChen/Chip8) interpreter. This emulator features all the official 6502
+cpu opcodes with a few of the illegal opcodes. PPU emulation for graphics and APU for decent sounding audio generation. This is definitely
+not the most accurate emulation of the NES but it should be able to run most popular games just fine. Implementing the PPU and APU almost made me want to quit,
+but I continued on and I am pretty happy with how it turned out.
 
 - [X] 6502 cpu implementation
 - [X] Mapper 0 implementation
@@ -8,10 +11,10 @@ Learning how to write a emulator for the NES console.
 - [X] ppu sprite rendering/evaluation
 - [X] input handling
 - [X] audio processing unit implementation to have sound
-- [ ] more mappers
-- [X] debug gui
+- [X] more mappers
+- [X] debug gui  
 
-## Current Progress
+ <br>
 
 ![Alt text](/res/budgetNES.png "balloon fight title")
 ![Alt text](/res/superMarioBudgetNES.png "super mario bros title")
@@ -21,12 +24,13 @@ Learning how to write a emulator for the NES console.
 Build with CMake.
 
 ### Dependencies
-All dependencies are included as submodules except for sdl2 which can be easily installed via a 
+All dependencies are included either as submodules or in the libs folder except for sdl2 which can be easily installed via a 
 package such as [Homebrew](https://brew.sh/) for mac or [vcpkg](https://vcpkg.io/en/) on windows.
 * [cglm](https://github.com/recp/cglm)
 * [cimgui](https://github.com/cimgui/cimgui)
 * [SDL2](https://www.libsdl.org/)
 * [nativefiledialog-extended](https://github.com/btzy/nativefiledialog-extended)
+* [Blip_Buffer](https://www.slack.net/~ant/libs/audio.html#Blip_Buffer)
 
 ```
 git clone --recurse-submodules https://github.com/AndyCChen/Budget-NES.git
@@ -39,6 +43,7 @@ Using vcpkg for visual studio.
 vcpkg install sdl2
 ```
 
+Remember to set path to vcpkg toolchain file.
 ```bash
 cmake -G "Visual Studio 17 2022" -S ./ -B build -DCMAKE_TOOLCHAIN_FILE="path_to_vcpkg\scripts\buildsystems\vcpkg.cmake"
 ```
@@ -46,7 +51,7 @@ cmake -G "Visual Studio 17 2022" -S ./ -B build -DCMAKE_TOOLCHAIN_FILE="path_to_
 Use visual studio to build the .sln file located in the build directory.  
 
 Alternatively you can fully use CMake + ninja (included with visual studio) without having to use MSbuild
-and the .sln files. Just make sure to set the path to the vcpkg toolchain file under configurations.
+and the .sln files. This is my prefered method. Just make sure to set the path to the vcpkg toolchain file under configurations.
 
 ![Alt text](/res/toochain_path.png "toolchain_path")
 
