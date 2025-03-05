@@ -103,7 +103,7 @@ bool apu_init(void)
 	if (cblip_buffer_set_sample_rate(buffer, 44100, 1000/60))
 		return false;
 
-	cblip_synth_volume(synth_1, 0.01);
+	cblip_synth_volume(synth_1, 0.005);
 	cblip_synth_output(synth_1, buffer);
 	cblip_buffer_bass_freq(buffer, 1);
 	cblip_synth_treble_eq(synth_1, 5.0);
@@ -864,7 +864,6 @@ static void mix_audio(long time, float p1, float p2, float t1, float n1, float d
 	{
 		output = -32768;
 	}
-	output = (int) (output * 0.5f);
 
 	cblip_synth_update(synth_1, time, output);
 }
