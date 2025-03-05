@@ -6,6 +6,7 @@
 #include "mapper_001.h"
 #include "mapper_002.h"
 #include "mapper_004.h"
+#include "mapper_009.h"
 
 // mappers that don't generate irqs use this default function
 static bool irq_signaled_default(void* internal_registers)
@@ -80,6 +81,24 @@ bool load_mapper(uint32_t mapper_id, mapper_t *mapper, void** mapper_registers)
 			if (mapper_registers == NULL)
 			{
 				printf("Mapper 004 register malloc failed!\n");
+				status = false;
+			}
+
+			break;
+		}
+		case 9:
+		{
+			mapper->cpu_read     = &mapper009_cpu_read;
+			mapper->cpu_write    = &mapper009_cpu_write;
+			mapper->ppu_read     = &mapper009_ppu_read;
+			mapper->ppu_write    = &mapper009_ppu_write;
+			mapper->init         = &mapper009_init;
+			mapper->irq_signaled = &irq_signaled_default;
+			*mapper_registers    = malloc(sizeof(Registers_009));
+
+			if (mapper_registers == NULL)
+			{
+				printf("Mapper 009 register malloc failed!\n");
 				status = false;
 			}
 

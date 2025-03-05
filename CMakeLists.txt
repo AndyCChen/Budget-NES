@@ -77,6 +77,7 @@ add_executable(BudgetNES
 	src/mappers/mapper_001.c
 	src/mappers/mapper_002.c
 	src/mappers/mapper_004.c
+	src/mappers/mapper_009.c
 )
 
 target_include_directories(BudgetNES PRIVATE includes/ includes/mappers glad_loader/include/glad)

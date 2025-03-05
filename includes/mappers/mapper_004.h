@@ -1,6 +1,10 @@
 #ifndef MAPPER_004_H
 #define MAPPER_004_H
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
 #include "cartridge.h"
 
 // mapper 004
