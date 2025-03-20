@@ -1,5 +1,7 @@
-#include "../includes/mappers/mapper_001.h"
-#include "../includes/mappers/mirror_config.h"
+#include "mapper_001.h"
+#include "mirror_config.h"
+
+#include <string.h>
 
 cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t position, size_t *mapped_addr, void* internal_registers)
 {
@@ -11,18 +13,36 @@ cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t positi
    {
       mode = ACCESS_PRG_ROM;
 
+		// SOROM, SUROM and SXROM use upper address lines of CHR select which 256kb of prg rom to use.
+		// Increases prg rom capcity from 256kb to 512kb.
+		uint32_t prg_256_offset = 0;
+		if (mapper->PRG_256_bank_select)
+		{
+			prg_256_offset = 0x40000;
+		}
+
       // fix last bank at $C000 and switch 16 KB bank at $8000
       if ((mapper->control & 0xC) == 0xC)
       {
          // reading bank at 0x8000
          if (position >= 0x8000 && position <= 0xBFFF)
          {
-            *mapped_addr = (position & 0x3FFF) + ((mapper->PRG_bank & 0xF) * 0x4000);
+            *mapped_addr = prg_256_offset + (position & 0x3FFF) + ((mapper->PRG_bank & 0xF) * 0x4000);
          }
          // reading bank at 0xC000
          else
          {
-            *mapped_addr = (position & 0x3FFF) + ((header->prg_rom_size - 1) * 0x4000);
+				if (header->prg_rom_size > 16)
+				{
+					if (prg_256_offset)
+						*mapped_addr = (position & 0x3FFF) + ((header->prg_rom_size - 1) * 0x4000);
+					else
+						*mapped_addr = (position & 0x3FFF) + (0xF * 0x4000);
+				}
+				else
+				{
+	            *mapped_addr = prg_256_offset + (position & 0x3FFF) + ((header->prg_rom_size - 1) * 0x4000);
+				}
          }
       }
       // fix first bank at $8000 and switch 16 KB bank at $C000
@@ -31,27 +51,26 @@ cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t positi
          // reading bank at 0x8000
          if (position >= 0x8000 && position <= 0xBFFF)
          {
-            *mapped_addr = position & 0x3FFF;
+				*mapped_addr = prg_256_offset + (position & 0x3FFF);
          }
          // reading bank at 0xC000
          else
          {
-            *mapped_addr = (position & 0x3FFF) + ((mapper->PRG_bank & 0xF) * 0x4000);
+            *mapped_addr = prg_256_offset + (position & 0x3FFF) + ((mapper->PRG_bank & 0xF) * 0x4000);
          }
       }
       // switch 32 KB at $8000, ignoring low bit of bank number
       else
       {
-         *mapped_addr = (position & 0x7FFF) + ( ((mapper->PRG_bank >> 1) & 0x3) * 0x8000) ;
+         *mapped_addr = prg_256_offset + (position & 0x7FFF) + ( ((mapper->PRG_bank >> 1) & 0x3) * 0x8000) ;
       }
 
-      *mapped_addr &= (header->prg_rom_size * 0x4000) - 1;
    }
    // reading program ram
    else if (position >= 0x6000 && position <= 0x7FFF && !(mapper->PRG_bank & 0x10))
    {
       mode = ACCESS_PRG_RAM;
-      *mapped_addr = position & 0x1FFF;
+		*mapped_addr = (position & 0x1FFF) + (mapper->PRG_ram_bank * 0x2000);
    }
    else
    {
@@ -87,12 +106,32 @@ cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t posit
          // chr bank 0
          if (position >= 0xA000 && position <= 0xBFFF)
          {
-            mapper->CHR_bank_0 = dest;
+				// https://www.nesdev.org/wiki/MMC1#SOROM,_SUROM_and_SXROM
+				// handle special rom variants
+				if (header->prg_rom_size > 16)
+				{
+					mapper->CHR_bank_0 = dest & 0x1;
+					mapper->PRG_ram_bank = (dest & 0xC) >> 2;
+					mapper->PRG_256_bank_select = (dest & 0x10) >> 4;
+				}
+				else
+				{
+					mapper->CHR_bank_0 = dest;
+				}
          }
          // chr bank 1
          else if (position >= 0xC000 && position <= 0xDFFF)
          {
-            mapper->CHR_bank_1 = dest;
+				if (header->prg_rom_size > 16)
+				{
+					mapper->CHR_bank_1 = dest & 0x1;
+					mapper->PRG_ram_bank = (dest & 0xC) >> 2;
+					mapper->PRG_256_bank_select = (dest & 0x10) >> 4;
+				}
+				else
+				{
+					mapper->CHR_bank_1 = dest;
+				}
          }
          // prg bank
          else if (position >= 0xE000)
@@ -116,7 +155,7 @@ cartridge_access_mode_t mapper001_cpu_write(nes_header_t *header, uint16_t posit
    else if (position >= 0x6000 && position <= 0x7FFF && !(mapper->PRG_bank & 0x10))
    {
       mode = ACCESS_PRG_RAM;
-      *mapped_addr = position & 0x1FFF;
+		*mapped_addr = (position & 0x1FFF) + (mapper->PRG_ram_bank * 0x2000);
    }
    // else prg ram disabled
    else 
@@ -155,10 +194,16 @@ cartridge_access_mode_t mapper001_ppu_read(nes_header_t *header, uint16_t positi
       // switch one 8kb bank
       else
       {
-         *mapped_addr = (position & 0x1FFF) + ( ((mapper->CHR_bank_0 & 0x1E) >> 1) * 0x2000 );
+			// SOROM, SUROM, SXROM only use 8kb of chr rom/ram, no bank switching
+			if (header->prg_rom_size > 16)
+			{
+				*mapped_addr = (position & 0x1FFF);
+			}
+			else
+			{
+			  *mapped_addr = (position & 0x1FFF) + ( ((mapper->CHR_bank_0 & 0x1E) >> 1) * 0x2000 );
+			}
       }
-
-      // todo mask mapped_addr to prevent possible out of bounds array access
    }
    // reading ppu nametable vram
    else
@@ -225,10 +270,16 @@ cartridge_access_mode_t mapper001_ppu_write(nes_header_t *header, uint16_t posit
          // switch one 8kb bank
          else
          {
-            *mapped_addr = (position & 0x1FFF) + ( ((mapper->CHR_bank_0 & 0x1E) >> 1) * 0x2000 );
+				// SOROM, SUROM, SXROM only use 8kb of chr rom/ram, no bank switching
+				if (header->prg_rom_size > 16)
+				{
+					*mapped_addr = (position & 0x1FFF);
+				}
+				else
+				{
+					*mapped_addr = (position & 0x1FFF) + (((mapper->CHR_bank_0 & 0x1E) >> 1) * 0x2000);
+				}
          }
-
-         // todo mask mapped_addr to prevent possible out of bounds array access
       }
       else
       {
@@ -270,11 +321,9 @@ cartridge_access_mode_t mapper001_ppu_write(nes_header_t *header, uint16_t posit
 
 void mapper001_init(nes_header_t* header, void* internal_registers)
 {
-   Registers_001* data = (Registers_001*) internal_registers;
+   Registers_001* mapper = (Registers_001*) internal_registers;
+	memset(mapper, 0, sizeof(Registers_001));
 
-   data->control = 0xC | (header->nametable_arrangement ? 0x2 : 0x3); // initalize mirroring configuration
-   data->shift_register = 0x10;
-   data->PRG_bank   = 0;
-   data->CHR_bank_0 = 0;
-   data->CHR_bank_1 = 0;
+	mapper->control = 0xC | (header->nametable_arrangement ? 0x2 : 0x3); // initalize mirroring configuration
+	mapper->shift_register = 0x10;
 }

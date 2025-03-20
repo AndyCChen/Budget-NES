@@ -185,15 +185,8 @@ bool cartridge_load(const char* const filepath)
    {
       chr_mem_size = rom_header.chr_rom_size * 1024 * 8;
    }
-   
-   if (rom_header.prg_ram_size == 0) // ram size 0 infers 8kb of program_ram
-   {
-      prg_ram_size = 1024 * 8;
-   }
-   else
-   {
-      prg_ram_size =rom_header.prg_ram_size * 1024 * 8;
-   }
+
+	prg_ram_size = 1024 * 32;
 
    // memory allocation for cartridge prg rom/ram and chr rom/ram
 
@@ -301,8 +294,8 @@ static bool load_iNES10(uint8_t *iNES_header, nes_header_t *header)
    }
 
    uint8_t mapper_id_lo = (iNES_header[6] & 0xF0) >> 4;
-   uint8_t mapper_id_hi = (iNES_header[7] & 0xF0);
-   header->mapper_id = mapper_id_hi | mapper_id_lo;
+   //uint8_t mapper_id_hi = (iNES_header[7] & 0xF0);
+   header->mapper_id =  mapper_id_lo;
 
    return true;
 }

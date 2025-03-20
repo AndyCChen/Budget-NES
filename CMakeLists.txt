@@ -62,23 +62,41 @@ include_directories(cimgui/generator/output/)
 add_executable(BudgetNES
 	main.c
 	src/display.c
+	includes/display.h
 	src/cpu.c
+	includes/cpu.h
 	src/ppu.c
+	includes/ppu.h
 	src/ppu_renderer_lookup.c
+	includes/ppu_renderer_lookup.h
 	src/apu.c
+	includes/apu.h
 	src/cartridge.c
+	includes/cartridge.h
 	src/controllers.c
+	includes/controllers.h
 	src/bus.c
+	includes/bus.h
 	src/disassembler.c
+	includes/disassembler.h
 	src/log.c
+	includes/log.h
 	src/mapper.c
+	includes/mapper.h
 	src/mappers/mirror_config.c
+	includes/mappers/mirror_config.h
 	src/mappers/mapper_000.c
+	includes/mappers/mapper_000.h
 	src/mappers/mapper_001.c
+	includes/mappers/mapper_001.h
 	src/mappers/mapper_002.c
+	includes/mappers/mapper_002.h
 	src/mappers/mapper_004.c
+	includes/mappers/mapper_004.h
 	src/mappers/mapper_009.c
+	includes/mappers/mapper_009.h
 	src/mappers/mapper_007.c
+	includes/mappers/mapper_007.h
 )
 
 target_include_directories(BudgetNES PRIVATE includes/ includes/mappers glad_loader/include/glad)
@@ -108,7 +126,7 @@ target_include_directories(blip_buffer PUBLIC
 target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer)
 
 if (UNIX)
-target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
+	target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
 if (MSVC)

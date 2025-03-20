@@ -24,6 +24,7 @@ cartridge_access_mode_t mapper007_cpu_read(nes_header_t* header, uint16_t positi
 cartridge_access_mode_t mapper007_cpu_write(nes_header_t* header, uint16_t position, uint8_t data, size_t* mapped_addr, void* internal_registers)
 {
 	(void)header;
+	(void)mapped_addr;
 	Registers_007* mapper = (Registers_007*)internal_registers;
 	cartridge_access_mode_t mode = NO_CARTRIDGE_DEVICE;
 

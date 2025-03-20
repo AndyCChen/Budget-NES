@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "../cartridge.h"
+#include "cartridge.h"
 
 /**
  * Internal registers of mapper 001.
@@ -18,6 +18,8 @@ typedef struct Registers_001
    uint8_t CHR_bank_0;
    uint8_t CHR_bank_1;
    uint8_t PRG_bank;
+	uint8_t PRG_ram_bank;
+	bool PRG_256_bank_select;
 } Registers_001;
 
 cartridge_access_mode_t mapper001_cpu_read(nes_header_t *header, uint16_t position, size_t *mapped_addr, void* internal_registers);
