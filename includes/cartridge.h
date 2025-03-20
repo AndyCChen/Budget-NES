@@ -22,6 +22,7 @@ typedef struct nes_header_t
    uint32_t chr_rom_size;         // in 8kb units
    uint16_t mapper_id;
    uint8_t nametable_arrangement; // 0: horizontal mirroring, 1: vertical mirroring
+	bool    battery_backed_ram;
 } nes_header_t;
 
 /**

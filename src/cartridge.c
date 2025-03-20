@@ -2,6 +2,15 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#if _WIN32
+#include <windows.h>
+#endif
+
+#if __APPLE__
+
+#endif
 
 #include "cartridge.h"
 #include "cpu.h"
@@ -22,6 +31,8 @@ static uint8_t *chr_memory = NULL; // memory for either chr-ram or chr-rom
 
 static bool load_iNES10(uint8_t *iNES_header, nes_header_t *header);
 static bool load_iNES20(uint8_t *iNES_header, nes_header_t *header);
+
+static char rom_name[256];
 
 uint8_t cartridge_cpu_read(uint16_t position)
 {
@@ -119,7 +130,7 @@ bool cartridge_load(const char* const filepath)
    }
 
    uint8_t iNES_header[iNES_HEADER_SIZE];
-   size_t bytes_read = fread(iNES_header, 1, iNES_HEADER_SIZE, file);
+   size_t bytes_read = fread(iNES_header, sizeof(uint8_t), iNES_HEADER_SIZE, file);
 
    if (bytes_read != iNES_HEADER_SIZE)
    {
@@ -186,7 +197,7 @@ bool cartridge_load(const char* const filepath)
       chr_mem_size = rom_header.chr_rom_size * 1024 * 8;
    }
 
-	prg_ram_size = 1024 * 32;
+	prg_ram_size = rom_header.prg_ram_size * 1024 * 8;
 
    // memory allocation for cartridge prg rom/ram and chr rom/ram
 
@@ -223,7 +234,7 @@ bool cartridge_load(const char* const filepath)
       fseek(file, TRAINER_SIZE, SEEK_CUR);
    }
 
-   bytes_read = fread(prg_rom, 1, prg_rom_size, file);
+   bytes_read = fread(prg_rom, sizeof(uint8_t), prg_rom_size, file);
    if (bytes_read != prg_rom_size)
    {
       fclose(file);
@@ -234,7 +245,7 @@ bool cartridge_load(const char* const filepath)
    // when rom size is 0 we are using chr-ram so of course chr-rom data does not exist in the nes file
    if ( rom_header.chr_rom_size != 0 ) 
    {
-      bytes_read = fread(chr_memory, 1, chr_mem_size, file);
+      bytes_read = fread(chr_memory, sizeof(uint8_t), chr_mem_size, file);
       if (bytes_read != chr_mem_size)
       {
          fclose(file);
@@ -243,7 +254,7 @@ bool cartridge_load(const char* const filepath)
       }
    }
 
-   printf("%-13s %d\n%-13s %zu\n%-13s %zu\n%-13s %zu\n%-13s %s\n\n", 
+   printf("%-13s %d\n%-13s %zu\n%-13s %zu\n%-13s %zu\n%-13s %s\n", 
       "Mapper:", rom_header.mapper_id, 
       "Prg-ROM size:", prg_rom_size, 
       "CHR-ROM/RAM", chr_mem_size, 
@@ -252,11 +263,74 @@ bool cartridge_load(const char* const filepath)
    );
 
    fclose(file);
+
+	const char* start = NULL;
+	const char* end = NULL;
+
+	if ( (start = strrchr(filepath, '\\')) || (start = strrchr(filepath, '/')) )
+	{
+		start += 1;
+	}
+	else
+	{
+		start = filepath;
+	}
+
+	if ( !(end = strrchr(filepath, '.')) )
+	{
+		end = filepath + strlen(filepath) + 1;
+	}
+
+	uint16_t start_pos = (uint16_t) (start - filepath);
+	uint16_t end_pos = (uint16_t) (end - filepath);
+	uint16_t length = (uint16_t) (end_pos - start_pos);
+
+	strncpy(rom_name, start, length);
+	rom_name[length] = '\0';
+	printf("%s\n\n", rom_name);
+
+	// load prg ram from disk if exists for roms using battery backed ram
+	if (rom_header.battery_backed_ram)
+	{
+		char buffer[256] = "sav/";
+		strcat(buffer, rom_name);
+		strcat(buffer, ".sav");
+
+		FILE* save_file = fopen(buffer, "rb");
+		if (save_file)
+		{
+			fread(prg_ram, sizeof(uint8_t), prg_ram_size, save_file);
+			fclose(save_file);
+		}
+	}
+
    return true;
 }
 
 void cartridge_free_memory(void)
 {
+	// save prg ram to disk if rom uses battery backed ram
+	if (rom_header.battery_backed_ram)
+	{
+		char buffer[256] = "sav/";
+		strcat(buffer, rom_name);
+		strcat(buffer, ".sav");
+		
+#if _WIN32
+		if (CreateDirectory("sav", NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
+		{
+			FILE* file = fopen(buffer, "wb");
+			if (file)
+			{
+				fwrite(prg_ram, sizeof(uint8_t), rom_header.prg_ram_size * 1024 * 8, file);
+				fclose(file);
+			}
+		}
+#endif
+
+		
+	}
+
    free(prg_rom);
    free(prg_ram);
    free(chr_memory);
@@ -281,10 +355,11 @@ bool cartridge_is_triggering_irq(void)
 */
 static bool load_iNES10(uint8_t *iNES_header, nes_header_t *header)
 {
+	header->battery_backed_ram = (iNES_header[6] >> 1) & 0x1;
    header->trainer = iNES_header[6] & 0x04;
    header->nametable_arrangement = iNES_header[6] & 0x1;
    header->prg_rom_size = iNES_header[4];
-   header->prg_ram_size = iNES_header[8];
+   header->prg_ram_size = 4; // fixed prg ram size
    header->chr_rom_size = iNES_header[5];
 
    if (header->prg_rom_size == 0)
