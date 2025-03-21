@@ -18,8 +18,8 @@ but I continued on and I am pretty happy with how it turned out.
 
 https://github.com/user-attachments/assets/b228ad42-d2d4-4d51-8d53-09aba6c1b9e9
 
-![Alt text](/res/budgetNES.png "balloon fight title")
-![Alt text](/res/superMarioBudgetNES.png "super mario bros title")
+![Alt text](/res/dragonWarrior3.png "Dragon Warrior 3")
+![Alt text](/res/megaMan2.png "mega mag 2")
 
 ## Build/Install
 
