@@ -6,7 +6,7 @@ not the most accurate emulation of the NES but it should be able to run most pop
 but I continued on and I am pretty happy with how it turned out.
 
 - [X] 6502 cpu implementation
-- [X] Mapper 0 implementation
+- [X] Mapper 0,1,2,4,7,9 implementation
 - [X] basic ppu implementation that can draw background tiles
 - [X] ppu sprite rendering/evaluation
 - [X] input handling
@@ -15,6 +15,8 @@ but I continued on and I am pretty happy with how it turned out.
 - [X] debug gui  
 
  <br>
+
+https://github.com/user-attachments/assets/b228ad42-d2d4-4d51-8d53-09aba6c1b9e9
 
 ![Alt text](/res/budgetNES.png "balloon fight title")
 ![Alt text](/res/superMarioBudgetNES.png "super mario bros title")
