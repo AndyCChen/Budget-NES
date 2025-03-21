@@ -32,10 +32,12 @@ int main(int argc, char *argv[])
 
 static bool budgetNES_init(int argc, char *rom_path[])
 {
-	if (!display_init() || !ppu_load_palettes("ntscpalette.pal") || !apu_init())
+	if (!display_init() || !apu_init())
 	{
 		return false;
 	}
+
+	ppu_load_default_palettes();
 
    // try loading rom from command line argument if possible
    if (argc > 1)

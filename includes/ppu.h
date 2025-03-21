@@ -37,7 +37,9 @@ void ppu_init(void);
  * Loads .pal file into system colors for ppu.
  * @param path path to the .pal file
 */
-bool ppu_load_palettes(const char* path);
+bool ppu_load_palettes_from_file(const char* path);
+
+void ppu_load_default_palettes();
 
 /**
  * Lets cpu write data throught the ppu ports
