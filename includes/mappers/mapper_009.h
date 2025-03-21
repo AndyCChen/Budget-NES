@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "mapper.h"
+#include <cartridge.h>
 
 typedef struct Registers_009
 {
