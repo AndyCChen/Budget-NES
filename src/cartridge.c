@@ -6,15 +6,12 @@
 
 #if _WIN32
 #include <windows.h>
-#endif
-
-#if __APPLE__
-
+#elif __APPLE__
+#include <sys/stat.h>
+#include <errno.h>
 #endif
 
 #include "cartridge.h"
-#include "cpu.h"
-#include "ppu.h"
 #include "mapper.h"
 
 #define iNES_HEADER_SIZE 16 // iNES headers are all 16 bytes long
@@ -317,18 +314,32 @@ void cartridge_free_memory(void)
 		strcat(buffer, ".sav");
 		
 #if _WIN32
-		if (CreateDirectory("sav", NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
-		{
-			FILE* file = fopen(buffer, "wb");
-			if (file)
-			{
-				fwrite(prg_ram, sizeof(uint8_t), rom_header.prg_ram_size * 1024 * 8, file);
-				fclose(file);
-			}
-		}
+      if (CreateDirectory("sav", NULL) == 0)
+      {
+         // ERROR_ALREADY_EXISTS means directory already exists which is perfectly fine.
+         // Any other error is not fine.
+         if (GetLastError() != ERROR_ALREADY_EXISTS)
+            printf("Failed to create sav directory! Error Code: %lu", GetLastError());
+      }
+#elif __APPLE__
+      if (mkdir("sav", 0777) == -1)
+      {
+         // EEXIST error means directory already exists which is perfectly fine.
+         // if errno does not equal EEXIST then a serious error has occured.
+         if (errno != EEXIST)
+            printf("Failed to create sav directory! errno code: %d\n", errno);
+      }
 #endif
 
-		
+// todo support linux?
+
+      // if sav/ directory exists then save prg ram into that directory
+      FILE* file = fopen(buffer, "wb");
+      if (file)
+      {
+         fwrite(prg_ram, sizeof(uint8_t), rom_header.prg_ram_size * 1024 * 8, file);
+         fclose(file);
+      }
 	}
 
    free(prg_rom);

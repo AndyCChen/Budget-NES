@@ -1,8 +1,5 @@
 .vs
 .vscode
-*.exe
-*.nes
-*.log
 build
 bin
 imgui.ini
@@ -10,4 +7,6 @@ imgui.ini
 roms
 CmakeSettings.json
 sav
+.cache
 out
+.clangd
