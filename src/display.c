@@ -535,7 +535,7 @@ static void gui_main_viewport(void)
       {
          if (igBeginMenu("File", true))
          {
-            if ( igMenuItem_Bool("Load Rom...", "Ctrl-L", false, true) )
+            if ( igMenuItem_Bool("Load Rom...", NULL, false, true) )
             {
 					apu_pause(true); // pause emulation when loading new file
                emulator_state.reset_delta_timers = true; // opening file dialogue will block program execution so we need to reset delta timers to zero when execution resumes
