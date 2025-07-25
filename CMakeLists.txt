@@ -7,6 +7,10 @@ if(WIN32) #to mingw work as all the others
    set(CMAKE_SHARED_LIBRARY_PREFIX "")
 endif(WIN32)
 
+if (MSVC)
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif (MSVC)
+
 # general settings
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
@@ -53,7 +57,7 @@ include_directories(${SDL_INCLUDE})
 set(IMGUI_SDL_LIBRARY SDL2::SDL2)
 set(SDL_MAIN SDL2::SDL2main)
 
-add_library(cimgui_sdl SHARED ${IMGUI_SOURCES})
+add_library(cimgui_sdl STATIC ${IMGUI_SOURCES})
 target_link_libraries(cimgui_sdl ${OPENGL_LIBRARIES} ${IMGUI_SDL_LIBRARY})
 
 #using library
@@ -123,14 +127,15 @@ target_include_directories(blip_buffer PUBLIC
 	lib/CBlip_Buffer/Blip_Buffer
 )
 
-target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer)
 
 if (UNIX)
 	target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
 endif(UNIX)
 
 if (MSVC)
-	target_compile_options(BudgetNES PRIVATE /W4)
+	target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer)
+	target_compile_options(BudgetNES PUBLIC /W4 /MT$<$<CONFIG:Debug>:d>)
 else(MSVC)
+	target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer -static)
 	target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
 endif(MSVC)
