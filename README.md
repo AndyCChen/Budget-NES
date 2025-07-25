@@ -20,7 +20,21 @@ https://github.com/user-attachments/assets/b228ad42-d2d4-4d51-8d53-09aba6c1b9e9
 
 ![Alt text](/res/dragonWarrior3.png "Dragon Warrior 3")
 
-![Alt text](/res/megaMan2.png "mega mag 2")
+![Alt text](/res/megaMan2.png "mega man 2")
+
+### Controls
+
+`W` - Forwards
+
+`A` - Left
+
+`S` - Backwards
+
+`D` - Right
+
+`K` - B
+
+`L` - A
 
 ## Build/Install
 
