@@ -127,15 +127,14 @@ target_include_directories(blip_buffer PUBLIC
 	lib/CBlip_Buffer/Blip_Buffer
 )
 
-
-if (UNIX)
-	target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
-endif(UNIX)
-
 if (MSVC)
 	target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer)
 	target_compile_options(BudgetNES PUBLIC /W4 /MT$<$<CONFIG:Debug>:d>)
-else(MSVC)
+elseif (UNIX)
+	target_link_libraries(BudgetNES PRIVATE "-framework UniformTypeIdentifiers -framework AppKit")
+	target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer)
+	target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
+else()
 	target_link_libraries(BudgetNES PRIVATE ${SDL_MAIN} cimgui_sdl glad_loader nfd cglm_headers blip_buffer -static)
 	target_compile_options(BudgetNES PRIVATE -Wall -Wextra -Wpedantic)
-endif(MSVC)
+endif()
